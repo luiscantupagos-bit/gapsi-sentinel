@@ -104,3 +104,65 @@ tests/            # pruebas unitarias e integración
 
 `.github/workflows/ci.yml` ejecuta lint, typecheck, pruebas y build en cada
 push a `main` y en cada pull request.
+
+## Base de datos y modelo de dominio (TASK-002)
+
+Modelo de dominio en **PostgreSQL + Prisma** (UUID, multi-tenant compartido). El
+diseño está en `docs/architecture/TASK-002-DATA-MODEL-PROPOSAL.md` y las notas de
+implementación (D5, límites de Prisma, RLS) en
+`docs/architecture/TASK-002-IMPLEMENTATION-NOTES.md`.
+
+> **Aún no hay motor de puntuación ni cuestionario visible ni autenticación real
+> conectada a la BD.** Esta tarea entrega solo el modelo, migraciones, seed y
+> pruebas.
+
+### Requisitos de base de datos
+
+- PostgreSQL 14+ **local** para desarrollo.
+- Copia `.env.example` a `.env` y ajusta `DATABASE_URL` (no es un secreto real).
+
+### Preparar la base local
+
+```bash
+# 1. Crea la base local (ejemplo)
+createdb gapsi_sentinel_dev
+
+# 2. Genera el cliente Prisma
+npm run db:generate
+
+# 3. Aplica las migraciones (base + constraints/RLS/triggers)
+npm run db:migrate
+
+# 4. Carga datos semilla de desarrollo
+npm run db:seed
+```
+
+### Scripts de base de datos
+
+| Acción                        | Comando                  | Notas                                                    |
+| ----------------------------- | ------------------------ | -------------------------------------------------------- |
+| Generar cliente               | `npm run db:generate`    | `prisma generate`.                                       |
+| Validar schema                | `npm run db:validate`    | `prisma validate`.                                       |
+| Migrar (reproducible)         | `npm run db:migrate`     | `prisma migrate deploy` sobre BD vacía o existente.      |
+| Migrar en desarrollo          | `npm run db:migrate:dev` | `prisma migrate dev` (crea/renombra migraciones).        |
+| Cargar semilla                | `npm run db:seed`        | Idempotente; no re-siembra si ya existe la org demo.     |
+| Reiniciar **solo** base local | `npm run db:reset:local` | Aborta si `DATABASE_URL` no es localhost. Recrea + seed. |
+| Pruebas de integración de BD  | `npm run test:db`        | Requiere `DATABASE_URL`; se omiten si no está.           |
+
+### Aislamiento por organización (RLS)
+
+- Toda tabla de negocio lleva `organization_id`; las consultas se filtran por la
+  organización de la sesión (nunca por un id enviado por el cliente).
+- **FK compuestas anti-cruce** impiden relacionar datos de organizaciones
+  distintas a nivel de base de datos.
+- **RLS de PostgreSQL** como defensa adicional: la app se conecta con el rol
+  `gapsi_app` y fija el contexto por transacción con
+  `withOrgContext(orgId, fn)` (`src/server/db.ts`), que ejecuta
+  `set_config('app.current_org', …, true)`. Ver IMPLEMENTATION-NOTES.
+
+### Datos semilla
+
+`npm run db:seed` crea: 2 organizaciones, 2 usuarios, membresías, 1 sitio por
+organización, 1 marco **maestro** (GAPSI) publicado, 1 **copia privada** de
+plantilla publicada con secciones/requisitos/preguntas/opciones, y 1 diagnóstico
+de ejemplo con respuestas e historial de estado.
