@@ -118,24 +118,47 @@ implementación (D5, límites de Prisma, RLS) en
 
 ### Requisitos de base de datos
 
-- PostgreSQL 14+ **local** para desarrollo.
-- Copia `.env.example` a `.env` y ajusta `DATABASE_URL` (no es un secreto real).
+- PostgreSQL 16 **local** para desarrollo (recomendado vía Docker Compose).
+- Copia `.env.example` a `.env` (no contiene secretos reales).
 
-### Preparar la base local
+### Opción A (recomendada): PostgreSQL con Docker Compose
+
+Requiere **Docker Desktop** en Windows. `compose.yml` levanta PostgreSQL 16 con
+base y credenciales solo de desarrollo, volumen persistente y healthcheck.
 
 ```bash
-# 1. Crea la base local (ejemplo)
-createdb gapsi_sentinel_dev
+cp .env.example .env       # PowerShell: Copy-Item .env.example .env
+npm run db:up              # docker compose up -d  (Postgres en localhost:5432)
+npm run db:generate        # genera el cliente Prisma
+npm run db:migrate         # aplica migraciones (base + constraints/RLS/triggers)
+npm run db:seed            # carga datos semilla de desarrollo
+npm run test:db            # pruebas de integración y RLS
 
-# 2. Genera el cliente Prisma
-npm run db:generate
-
-# 3. Aplica las migraciones (base + constraints/RLS/triggers)
-npm run db:migrate
-
-# 4. Carga datos semilla de desarrollo
-npm run db:seed
+npm run db:status          # docker compose ps
+npm run db:down            # detiene (conserva datos); `docker compose down -v` los borra
 ```
+
+Instalar Docker Desktop (PowerShell, como administrador):
+
+```powershell
+winget install -e --id Docker.DockerDesktop
+```
+
+Tras instalar, abre Docker Desktop una vez para iniciar el motor y reabre la terminal.
+
+### Opción B: PostgreSQL nativo en Windows
+
+```powershell
+winget install -e --id PostgreSQL.PostgreSQL.16
+```
+
+Crea la base y ajusta `DATABASE_URL` en `.env`; luego `npm run db:migrate`,
+`npm run db:seed` y `npm run test:db`.
+
+### Reiniciar / recargar la base local
+
+- `npm run db:reset:local` recrea el esquema y recarga el seed (aborta si
+  `DATABASE_URL` no es localhost).
 
 ### Scripts de base de datos
 

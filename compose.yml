@@ -1,0 +1,34 @@
+# PostgreSQL local de DESARROLLO para GAPSI Sentinel.
+#
+# Uso:
+#   docker compose up -d      (o: npm run db:up)
+#   npm run db:migrate && npm run db:seed
+#   docker compose down       (o: npm run db:down)   # conserva el volumen
+#   docker compose down -v                            # borra también los datos
+#
+# Credenciales y base SOLO de desarrollo. No usar en producción.
+# Los valores se leen de variables de entorno con defaults; no hay secretos reales.
+
+services:
+  db:
+    image: postgres:16
+    container_name: gapsi-sentinel-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gapsi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gapsi_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-gapsi_sentinel_dev}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - gapsi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-gapsi} -d ${POSTGRES_DB:-gapsi_sentinel_dev}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  gapsi_pgdata:
+    name: gapsi_sentinel_pgdata
