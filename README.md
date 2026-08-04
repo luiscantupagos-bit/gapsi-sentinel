@@ -82,8 +82,10 @@ El archivo `.env.example` no contiene secretos reales.
 
 La autenticación está desacoplada tras la interfaz `AuthProvider`
 (`src/features/auth`). En TASK-001 solo existe el adaptador `dev`, que simula una
-sesión mediante una cookie firmada en base64 para demostrar el acceso protegido.
-El proveedor real se añadirá en una tarea futura sin tocar el dominio.
+sesión mediante una cookie **codificada en base64 (sin firmar ni cifrar)**. Ese
+token es fácilmente falsificable, por lo que se usa **únicamente en desarrollo** y
+nunca como mecanismo seguro. El proveedor real se añadirá en una tarea futura sin
+tocar el dominio.
 
 ### Estructura
 
