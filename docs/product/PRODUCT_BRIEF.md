@@ -15,16 +15,19 @@ Convertir un cuestionario estructurado y sus evidencias en una evaluación clara
 ## Alcance del MVP
 
 ### Organización y acceso
+
 - Una organización puede tener usuarios.
 - Roles iniciales: `owner`, `admin`, `evaluator`, `viewer`.
 - Todo dato operativo pertenece a una organización.
 
 ### Diagnóstico
+
 - Crear diagnóstico con nombre, marco de evaluación, planta o sitio, responsable y fecha objetivo.
 - Estados: `draft`, `in_progress`, `submitted`, `reviewed`, `archived`.
 - El diagnóstico usa una versión congelada de una plantilla.
 
 ### Cuestionario
+
 - Estructura: marco > sección > requisito > pregunta.
 - Tipos iniciales:
   - sí/no;
@@ -34,11 +37,13 @@ Convertir un cuestionario estructurado y sus evidencias en una evaluación clara
 - Cada pregunta define peso y criterio de puntuación.
 
 ### Evidencia
+
 - Nota o referencia de evidencia.
 - Carga de archivo privado cuando la infraestructura esté configurada.
 - Estado: `not_provided`, `provided`, `accepted`, `rejected`.
 
 ### Resultados
+
 - Cumplimiento total.
 - Cumplimiento por sección.
 - Requisitos críticos incumplidos.
@@ -47,6 +52,7 @@ Convertir un cuestionario estructurado y sus evidencias en una evaluación clara
 - Resumen ejecutivo imprimible.
 
 ### Seguimiento comercial
+
 - Nombre y datos básicos de la organización.
 - Contacto principal.
 - Estado comercial básico del diagnóstico.
