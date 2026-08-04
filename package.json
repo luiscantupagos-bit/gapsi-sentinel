@@ -11,10 +11,21 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "vitest run tests/db",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:reset:local": "node scripts/db-reset-local.mjs"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/client": "6.2.1",
     "next": "15.5.22",
     "react": "19.0.0",
     "react-dom": "19.0.0"
@@ -27,6 +38,8 @@
     "eslint-config-next": "15.5.22",
     "eslint-config-prettier": "9.1.0",
     "prettier": "3.4.2",
+    "prisma": "6.2.1",
+    "tsx": "4.19.2",
     "typescript": "5.7.3",
     "vitest": "2.1.8"
   },

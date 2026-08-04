@@ -1,0 +1,427 @@
+// GAPSI Sentinel — Modelo de dominio del diagnóstico (TASK-002).
+//
+// Diseño aprobado: docs/architecture/TASK-002-DATA-MODEL-PROPOSAL.md
+// Notas de implementación y límites de Prisma:
+//   docs/architecture/TASK-002-IMPLEMENTATION-NOTES.md
+//
+// Convenciones:
+// - PK `id` UUID (uuid() = v4; v7 documentado como mejora futura).
+// - `organization_id` obligatorio en tablas de tenant; NULL solo en el catálogo
+//   maestro compartido (frameworks/plantillas maestras, scope='master').
+// - Enums implementados como `text` + CHECK (D5, ver SQL complementario). Aquí se
+//   modelan como `String`; los valores permitidos se listan en cada campo.
+// - FK compuestas anti-cruce `(x_id, organization_id)` en la cadena de ejecución
+//   del diagnóstico. Las FK a `users`/`organizations` y las CHECK/RLS/triggers se
+//   añaden por SQL complementario (Prisma no las expresa).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Empresa cliente (tenant). Raíz de aislamiento.
+model Organization {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String?   @unique
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  memberships Membership[]
+
+  @@map("organizations")
+}
+
+/// Identidad de persona. Global (sin organization_id). No almacena contraseñas.
+model User {
+  id          String    @id @default(uuid()) @db.Uuid
+  externalId  String?   @unique @map("external_id")
+  email       String    @unique
+  displayName String?   @map("display_name")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  memberships Membership[]
+
+  @@map("users")
+}
+
+/// Relación usuario ↔ organización con rol.
+model Membership {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  /// role: owner | admin | evaluator | viewer
+  role           String
+  /// status: active | invited | disabled
+  status         String    @default("active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, role])
+  @@map("memberships")
+}
+
+/// Planta, almacén, sucursal o instalación evaluada.
+model Site {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  code           String?
+  name           String
+  location       String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  diagnostics Diagnostic[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId])
+  @@map("sites")
+}
+
+/// Marco de evaluación. Maestro (scope='master', org NULL, GAPSI) o privado.
+model AssessmentFramework {
+  id             String    @id @default(uuid()) @db.Uuid
+  /// scope: master | organization
+  scope          String
+  organizationId String?   @map("organization_id") @db.Uuid
+  code           String
+  name           String
+  description    String?
+  createdBy      String?   @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  versions TemplateVersion[]
+
+  @@index([scope])
+  @@index([organizationId])
+  @@map("assessment_frameworks")
+}
+
+/// Copia inmutable del cuestionario de un marco. Maestra o de organización.
+model TemplateVersion {
+  id                    String    @id @default(uuid()) @db.Uuid
+  /// scope: master | organization (hereda del marco)
+  scope                 String
+  organizationId        String?   @map("organization_id") @db.Uuid
+  frameworkId           String    @map("framework_id") @db.Uuid
+  sourceMasterVersionId String?   @map("source_master_version_id") @db.Uuid
+  versionNumber         Int       @map("version_number")
+  /// status: draft | published | archived
+  status                String    @default("draft")
+  contentHash           String?   @map("content_hash")
+  publishedAt           DateTime? @map("published_at") @db.Timestamptz(6)
+  createdBy             String?   @map("created_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  framework    AssessmentFramework @relation(fields: [frameworkId], references: [id], onDelete: Restrict)
+  sourceMaster TemplateVersion?    @relation("MasterCopy", fields: [sourceMasterVersionId], references: [id], onDelete: Restrict)
+  copies       TemplateVersion[]   @relation("MasterCopy")
+
+  sections    TemplateSection[]
+  diagnostics Diagnostic[]
+
+  @@unique([frameworkId, versionNumber])
+  @@unique([id, organizationId])
+  @@index([scope])
+  @@index([organizationId, frameworkId, status])
+  @@map("template_versions")
+}
+
+/// Agrupación de requisitos dentro de una versión.
+model TemplateSection {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String?  @map("organization_id") @db.Uuid
+  templateVersionId String   @map("template_version_id") @db.Uuid
+  code              String
+  title             String
+  position          Int
+  weight            Decimal? @db.Decimal(6, 3)
+
+  templateVersion TemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+
+  requirements  TemplateRequirement[]
+  sectionResult DiagnosticSectionResult[]
+
+  @@unique([templateVersionId, code])
+  @@unique([id, organizationId])
+  @@index([templateVersionId, position])
+  @@map("template_sections")
+}
+
+/// Condición evaluable; puede marcarse crítica.
+model TemplateRequirement {
+  id                String  @id @default(uuid()) @db.Uuid
+  organizationId    String? @map("organization_id") @db.Uuid
+  templateVersionId String  @map("template_version_id") @db.Uuid
+  sectionId         String  @map("section_id") @db.Uuid
+  code              String
+  title             String
+  description       String?
+  isCritical        Boolean @default(false) @map("is_critical")
+  position          Int
+
+  section TemplateSection @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+
+  questions TemplateQuestion[]
+  findings  DiagnosticFinding[]
+
+  @@unique([templateVersionId, code])
+  @@unique([id, organizationId])
+  @@index([sectionId, position])
+  @@map("template_requirements")
+}
+
+/// Pregunta con tipo, peso, criticidad y si admite "No aplica".
+model TemplateQuestion {
+  id                  String  @id @default(uuid()) @db.Uuid
+  organizationId      String? @map("organization_id") @db.Uuid
+  templateVersionId   String  @map("template_version_id") @db.Uuid
+  requirementId       String  @map("requirement_id") @db.Uuid
+  code                String
+  prompt              String
+  /// question_type: yes_no | single_choice | text
+  questionType        String  @map("question_type")
+  weight              Decimal @default(1) @db.Decimal(6, 3)
+  isCritical          Boolean @default(false) @map("is_critical")
+  allowsNotApplicable Boolean @default(false) @map("allows_not_applicable")
+  /// Preguntas de texto: false por defecto; solo puntúan por regla explícita.
+  isScored            Boolean @default(true) @map("is_scored")
+  position            Int
+
+  requirement TemplateRequirement @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+
+  options TemplateAnswerOption[]
+  answers DiagnosticAnswer[]
+
+  @@unique([templateVersionId, code])
+  @@unique([id, organizationId])
+  @@index([requirementId, position])
+  @@map("template_questions")
+}
+
+/// Opción de respuesta con su fracción de cumplimiento.
+model TemplateAnswerOption {
+  id                String  @id @default(uuid()) @db.Uuid
+  organizationId    String? @map("organization_id") @db.Uuid
+  templateVersionId String  @map("template_version_id") @db.Uuid
+  questionId        String  @map("question_id") @db.Uuid
+  code              String
+  label             String
+  /// Fracción de cumplimiento en [0,1]. CHECK en SQL complementario.
+  scoreFraction     Decimal @map("score_fraction") @db.Decimal(4, 3)
+  position          Int
+
+  question TemplateQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  selectedInAnswers DiagnosticAnswer[]
+
+  @@unique([questionId, code])
+  @@unique([id, organizationId])
+  @@map("template_answer_options")
+}
+
+/// Evaluación de una organización y un sitio contra una versión privada congelada.
+model Diagnostic {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String    @map("site_id") @db.Uuid
+  templateVersionId String    @map("template_version_id") @db.Uuid
+  name              String
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  targetDate        DateTime? @map("target_date") @db.Date
+  /// status: draft | in_progress | submitted | reviewed | archived
+  status            String    @default("draft")
+  createdBy         String?   @map("created_by") @db.Uuid
+  submittedBy       String?   @map("submitted_by") @db.Uuid
+  submittedAt       DateTime? @map("submitted_at") @db.Timestamptz(6)
+  reviewedBy        String?   @map("reviewed_by") @db.Uuid
+  reviewedAt        DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  site            Site            @relation(fields: [siteId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  templateVersion TemplateVersion @relation(fields: [templateVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  answers      DiagnosticAnswer[]
+  results      DiagnosticResult[]
+  stateHistory DiagnosticStateHistory[]
+  evidences    Evidence[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, siteId])
+  @@index([templateVersionId])
+  @@map("diagnostics")
+}
+
+/// Respuesta a una pregunta dentro de un diagnóstico.
+model DiagnosticAnswer {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  diagnosticId     String    @map("diagnostic_id") @db.Uuid
+  questionId       String    @map("question_id") @db.Uuid
+  /// answer_status: pending | answered | not_applicable
+  answerStatus     String    @default("pending") @map("answer_status")
+  selectedOptionId String?   @map("selected_option_id") @db.Uuid
+  valueText        String?   @map("value_text")
+  naJustification  String?   @map("na_justification")
+  answeredBy       String?   @map("answered_by") @db.Uuid
+  answeredAt       DateTime? @map("answered_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  diagnostic     Diagnostic            @relation(fields: [diagnosticId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  question       TemplateQuestion      @relation(fields: [questionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  selectedOption TemplateAnswerOption? @relation(fields: [selectedOptionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  evidences Evidence[]
+
+  @@unique([diagnosticId, questionId])
+  @@unique([id, organizationId])
+  @@index([diagnosticId])
+  @@map("diagnostic_answers")
+}
+
+/// Nota, referencia o archivo que respalda una respuesta.
+model Evidence {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  diagnosticId   String    @map("diagnostic_id") @db.Uuid
+  answerId       String    @map("answer_id") @db.Uuid
+  /// kind: note | reference | file
+  kind           String
+  noteText       String?   @map("note_text")
+  referenceUrl   String?   @map("reference_url")
+  /// storage_backend: local | simulated | private
+  storageBackend String?   @map("storage_backend")
+  fileObjectKey  String?   @map("file_object_key")
+  /// status: not_provided | provided | accepted | rejected
+  status         String    @default("not_provided")
+  createdBy      String?   @map("created_by") @db.Uuid
+  reviewedBy     String?   @map("reviewed_by") @db.Uuid
+  reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  diagnostic Diagnostic       @relation(fields: [diagnosticId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  answer     DiagnosticAnswer @relation(fields: [answerId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([diagnosticId])
+  @@index([answerId])
+  @@map("evidences")
+}
+
+/// Snapshot calculado (global). Un vigente por diagnóstico (único parcial en SQL).
+model DiagnosticResult {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  diagnosticId      String    @map("diagnostic_id") @db.Uuid
+  numerator         Decimal   @db.Decimal(12, 4)
+  denominator       Decimal   @db.Decimal(12, 4)
+  percentage        Decimal   @db.Decimal(5, 2)
+  /// risk_level: low | moderate | high | critical
+  riskLevel         String    @map("risk_level")
+  criticalUnmet     Int       @default(0) @map("critical_unmet")
+  excludedCount     Int       @default(0) @map("excluded_count")
+  engineVersion     String    @map("engine_version")
+  inputsHash        String    @map("inputs_hash")
+  computedAt        DateTime  @default(now()) @map("computed_at") @db.Timestamptz(6)
+  computedBy        String?   @map("computed_by") @db.Uuid
+  invalidatedAt     DateTime? @map("invalidated_at") @db.Timestamptz(6)
+  invalidatedBy     String?   @map("invalidated_by") @db.Uuid
+  invalidatedReason String?   @map("invalidated_reason")
+
+  diagnostic Diagnostic @relation(fields: [diagnosticId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  sectionResults DiagnosticSectionResult[]
+  findings       DiagnosticFinding[]
+
+  @@unique([id, organizationId])
+  @@index([diagnosticId])
+  @@map("diagnostic_results")
+}
+
+/// Cumplimiento por sección dentro de un snapshot.
+model DiagnosticSectionResult {
+  id                 String  @id @default(uuid()) @db.Uuid
+  organizationId     String  @map("organization_id") @db.Uuid
+  diagnosticResultId String  @map("diagnostic_result_id") @db.Uuid
+  sectionId          String  @map("section_id") @db.Uuid
+  numerator          Decimal @db.Decimal(12, 4)
+  denominator        Decimal @db.Decimal(12, 4)
+  percentage         Decimal @db.Decimal(5, 2)
+  excludedCount      Int     @default(0) @map("excluded_count")
+
+  result  DiagnosticResult @relation(fields: [diagnosticResultId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  section TemplateSection  @relation(fields: [sectionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([diagnosticResultId, sectionId])
+  @@map("diagnostic_section_results")
+}
+
+/// Brecha priorizada / hallazgo crítico derivado del cálculo.
+model DiagnosticFinding {
+  id                 String  @id @default(uuid()) @db.Uuid
+  organizationId     String  @map("organization_id") @db.Uuid
+  diagnosticResultId String  @map("diagnostic_result_id") @db.Uuid
+  requirementId      String  @map("requirement_id") @db.Uuid
+  questionId         String? @map("question_id") @db.Uuid
+  isCritical         Boolean @default(false) @map("is_critical")
+  gapScore           Decimal @map("gap_score") @db.Decimal(12, 4)
+  rank               Int
+
+  result      DiagnosticResult    @relation(fields: [diagnosticResultId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  requirement TemplateRequirement @relation(fields: [requirementId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([diagnosticResultId, rank])
+  @@map("diagnostic_findings")
+}
+
+/// Bitácora de transiciones de estado del diagnóstico (append-only).
+model DiagnosticStateHistory {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  diagnosticId   String   @map("diagnostic_id") @db.Uuid
+  /// from_status: NULL en la creación
+  fromStatus     String?  @map("from_status")
+  toStatus       String   @map("to_status")
+  changedBy      String?  @map("changed_by") @db.Uuid
+  changedAt      DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+  note           String?
+
+  diagnostic Diagnostic @relation(fields: [diagnosticId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([diagnosticId, changedAt])
+  @@map("diagnostic_state_history")
+}
+
+/// Registro append-only de acciones relevantes.
+model AuditLog {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String?  @map("organization_id") @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String?  @map("entity_id") @db.Uuid
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_log")
+}
