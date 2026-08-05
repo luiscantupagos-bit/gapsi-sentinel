@@ -425,3 +425,129 @@ model AuditLog {
   @@index([entityType, entityId])
   @@map("audit_log")
 }
+
+// =====================================================================
+// TASK-004 — Gestión documental básica
+// FK compuestas a sites/requirements/diagnostics/frameworks y las de
+// organizations/users, además de CHECK/RLS/triggers, se añaden por SQL
+// complementario en la migración `..._documents` (Prisma no las expresa).
+// =====================================================================
+
+/// Documento del listado maestro de una organización.
+model Document {
+  id                  String    @id @default(uuid()) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  code                String
+  title               String
+  description         String?
+  /// document_type: policy|manual|procedure|instruction|program|plan|form|record|specification|matrix|external|annex|other
+  documentType        String    @map("document_type")
+  /// origin: internal | external
+  origin              String
+  /// status: draft|in_review|effective|obsolete|archived
+  status              String    @default("draft")
+  currentVersionLabel String?   @map("current_version_label")
+  siteId              String?   @map("site_id") @db.Uuid
+  responsibleUserId   String?   @map("responsible_user_id") @db.Uuid
+  ownerArea           String?   @map("owner_area")
+  /// confidentiality: public | internal | confidential
+  confidentiality     String    @default("internal")
+  issuedAt            DateTime? @map("issued_at") @db.Date
+  effectiveAt         DateTime? @map("effective_at") @db.Date
+  nextReviewAt        DateTime? @map("next_review_at") @db.Date
+  obsoleteAt          DateTime? @map("obsolete_at") @db.Date
+  createdBy           String?   @map("created_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  archivedAt          DateTime? @map("archived_at") @db.Timestamptz(6)
+
+  versions  DocumentVersion[]
+  relations DocumentRelation[]
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, documentType])
+  @@map("documents")
+}
+
+/// Versión documental. Solo una vigente (`is_current`) por documento (único parcial en SQL).
+model DocumentVersion {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  documentId     String    @map("document_id") @db.Uuid
+  label          String
+  changeNotes    String?   @map("change_notes")
+  /// status: draft | published | obsolete
+  status         String    @default("draft")
+  isCurrent      Boolean   @default(false) @map("is_current")
+  author         String?   @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
+
+  document Document       @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  files    DocumentFile[]
+
+  @@unique([documentId, label])
+  @@unique([id, organizationId])
+  @@index([documentId])
+  @@map("document_versions")
+}
+
+/// Archivo o anexo. Los binarios NO se guardan en PostgreSQL, solo metadatos.
+model DocumentFile {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  documentVersionId String   @map("document_version_id") @db.Uuid
+  /// kind: main | attachment
+  kind              String
+  originalName      String   @map("original_name")
+  storedName        String   @map("stored_name")
+  mimeType          String   @map("mime_type")
+  sizeBytes         Int      @map("size_bytes")
+  extension         String
+  storageKey        String   @map("storage_key")
+  checksum          String?
+  uploadedBy        String?  @map("uploaded_by") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  version DocumentVersion @relation(fields: [documentVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([documentVersionId])
+  @@map("document_files")
+}
+
+/// Relación opcional del documento con sitio/marco/requisito/diagnóstico/otro documento.
+model DocumentRelation {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  documentId        String   @map("document_id") @db.Uuid
+  /// relation_type: site | framework | requirement | diagnostic | document
+  relationType      String   @map("relation_type")
+  siteId            String?  @map("site_id") @db.Uuid
+  frameworkId       String?  @map("framework_id") @db.Uuid
+  requirementId     String?  @map("requirement_id") @db.Uuid
+  diagnosticId      String?  @map("diagnostic_id") @db.Uuid
+  relatedDocumentId String?  @map("related_document_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  document Document @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([documentId])
+  @@map("document_relations")
+}
+
+/// Historial documental append-only.
+model DocumentHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  action         String
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documentId, createdAt])
+  @@map("document_history")
+}
