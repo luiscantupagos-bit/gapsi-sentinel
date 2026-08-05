@@ -244,3 +244,27 @@ En **Documentos** → **Crear dentro de Sentinel**:
 
 Variable opcional: `DOCUMENTS_MAX_CONTENT_BYTES` (tamaño máximo de contenido; 512
 KB por defecto).
+
+## Control documental avanzado (TASK-006)
+
+Ciclo formal de revisión, aprobación, publicación, distribución y lectura (ver
+`docs/tasks/TASK-006-IMPLEMENTATION-NOTES.md`). Estados de versión: Borrador → En
+revisión → Cambios solicitados → En aprobación → Aprobado → Vigente → Obsoleto →
+Archivado.
+
+Flujo de prueba manual:
+
+1. En un documento borrador, **Asignar flujo** (revisor + aprobador) y **Enviar a
+   revisión** (la edición se bloquea).
+2. Como revisor asignado: **Solicitar cambios** (comentario) o **Aprobar
+   revisión**. Con cambios, se edita y se reenvía.
+3. Como aprobador: **Aprobar** o **Rechazar** (motivo).
+4. Como owner/admin: **Publicar** (queda una sola versión vigente).
+5. **Distribuir** a un usuario; en **Tareas** (o `/dashboard/documents/tasks`) el
+   destinatario abre la vista previa y **Confirma lectura**.
+6. **Registrar copia controlada**; al publicar una nueva versión, la anterior
+   queda obsoleta y su copia **pendiente de recuperación**.
+7. **Bandeja de tareas** y **alertas** del dashboard muestran lo pendiente.
+
+Variable opcional: `DOCUMENTS_REVIEW_SOON_DAYS` (umbral de próxima revisión; 30
+días por defecto).

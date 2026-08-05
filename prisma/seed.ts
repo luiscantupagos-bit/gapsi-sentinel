@@ -47,6 +47,9 @@ const PRIV_VER_A = '00000000-0000-4000-8000-0000000ea001';
 
 const DIAG_A = '00000000-0000-4000-8000-0000000da001';
 
+// Usuario evaluador de ORG_A (revisor/aprobador/lector de la demo de control).
+const USER_C = '00000000-0000-4000-8000-0000000000a3';
+
 // --- Definición family-agnóstica de la plantilla de ejemplo -------------------
 
 type QType = 'yes_no' | 'single_choice' | 'text';
@@ -626,6 +629,215 @@ async function seedEditorDocuments(): Promise<void> {
   }
 }
 
+/** UUID determinista para la demo de control documental. */
+function ctlUuid(kind: 'c' | 'd', n: number): string {
+  return `00000000-0000-4000-8000-00000000c1${kind}${n.toString(16)}`;
+}
+
+async function seedControlDocuments(): Promise<void> {
+  if (await prisma.document.findUnique({ where: { id: ctlUuid('c', 1) } })) return;
+
+  const content = sanitizeContent(getTemplate('policy')!.build());
+  const html = renderContentHtml(content);
+  const sum = contentChecksum(content);
+  const now = new Date('2026-08-04T00:00:00.000Z');
+  const soon = new Date('2026-08-14T00:00:00.000Z');
+  const far = new Date('2027-08-04T00:00:00.000Z');
+
+  async function makeDoc(
+    n: number,
+    code: string,
+    title: string,
+    docStatus: string,
+    versionStatus: string,
+    isCurrent: boolean,
+    nextReviewAt: Date | null,
+  ) {
+    const documentId = ctlUuid('c', n);
+    const versionId = ctlUuid('d', n);
+    await prisma.document.create({
+      data: {
+        id: documentId,
+        organizationId: ORG_A,
+        code,
+        title,
+        documentType: 'policy',
+        origin: 'internal',
+        status: docStatus,
+        confidentiality: 'internal',
+        currentVersionLabel: 'v1',
+        siteId: SITE_A,
+        responsibleUserId: USER_A,
+        createdBy: USER_A,
+        issuedAt: now,
+        nextReviewAt,
+      },
+    });
+    await prisma.documentVersion.create({
+      data: {
+        id: versionId,
+        organizationId: ORG_A,
+        documentId,
+        label: 'v1',
+        status: versionStatus,
+        isCurrent,
+        author: USER_A,
+        updatedBy: USER_A,
+        changeNotes: 'Versión inicial',
+        templateKey: 'policy',
+        contentSchemaVersion: CONTENT_SCHEMA_VERSION,
+        contentJson: content as unknown as object,
+        contentHtml: html,
+        contentChecksum: sum,
+        pageConfig: sanitizePageConfig(DEFAULT_PAGE_CONFIG) as unknown as object,
+        publishedAt: versionStatus === 'published' ? now : null,
+      },
+    });
+    await prisma.documentStatusHistory.create({
+      data: {
+        organizationId: ORG_A,
+        documentId,
+        versionId,
+        toStatus: versionStatus,
+        actorUserId: USER_A,
+        comment: 'Seed',
+      },
+    });
+    return { documentId, versionId };
+  }
+
+  await makeDoc(1, 'CTL-01', 'Política en borrador', 'draft', 'draft', true, null);
+
+  const d2 = await makeDoc(2, 'CTL-02', 'Política en revisión', 'draft', 'in_review', true, null);
+  const wf2 = await prisma.documentWorkflow.create({
+    data: {
+      organizationId: ORG_A,
+      documentId: d2.documentId,
+      versionId: d2.versionId,
+      stage: 'review',
+      createdBy: USER_A,
+    },
+  });
+  await prisma.documentWorkflowStep.createMany({
+    data: [
+      {
+        organizationId: ORG_A,
+        workflowId: wf2.id,
+        documentId: d2.documentId,
+        versionId: d2.versionId,
+        role: 'reviewer',
+        userId: USER_C,
+        sequence: 1,
+        status: 'pending',
+      },
+      {
+        organizationId: ORG_A,
+        workflowId: wf2.id,
+        documentId: d2.documentId,
+        versionId: d2.versionId,
+        role: 'approver',
+        userId: USER_C,
+        sequence: 2,
+        status: 'pending',
+      },
+    ],
+  });
+
+  const d3 = await makeDoc(
+    3,
+    'CTL-03',
+    'Política en aprobación',
+    'draft',
+    'in_approval',
+    true,
+    null,
+  );
+  const wf3 = await prisma.documentWorkflow.create({
+    data: {
+      organizationId: ORG_A,
+      documentId: d3.documentId,
+      versionId: d3.versionId,
+      stage: 'approval',
+      createdBy: USER_A,
+    },
+  });
+  await prisma.documentWorkflowStep.createMany({
+    data: [
+      {
+        organizationId: ORG_A,
+        workflowId: wf3.id,
+        documentId: d3.documentId,
+        versionId: d3.versionId,
+        role: 'reviewer',
+        userId: USER_C,
+        sequence: 1,
+        status: 'approved',
+        decidedBy: USER_C,
+        decidedAt: now,
+      },
+      {
+        organizationId: ORG_A,
+        workflowId: wf3.id,
+        documentId: d3.documentId,
+        versionId: d3.versionId,
+        role: 'approver',
+        userId: USER_C,
+        sequence: 2,
+        status: 'pending',
+      },
+    ],
+  });
+  await prisma.documentApproval.create({
+    data: {
+      organizationId: ORG_A,
+      documentId: d3.documentId,
+      versionId: d3.versionId,
+      actorUserId: USER_C,
+      stage: 'review',
+      decision: 'approved',
+      contentChecksum: sum,
+    },
+  });
+
+  const d4 = await makeDoc(4, 'CTL-04', 'Política vigente', 'effective', 'published', true, far);
+  await prisma.documentDistribution.create({
+    data: {
+      organizationId: ORG_A,
+      documentId: d4.documentId,
+      versionId: d4.versionId,
+      targetType: 'user',
+      userId: USER_C,
+      distributedBy: USER_A,
+      readRequired: true,
+    },
+  });
+  await prisma.documentReadAck.create({
+    data: {
+      organizationId: ORG_A,
+      documentId: d4.documentId,
+      versionId: d4.versionId,
+      userId: USER_A,
+      contentChecksum: sum,
+      statement: 'Confirmo que he leído y comprendido esta versión del documento.',
+    },
+  });
+  await prisma.documentControlledCopy.create({
+    data: {
+      organizationId: ORG_A,
+      documentId: d4.documentId,
+      versionId: d4.versionId,
+      copyNumber: 1,
+      recipient: 'Planta Norte',
+      format: 'printed',
+      issuedBy: USER_A,
+      status: 'active',
+    },
+  });
+
+  await makeDoc(5, 'CTL-05', 'Política próxima a revisión', 'effective', 'published', true, soon);
+  await makeDoc(6, 'CTL-06', 'Política obsoleta', 'obsolete', 'obsolete', false, null);
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -640,6 +852,7 @@ async function main(): Promise<void> {
     data: [
       { id: USER_A, email: 'evaluador.a@example.test', displayName: 'Evaluador A' },
       { id: USER_B, email: 'evaluador.b@example.test', displayName: 'Evaluador B' },
+      { id: USER_C, email: 'revisor.c@example.test', displayName: 'Revisor C' },
     ],
   });
   await prisma.membership.createMany({
@@ -647,6 +860,7 @@ async function main(): Promise<void> {
     data: [
       { organizationId: ORG_A, userId: USER_A, role: 'owner' },
       { organizationId: ORG_B, userId: USER_B, role: 'owner' },
+      { organizationId: ORG_A, userId: USER_C, role: 'evaluator' },
     ],
   });
   await prisma.site.createMany({
@@ -677,6 +891,7 @@ async function main(): Promise<void> {
   await seedDiagnostic();
   await seedDocuments();
   await seedEditorDocuments();
+  await seedControlDocuments();
 
   console.log(
     'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico.',
