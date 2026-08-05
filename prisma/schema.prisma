@@ -725,3 +725,293 @@ model DocumentStatusHistory {
   @@index([versionId, createdAt])
   @@map("document_status_history")
 }
+
+// =====================================================================
+// TASK-007 — No conformidades y acciones correctivas (CAPA)
+// FK compuestas anti-cruce a capas/sites/diagnostics/documents/versions/
+// requirements, FKs a organizations/users, CHECK de enums, RLS, append-only y
+// no-borrado se añaden por SQL complementario (Prisma no las expresa).
+// =====================================================================
+
+/// Contador seguro de folios por organización y año (INSERT ... ON CONFLICT).
+model CapaFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("capa_folio_counters")
+}
+
+/// Registro CAPA: no conformidad / desviación / hallazgo / mejora.
+model Capa {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  /// Folio legible `CAPA-AAAA-0001`, único por organización.
+  folio          String
+  year           Int
+  title          String
+  description    String
+  /// source_type: internal_nc|audit_nc|deviation|customer_complaint|safety_incident|legal_noncompliance|documental_finding|out_of_spec|improvement|other
+  sourceType     String @map("source_type")
+  /// status: draft|reported|containment|under_investigation|action_plan|in_implementation|effectiveness_review|closed|cancelled
+  status         String @default("draft")
+
+  // Fuentes y relaciones (opcionales). Campos provisionales de texto para
+  // producto/proceso mientras no exista una entidad formal.
+  siteId            String? @map("site_id") @db.Uuid
+  area              String?
+  process           String?
+  product           String?
+  diagnosticId      String? @map("diagnostic_id") @db.Uuid
+  documentId        String? @map("document_id") @db.Uuid
+  documentVersionId String? @map("document_version_id") @db.Uuid
+  requirementId     String? @map("requirement_id") @db.Uuid
+  findingId         String? @map("finding_id") @db.Uuid
+  externalReference String? @map("external_reference")
+
+  // Identificación / clasificación.
+  detectedAt        DateTime? @map("detected_at") @db.Timestamptz(6)
+  reportedBy        String?   @map("reported_by") @db.Uuid
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  /// priority: low|normal|high|urgent
+  priority          String    @default("normal")
+  /// severity: low|medium|high|critical
+  severity          String    @default("medium")
+  /// impacts: subconjunto de quality|safety|legal|customer|product|process|personnel|environment|cost|reputation
+  impacts           String[]  @default([])
+  /// scope: point|batch|line|site|organization|customer|market
+  scope             String    @default("point")
+  targetDate        DateTime? @map("target_date") @db.Date
+  tags              String[]  @default([])
+
+  // Descripción estructurada del problema (5W2H + condición/requisito/evidencia).
+  problemWhat         String? @map("problem_what")
+  problemWhere        String? @map("problem_where")
+  problemWhen         String? @map("problem_when")
+  problemWhoDetect    String? @map("problem_who_detect")
+  problemWhoAffect    String? @map("problem_who_affect")
+  problemHowMuch      String? @map("problem_how_much")
+  problemHow          String? @map("problem_how")
+  conditionObserved   String? @map("condition_observed")
+  requirementBreached String? @map("requirement_breached")
+  objectiveEvidence   String? @map("objective_evidence")
+  knownScope          String? @map("known_scope")
+  knownRecurrence     String? @map("known_recurrence")
+  relatedRefs         String? @map("related_refs")
+
+  // Cierre y reapertura.
+  closedBy        String?   @map("closed_by") @db.Uuid
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz(6)
+  closureSummary  String?   @map("closure_summary")
+  closureChecksum String?   @map("closure_checksum")
+  closureSnapshot Json?     @map("closure_snapshot")
+  reopenCount     Int       @default(0) @map("reopen_count")
+
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, folio])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, severity])
+  @@index([organizationId, responsibleUserId])
+  @@index([organizationId, siteId])
+  @@map("capas")
+}
+
+/// Acción inmediata de contención o corrección.
+model CapaImmediateAction {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  capaId            String    @map("capa_id") @db.Uuid
+  /// action_type: containment | correction
+  actionType        String    @map("action_type")
+  description       String
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  committedAt       DateTime? @map("committed_at") @db.Date
+  executedAt        DateTime? @map("executed_at") @db.Date
+  /// status: pending | in_progress | completed | cancelled
+  status            String    @default("pending")
+  result            String?
+  estimatedCost     Decimal?  @map("estimated_cost") @db.Decimal(12, 2)
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([capaId])
+  @@map("capa_immediate_actions")
+}
+
+/// Análisis de causa raíz (uno por CAPA).
+model CapaRootCauseAnalysis {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  capaId             String    @map("capa_id") @db.Uuid
+  /// method: five_whys | free_analysis | process_review | document_review | other
+  method             String
+  immediateCause     String?   @map("immediate_cause")
+  contributingCause  String?   @map("contributing_cause")
+  rootCause          String?   @map("root_cause")
+  justification      String?
+  investigatorUserId String?   @map("investigator_user_id") @db.Uuid
+  concludedAt        DateTime? @map("concluded_at") @db.Timestamptz(6)
+  createdBy          String?   @map("created_by") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([capaId])
+  @@index([organizationId])
+  @@map("capa_root_cause_analyses")
+}
+
+/// Paso del método "5 porqués" (hasta 5 niveles).
+model CapaWhyStep {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  capaId         String   @map("capa_id") @db.Uuid
+  rcaId          String   @map("rca_id") @db.Uuid
+  level          Int
+  question       String?
+  answer         String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([rcaId, level])
+  @@index([capaId])
+  @@map("capa_why_steps")
+}
+
+/// Acción del plan (corrección/contención/correctiva/preventiva/…).
+model CapaAction {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  capaId            String    @map("capa_id") @db.Uuid
+  /// action_type: correction|containment|corrective|preventive|training|document_change|process_change|maintenance|validation|follow_up|other
+  actionType        String    @map("action_type")
+  description       String
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  startDate         DateTime? @map("start_date") @db.Date
+  dueDate           DateTime? @map("due_date") @db.Date
+  /// priority: low | normal | high | urgent
+  priority          String    @default("normal")
+  /// status: pending | in_progress | blocked | completed | cancelled
+  status            String    @default("pending")
+  progress          Int       @default(0)
+  dependsOnActionId String?   @map("depends_on_action_id") @db.Uuid
+  closedAt          DateTime? @map("closed_at") @db.Date
+  result            String?
+  comment           String?
+  // Relación con control documental (cambio documental).
+  documentId        String?   @map("document_id") @db.Uuid
+  documentVersionId String?   @map("document_version_id") @db.Uuid
+  docChangeRequest  String?   @map("doc_change_request")
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([capaId])
+  @@index([organizationId, status])
+  @@map("capa_actions")
+}
+
+/// Verificación de eficacia de la CAPA.
+model CapaEffectivenessReview {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  capaId            String    @map("capa_id") @db.Uuid
+  criterion         String
+  method            String?
+  plannedAt         DateTime? @map("planned_at") @db.Date
+  executedAt        DateTime? @map("executed_at") @db.Date
+  verifierUserId    String?   @map("verifier_user_id") @db.Uuid
+  followUpPeriod    String?   @map("follow_up_period")
+  observedResult    String?   @map("observed_result")
+  /// conclusion: effective | partially_effective | not_effective
+  conclusion        String
+  comment           String?
+  requiresNewAction Boolean   @default(false) @map("requires_new_action")
+  requiresReopen    Boolean   @default(false) @map("requires_reopen")
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([capaId])
+  @@map("capa_effectiveness_reviews")
+}
+
+/// Evidencia/archivo de una CAPA (binarios fuera de PostgreSQL).
+model CapaFile {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  capaId            String   @map("capa_id") @db.Uuid
+  /// evidence_type: finding|containment|investigation|root_cause|implementation|effectiveness|closure
+  evidenceType      String   @map("evidence_type")
+  actionId          String?  @map("action_id") @db.Uuid
+  immediateActionId String?  @map("immediate_action_id") @db.Uuid
+  originalName      String   @map("original_name")
+  storedName        String   @map("stored_name")
+  mimeType          String   @map("mime_type")
+  sizeBytes         Int      @map("size_bytes")
+  extension         String
+  storageKey        String   @map("storage_key")
+  checksum          String?
+  uploadedBy        String?  @map("uploaded_by") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([id, organizationId])
+  @@index([capaId])
+  @@map("capa_files")
+}
+
+/// Vínculo opcional de una CAPA con otra entidad.
+model CapaRelation {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  capaId            String   @map("capa_id") @db.Uuid
+  /// relation_type: site|diagnostic|document|document_version|requirement|finding|external
+  relationType      String   @map("relation_type")
+  siteId            String?  @map("site_id") @db.Uuid
+  diagnosticId      String?  @map("diagnostic_id") @db.Uuid
+  documentId        String?  @map("document_id") @db.Uuid
+  documentVersionId String?  @map("document_version_id") @db.Uuid
+  requirementId     String?  @map("requirement_id") @db.Uuid
+  findingId         String?  @map("finding_id") @db.Uuid
+  externalReference String?  @map("external_reference")
+  note              String?
+  createdBy         String?  @map("created_by") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([capaId])
+  @@map("capa_relations")
+}
+
+/// Historial CAPA (append-only).
+model CapaStatusHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  capaId         String   @map("capa_id") @db.Uuid
+  event          String
+  fromStatus     String?  @map("from_status")
+  toStatus       String?  @map("to_status")
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  detail         String?
+  relatedEntity  String?  @map("related_entity")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([capaId, createdAt])
+  @@map("capa_status_history")
+}
+
+/// Comentario asociado a una CAPA.
+model CapaComment {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  capaId         String   @map("capa_id") @db.Uuid
+  author         String?  @db.Uuid
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([capaId, createdAt])
+  @@map("capa_comments")
+}
