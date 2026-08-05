@@ -39,6 +39,7 @@ export default async function DashboardLayout({
           <Link href="/dashboard/documents/tasks">Tareas</Link>
           <Link href="/dashboard/capa">Acciones correctivas</Link>
           <Link href="/dashboard/capa/tasks">Bandeja CAPA</Link>
+          <Link href="/dashboard/capa/analysis">Análisis</Link>
         </nav>
         <div className="shell__content">{children}</div>
       </div>

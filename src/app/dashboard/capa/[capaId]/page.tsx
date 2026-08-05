@@ -60,6 +60,9 @@ export default async function CapaDetailPage({ params }: { params: Promise<{ cap
           </h1>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <span className={`badge badge--capa-${status}`}>{CAPA_STATUS_LABEL[status]}</span>
+            <Link className="button button--ghost" href={`/dashboard/capa/${capa.id}/analysis`}>
+              Análisis
+            </Link>
             {ctx.canEdit && (
               <Link className="button button--ghost" href={`/dashboard/capa/${capa.id}/edit`}>
                 Editar
