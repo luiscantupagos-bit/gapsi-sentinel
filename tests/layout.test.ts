@@ -42,9 +42,12 @@ describe('layout amplio (TASK-007)', () => {
 
   it('colapsa a una columna en móvil sin desbordar', () => {
     expect(css).toMatch(/@media\s*\(max-width:\s*720px\)/);
-    // El shell pasa a columna y el sidebar ocupa el ancho completo.
+    // El shell pasa a columna, el contenido se ancla al viewport (100%) y el
+    // sidebar (ahora fila) envuelve para no desbordar horizontalmente.
     const mobile = css.slice(css.indexOf('@media (max-width: 720px)'));
     expect(mobile).toMatch(/\.shell\s*\{[^}]*flex-direction:\s*column/);
+    expect(mobile).toMatch(/\.shell__content\s*\{[^}]*width:\s*100%/);
+    expect(mobile).toMatch(/\.sidebar\s*\{[^}]*flex-wrap:\s*wrap/);
   });
 
   it('las rejillas de tarjetas son responsive (auto-fit)', () => {

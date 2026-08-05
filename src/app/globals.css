@@ -417,8 +417,14 @@ a:focus-visible {
   .shell {
     flex-direction: column;
   }
+  /* En columna, el contenido se ancla al ancho del viewport; las tablas anchas
+     hacen scroll dentro de .table-wrap y la página no desborda horizontalmente. */
+  .shell__content {
+    width: 100%;
+  }
   .sidebar {
     flex-direction: row;
+    flex-wrap: wrap;
     width: 100%;
     border-right: 0;
     border-bottom: 1px solid var(--color-border);
