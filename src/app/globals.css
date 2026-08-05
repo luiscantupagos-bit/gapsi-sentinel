@@ -8,6 +8,10 @@
   --color-border: #d7dee3;
   --radius: 10px;
   --max-width: 68rem;
+  /* TASK-007: contenedor amplio para el área privada (~1760px). Las páginas
+     públicas conservan --max-width; el dashboard usa --max-width-wide. */
+  --max-width-wide: 110rem;
+  --sidebar-width: 13rem;
 }
 
 * {
@@ -369,8 +373,18 @@ a:focus-visible {
   flex-direction: column;
   gap: 0.25rem;
   padding: 1rem;
-  min-width: 12rem;
+  min-width: var(--sidebar-width);
   border-right: 1px solid var(--color-border);
+}
+/* TASK-007: en escritorio el sidebar queda fijo al hacer scroll. */
+@media (min-width: 721px) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
 }
 .sidebar a {
   padding: 0.5rem 0.75rem;
@@ -385,6 +399,19 @@ a:focus-visible {
 .shell__content {
   flex: 1;
   min-width: 0;
+}
+/* TASK-007: el contenido del área privada aprovecha el ancho disponible.
+   El contenedor de cada página del dashboard usa el máximo amplio y crece de
+   forma fluida; en monitores grandes queda centrado con márgenes equilibrados.
+   Las hojas del editor/preview (.sheet/.page) conservan su ancho tipo carta. */
+.shell__content > .container {
+  max-width: var(--max-width-wide);
+}
+@media (min-width: 1400px) {
+  .shell__content > .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
 }
 @media (max-width: 720px) {
   .shell {
