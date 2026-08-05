@@ -498,6 +498,39 @@ a:focus-visible {
   padding-left: 1.1rem;
 }
 
+/* --- TASK-006: control documental --- */
+.wf-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0.5rem 0 1rem;
+}
+.wf-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+.wf-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.wf-form select,
+.wf-form input[type='text'],
+.wf-form input:not([type]) {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 400;
+}
+
 /* --- TASK-005: editor documental enriquecido --- */
 
 .editor {

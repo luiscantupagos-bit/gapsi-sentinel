@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
 import { DocumentNotFoundError, getDocumentDetail, getEditorContent } from '@/server/documents';
+import { getUserVersionContext } from '@/server/document-workflow';
 import { renderContentHtml } from '@/features/documents/content-schema';
 import { DOCUMENT_STATUSES, labelOf } from '@/features/documents/catalog';
+import { acknowledgeReadForm } from '../../workflow-actions';
 
 export default async function DocumentPreviewPage({
   params,
@@ -28,6 +30,7 @@ export default async function DocumentPreviewPage({
     throw error;
   }
 
+  const ctx = await getUserVersionContext(session.organizationId, session.userId, editor.versionId);
   const cfg = editor.pageConfig;
   const html = editor.contentHtml ?? renderContentHtml(editor.contentJson);
   const statusLabel = labelOf(DOCUMENT_STATUSES, detail.status);
@@ -93,6 +96,18 @@ export default async function DocumentPreviewPage({
       <p className="banner banner--provisional">
         Vista previa de demostración (tamaño carta). No genera todavía un PDF real.
       </p>
+
+      {ctx?.hasPendingRead && editor.contentChecksum && (
+        <form action={acknowledgeReadForm} className="wf-form banner">
+          <input type="hidden" name="documentId" value={documentId} />
+          <input type="hidden" name="versionId" value={editor.versionId} />
+          <input type="hidden" name="checksum" value={editor.contentChecksum} />
+          <span>Confirmo que he leído y comprendido esta versión del documento.</span>
+          <button className="button button--primary" type="submit">
+            Confirmar lectura
+          </button>
+        </form>
+      )}
 
       <div className="preview">
         {cfg.cover.enabled && (

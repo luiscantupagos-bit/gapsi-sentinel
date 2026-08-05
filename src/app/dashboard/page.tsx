@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireServerSession } from '@/server/session';
 import { getDashboardData } from '@/server/diagnostics';
 import { getDocSummary } from '@/server/documents';
+import { getWorkflowAlerts } from '@/server/document-workflow';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Borrador',
@@ -13,9 +14,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function DashboardPage() {
   const session = await requireServerSession();
-  const [data, docSummary] = await Promise.all([
+  const [data, docSummary, alerts] = await Promise.all([
     getDashboardData(session.organizationId),
     getDocSummary(session.organizationId),
+    getWorkflowAlerts(session.organizationId, session.userId),
   ]);
 
   if (!data) {
@@ -70,6 +72,35 @@ export default async function DashboardPage() {
       <p>
         <Link className="button button--ghost" href="/dashboard/documents">
           Ir al listado maestro
+        </Link>
+      </p>
+
+      <h2>Alertas de control documental</h2>
+      <div className="stat-row">
+        <div className="stat stat--sm">
+          <span className="stat__label">Revisiones pendientes</span>
+          <span className="stat__value">{alerts.pendingReviews}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Aprobaciones pendientes</span>
+          <span className="stat__value">{alerts.pendingApprovals}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Lecturas pendientes</span>
+          <span className="stat__value">{alerts.pendingReads}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Próx. revisión</span>
+          <span className="stat__value">{alerts.reviewDueSoon}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Revisión vencida</span>
+          <span className="stat__value">{alerts.reviewOverdue}</span>
+        </div>
+      </div>
+      <p>
+        <Link className="button button--ghost" href="/dashboard/documents/tasks">
+          Ver bandeja de tareas
         </Link>
       </p>
 

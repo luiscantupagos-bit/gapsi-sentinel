@@ -975,6 +975,44 @@ export async function getDocumentControl(organizationId: string, documentId: str
   };
 }
 
+/** Contexto de permisos del usuario sobre una versión (para la interfaz). */
+export async function getUserVersionContext(
+  organizationId: string,
+  userId: string,
+  versionId: string,
+) {
+  const prisma = getPrisma();
+  const version = await prisma.documentVersion.findFirst({
+    where: { id: versionId, organizationId },
+    select: { author: true, status: true },
+  });
+  if (!version) return null;
+  const role =
+    (
+      await prisma.membership.findFirst({
+        where: { organizationId, userId },
+        select: { role: true },
+      })
+    )?.role ?? 'viewer';
+  const [reviewerStep, approverStep, reads] = await Promise.all([
+    prisma.documentWorkflowStep.findFirst({
+      where: { versionId, organizationId, userId, role: 'reviewer', status: 'pending' },
+    }),
+    prisma.documentWorkflowStep.findFirst({
+      where: { versionId, organizationId, userId, role: 'approver', status: 'pending' },
+    }),
+    pendingReads(organizationId, userId),
+  ]);
+  return {
+    role,
+    isAdmin: isAdmin(role),
+    isAuthor: version.author === userId,
+    isAssignedReviewer: Boolean(reviewerStep),
+    isAssignedApprover: Boolean(approverStep),
+    hasPendingRead: reads.some((r) => r.versionId === versionId),
+  };
+}
+
 /** Recalcula el checksum de contenido (para comparar en aprobación/lectura). */
 export function checksumOf(contentJson: unknown): string {
   return contentChecksum(

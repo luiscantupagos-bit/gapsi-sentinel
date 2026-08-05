@@ -717,6 +717,7 @@ export async function getEditorContent(
       !doc.archivedAt && isEditableStatus(version.status as VersionStatus) && version.isCurrent,
     templateKey: version.templateKey,
     schemaVersion: version.contentSchemaVersion,
+    contentChecksum: version.contentChecksum,
     contentJson: (version.contentJson ?? sanitizeContent(null)) as unknown as DocNode,
     contentHtml: version.contentHtml,
     pageConfig: (version.pageConfig ?? DEFAULT_PAGE_CONFIG) as unknown as PageConfig,

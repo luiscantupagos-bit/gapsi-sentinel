@@ -36,6 +36,7 @@ export default async function DashboardLayout({
         <nav className="sidebar" aria-label="Navegación principal">
           <Link href="/dashboard">Panel</Link>
           <Link href="/dashboard/documents">Documentos</Link>
+          <Link href="/dashboard/documents/tasks">Tareas</Link>
         </nav>
         <div className="shell__content">{children}</div>
       </div>
