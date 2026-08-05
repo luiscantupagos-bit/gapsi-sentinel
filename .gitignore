@@ -12,3 +12,5 @@ next-env.d.ts
 .DS_Store
 .vscode/
 .idea/
+# TASK-004: almacenamiento local de archivos documentales (no versionar)
+storage/
