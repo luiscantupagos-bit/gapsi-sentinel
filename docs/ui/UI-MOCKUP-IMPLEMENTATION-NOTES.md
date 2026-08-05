@@ -152,3 +152,64 @@ No se modificó lógica, datos, base de datos, migraciones ni funcionalidades.
 - **Tareas**: gestor global de tareas = funcionalidad futura (no se inventa).
 - **Análisis**: creación desde la CAPA (no botón global); iconos emoji.
 - **Documentos/Acciones**: columnas adicionales por mayor funcionalidad real.
+
+---
+
+# Dashboard Ejecutivo (referencia `docs/ui-references/dashboard-ejecutivo-final.jpeg`)
+
+Se rediseñó `/dashboard` como **Dashboard Ejecutivo** siguiendo la estructura de
+la referencia, **adaptada al tema claro** (no se copió el tema oscuro): sidebar
+azul marino, topbar clara, fondo gris muy claro, **tarjetas blancas**, bordes
+sutiles, sombras ligeras, texto oscuro. Acentos conservados: verde
+(cumplimiento/éxito), ámbar (advertencia/riesgo moderado), rojo (vencimientos/
+críticos), azul (información/auditorías). Gráficas legibles sobre fondo blanco.
+
+## Estructura implementada
+
+- **Encabezado**: "Dashboard Ejecutivo" + subtítulo + tira de contexto (normas
+  activas, última actualización, próxima auditoría).
+- **Fila 1 — KPIs**: cumplimiento general, actividades completadas, actividades
+  vencidas, CAPA abiertas, hallazgos pendientes, riesgos críticos.
+- **Fila 2**: Sentinel Score™, cumplimiento por norma/esquema, centro de alertas.
+- **Fila 3**: estado de auditoría, actividades principales (Gantt), tendencia.
+- **Fila 4**: IA Insights, estado de certificación.
+- **Resumen operativo (datos reales)**: CAPA por estado (donut), abiertas por
+  prioridad (barras), documentos.
+
+## Datos reales vs. módulos por implementar (sin inventar métricas)
+
+| Bloque                                   | Estado                                                      |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| Actividades completadas / vencidas       | **Real** (acciones CAPA por estado/vencimiento)             |
+| CAPA abiertas                            | **Real**                                                    |
+| Hallazgos pendientes                     | **Real** (conteo de hallazgos de diagnóstico; 0 si no hay)  |
+| Normas activas                           | **Real** (marcos configurados en la organización)           |
+| Centro de alertas                        | **Real** (acciones vencidas/próximas + revisión documental) |
+| Actividades principales                  | **Real** (próximas acciones) + nota "Gantt con TASK-009"    |
+| CAPA por estado / prioridad / Documentos | **Real**                                                    |
+| Cumplimiento general                     | "En configuración" (no hay cálculo)                         |
+| Sentinel Score™                         | "En configuración" (componente preparado, sin cálculo)      |
+| Cumplimiento por norma (%)               | "En configuración" (requiere configurar el marco)           |
+| Riesgos críticos                         | "Próximamente" (módulo de riesgos no implementado)          |
+| Estado de auditoría                      | "Próximamente" (auditorías no implementadas)                |
+| Gantt de actividades                     | "Próximamente" (TASK-009)                                   |
+| Tendencia (12 meses)                     | "En configuración" (sin históricos)                         |
+| IA Insights                              | "Próximamente" (sin análisis disponibles)                   |
+| Estado de certificación                  | "Próximamente"                                              |
+
+## Responsive
+
+Verificado sin desbordamiento horizontal: **1920** (KPIs 6 col · grids 3 col),
+**1440** (KPIs 3 · grids 2), **1024** (KPIs 2), **móvil** (1 columna).
+
+## Extensión de datos (solo lectura)
+
+`getCapaDashboard` se amplió con conteos de solo lectura (`actionsCompleted`,
+`actionsOverdue`) y la lista `overdueActions` para el Centro de alertas. No se
+modificó lógica de negocio, esquema ni migraciones.
+
+## Nota sobre la referencia
+
+El mockup se recibió como imagen en la conversación; el archivo
+`docs/ui-references/dashboard-ejecutivo-final.jpeg` no pudo generarse desde aquí
+(sin bytes de origen). Ver `docs/ui-references/README.md`.

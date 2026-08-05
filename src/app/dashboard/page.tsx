@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireServerSession } from '@/server/session';
+import { getPrisma } from '@/server/db';
 import { getDashboardData } from '@/server/diagnostics';
 import { getDocSummary } from '@/server/documents';
 import { getWorkflowAlerts } from '@/server/document-workflow';
@@ -12,14 +13,7 @@ import {
 } from '@/features/capa/capa-state';
 import { BarChart, DonutChart, type Segment } from './_components/Charts';
 import { PageHeader, SectionCard, StatCard } from './_components/ui';
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Borrador',
-  in_progress: 'En captura',
-  submitted: 'Enviado',
-  reviewed: 'Revisado',
-  archived: 'Archivado',
-};
+import { KpiCard, Placeholder, SemiGauge } from './_components/exec';
 
 const STATUS_COLOR: Record<string, string> = {
   draft: '#94a3b8',
@@ -41,25 +35,24 @@ const PRIORITY_COLOR: Record<string, string> = {
 
 export default async function DashboardPage() {
   const session = await requireServerSession();
-  const [data, docSummary, alerts, capa, capaBoard] = await Promise.all([
-    getDashboardData(session.organizationId),
-    getDocSummary(session.organizationId),
-    getWorkflowAlerts(session.organizationId, session.userId),
-    getCapaAlerts(session.organizationId),
-    getCapaDashboard(session.organizationId),
+  const org = session.organizationId;
+  const [data, docSummary, alerts, capa, capaBoard, frameworks, findings] = await Promise.all([
+    getDashboardData(org),
+    getDocSummary(org),
+    getWorkflowAlerts(org, session.userId),
+    getCapaAlerts(org),
+    getCapaDashboard(org),
+    getPrisma().assessmentFramework.findMany({
+      where: { organizationId: org, deletedAt: null },
+      select: { code: true, name: true },
+    }),
+    getPrisma().diagnosticFinding.count({ where: { organizationId: org } }),
   ]);
 
-  if (!data) {
-    return (
-      <main className="container">
-        <PageHeader title="Dashboard" subtitle="Resumen general del sistema" />
-        <div className="empty-state" role="status">
-          <p>No se encontró la organización activa de desarrollo.</p>
-          <p className="muted">Ejecuta `npm run db:seed` para cargar datos de ejemplo.</p>
-        </div>
-      </main>
-    );
-  }
+  const orgName = data?.organization.name ?? 'Organización';
+  const totalActions = capaBoard.actionsCompleted + capa.pendingActions;
+  const completionRing =
+    totalActions > 0 ? Math.round((capaBoard.actionsCompleted / totalActions) * 100) : 0;
 
   const statusSegments: Segment[] = capaBoard.byStatus.map((s) => ({
     label: CAPA_STATUS_LABEL[s.key as CapaStatus] ?? s.key,
@@ -72,43 +65,212 @@ export default async function DashboardPage() {
     color: PRIORITY_COLOR[p.key] ?? '#94a3b8',
   }));
 
-  return (
-    <main className="container">
-      <PageHeader title="Dashboard" subtitle={`Resumen general · ${data.organization.name}`} />
+  const hasCriticas = capaBoard.overdueActions.length > 0 || alerts.reviewOverdue > 0;
+  const hasPreventivas = capaBoard.upcoming.length > 0 || alerts.reviewDueSoon > 0;
 
-      <div className="statcard-row">
-        <StatCard label="CAPA abiertas" value={capa.open} href="/dashboard/capa" />
-        <StatCard
-          label="Críticas"
-          value={capa.critical}
-          tone="danger"
-          href="/dashboard/capa?severity=critical"
-        />
-        <StatCard
-          label="Vencidas"
-          value={capa.overdue}
-          tone="warning"
-          href="/dashboard/capa?overdue=1"
-        />
-        <StatCard
-          label="Acciones pendientes"
-          value={capa.pendingActions}
-          href="/dashboard/capa/tasks"
-        />
-        <StatCard
-          label="Verificaciones"
-          value={capa.pendingVerifications}
-          href="/dashboard/capa?status=effectiveness_review"
-        />
-        <StatCard
-          label="Cerradas"
-          value={capa.recentlyClosed}
-          tone="success"
-          href="/dashboard/capa?status=closed"
-        />
+  return (
+    <main className="container exec">
+      <PageHeader
+        title="Dashboard Ejecutivo"
+        subtitle={`Resumen general del Sistema de Gestión · ${orgName}`}
+      />
+
+      {/* Tira de contexto */}
+      <div className="exec-strip">
+        <div className="exec-strip__item">
+          <span className="exec-strip__label">Normas activas</span>
+          <span className="exec-strip__value">
+            {frameworks.length > 0
+              ? frameworks.map((f) => f.name.replace(/\s*\(.*\)$/, '')).join(' · ')
+              : 'En configuración'}
+          </span>
+        </div>
+        <div className="exec-strip__item">
+          <span className="exec-strip__label">Última actualización</span>
+          <span className="exec-strip__value">Hace un momento</span>
+        </div>
+        <div className="exec-strip__item">
+          <span className="exec-strip__label">Próxima auditoría</span>
+          <span className="exec-strip__value muted">Próximamente</span>
+        </div>
       </div>
 
+      {/* Fila 1 — KPIs */}
+      <div className="kpi-row">
+        <KpiCard label="Cumplimiento general" tone="green" placeholder="En configuración" />
+        <KpiCard
+          label="Actividades completadas"
+          value={capaBoard.actionsCompleted}
+          tone="green"
+          ring={completionRing}
+        />
+        <KpiCard
+          label="Actividades vencidas"
+          value={capaBoard.actionsOverdue}
+          tone="red"
+          ring={100}
+        />
+        <KpiCard label="CAPA abiertas" value={capa.open} tone="amber" ring={100} />
+        <KpiCard label="Hallazgos pendientes" value={findings} tone="blue" ring={100} />
+        <KpiCard label="Riesgos críticos" tone="red" placeholder="Próximamente" />
+      </div>
+
+      {/* Fila 2 — Sentinel Score · Cumplimiento por norma · Alertas */}
+      <div className="dash-grid dash-grid--3">
+        <SectionCard title="Sentinel Score™">
+          <SemiGauge value={null} placeholder="En configuración" caption="Salud general" />
+          <p className="muted center">
+            El cálculo del puntaje de salud del sistema llegará en una tarea futura.
+          </p>
+        </SectionCard>
+
+        <SectionCard title="Cumplimiento por norma / esquema">
+          {frameworks.length === 0 ? (
+            <Placeholder
+              title="En configuración"
+              message="No hay normas configuradas para calcular cumplimiento."
+            />
+          ) : (
+            <ul className="norm-list">
+              {frameworks.map((f) => (
+                <li key={f.code}>
+                  <span className="norm-list__name">{f.name.replace(/\s*\(.*\)$/, '')}</span>
+                  <span className="badge">En configuración</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="muted">El % de cumplimiento por norma requiere configurar el marco.</p>
+        </SectionCard>
+
+        <SectionCard
+          title="Centro de alertas"
+          action={
+            <Link className="button button--ghost" href="/dashboard/capa/tasks">
+              Ver todas
+            </Link>
+          }
+        >
+          {!hasCriticas && !hasPreventivas ? (
+            <p className="empty-state">Sin alertas.</p>
+          ) : (
+            <>
+              {hasCriticas && (
+                <>
+                  <p className="alerts__head alerts__head--crit">Críticas</p>
+                  <ul className="alerts">
+                    {capaBoard.overdueActions.map((a) => (
+                      <li key={a.id}>
+                        <span className="alerts__dot alerts__dot--crit" aria-hidden />
+                        <span>
+                          <strong>{a.folio}</strong> · {a.description}
+                        </span>
+                        <span className="alerts__meta alerts__meta--crit">
+                          Venció hace {a.daysOverdue ?? 0}d
+                        </span>
+                      </li>
+                    ))}
+                    {alerts.reviewOverdue > 0 && (
+                      <li>
+                        <span className="alerts__dot alerts__dot--crit" aria-hidden />
+                        <span>Revisión documental vencida</span>
+                        <span className="alerts__meta alerts__meta--crit">
+                          {alerts.reviewOverdue}
+                        </span>
+                      </li>
+                    )}
+                  </ul>
+                </>
+              )}
+              {hasPreventivas && (
+                <>
+                  <p className="alerts__head alerts__head--prev">Preventivas</p>
+                  <ul className="alerts">
+                    {capaBoard.upcoming.map((a) => (
+                      <li key={a.id}>
+                        <span className="alerts__dot alerts__dot--prev" aria-hidden />
+                        <span>
+                          <strong>{a.folio}</strong> · {a.description}
+                        </span>
+                        <span className="alerts__meta alerts__meta--prev">{a.dueDate ?? '—'}</span>
+                      </li>
+                    ))}
+                    {alerts.reviewDueSoon > 0 && (
+                      <li>
+                        <span className="alerts__dot alerts__dot--prev" aria-hidden />
+                        <span>Documentos próximos a revisión</span>
+                        <span className="alerts__meta alerts__meta--prev">
+                          {alerts.reviewDueSoon}
+                        </span>
+                      </li>
+                    )}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Fila 3 — Auditoría · Actividades principales · Tendencia */}
+      <div className="dash-grid dash-grid--3">
+        <SectionCard title="Estado de auditoría">
+          <Placeholder
+            title="Próximamente"
+            message="El módulo de auditorías se conectará en una tarea futura."
+          />
+        </SectionCard>
+
+        <SectionCard title="Actividades principales">
+          {capaBoard.upcoming.length === 0 ? (
+            <Placeholder
+              title="Próximamente"
+              message="La vista Gantt de actividades llegará con TASK-009."
+            />
+          ) : (
+            <>
+              <ul className="activity">
+                {capaBoard.upcoming.map((u) => (
+                  <li key={u.id}>
+                    <span className="activity__dot activity__dot--warn" aria-hidden />
+                    <span>
+                      <Link href={`/dashboard/capa/${u.capaId}`}>
+                        <strong>{u.folio}</strong>
+                      </Link>{' '}
+                      · {u.description}
+                    </span>
+                    <span className="activity__at">{u.dueDate ?? '—'}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="muted">Vista Gantt próximamente (TASK-009).</p>
+            </>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Tendencia del sistema (12 meses)">
+          <Placeholder
+            title="En configuración"
+            message="La tendencia requiere históricos que aún no se almacenan."
+          />
+        </SectionCard>
+      </div>
+
+      {/* Fila 4 — IA Insights · Certificación */}
       <div className="dash-grid dash-grid--2">
+        <SectionCard title="IA Insights">
+          <Placeholder title="Próximamente" message="Sin análisis disponibles." />
+        </SectionCard>
+        <SectionCard title="Estado de certificación">
+          <Placeholder
+            title="Próximamente"
+            message="El seguimiento de certificación se habilitará más adelante."
+          />
+        </SectionCard>
+      </div>
+
+      {/* Resumen operativo (datos reales) */}
+      <div className="dash-grid dash-grid--3">
         <SectionCard title="CAPA por estado">
           {statusSegments.length === 0 ? (
             <p className="empty-state">Sin CAPA registradas.</p>
@@ -123,146 +285,41 @@ export default async function DashboardPage() {
             <BarChart bars={prioritySegments} title="Abiertas por prioridad" />
           )}
         </SectionCard>
-      </div>
-
-      <div className="dash-grid dash-grid--2">
         <SectionCard
-          title="Actividad reciente"
+          title="Documentos"
           action={
-            <Link className="button button--ghost" href="/dashboard/capa">
-              Ver todo
+            <Link className="button button--ghost" href="/dashboard/documents">
+              Ir al listado
             </Link>
           }
         >
-          {capaBoard.recent.length === 0 ? (
-            <p className="empty-state">Sin actividad.</p>
-          ) : (
-            <ul className="activity">
-              {capaBoard.recent.map((r) => (
-                <li key={r.id}>
-                  <span className="activity__dot" aria-hidden />
-                  <span>
-                    <strong>{r.folio}</strong> · {r.event}
-                    {r.detail ? ` — ${r.detail}` : ''}
-                  </span>
-                  <span className="activity__at">{r.at}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
-        <SectionCard
-          title="Próximas tareas"
-          action={
-            <Link className="button button--ghost" href="/dashboard/capa/tasks">
-              Bandeja
-            </Link>
-          }
-        >
-          {capaBoard.upcoming.length === 0 ? (
-            <p className="empty-state">Sin acciones próximas.</p>
-          ) : (
-            <ul className="activity">
-              {capaBoard.upcoming.map((u) => (
-                <li key={u.id}>
-                  <span className="activity__dot activity__dot--warn" aria-hidden />
-                  <span>
-                    <Link href={`/dashboard/capa/${u.capaId}`}>
-                      <strong>{u.folio}</strong>
-                    </Link>{' '}
-                    · {u.description}
-                  </span>
-                  <span className="activity__at">{u.dueDate ?? '—'}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="statcard-row">
+            <StatCard label="Total" value={docSummary.total} href="/dashboard/documents" />
+            <StatCard
+              label="Vigentes"
+              value={docSummary.effective}
+              tone="success"
+              href="/dashboard/documents?status=effective"
+            />
+            <StatCard
+              label="Próx. revisión"
+              value={docSummary.dueSoon}
+              tone="warning"
+              href="/dashboard/documents"
+            />
+            <StatCard
+              label="Lecturas pend."
+              value={alerts.pendingReads}
+              href="/dashboard/documents/tasks"
+            />
+          </div>
         </SectionCard>
       </div>
 
-      <SectionCard
-        title="Documentos"
-        action={
-          <Link className="button button--ghost" href="/dashboard/documents">
-            Ir al listado
-          </Link>
-        }
-      >
-        <div className="statcard-row">
-          <StatCard label="Total" value={docSummary.total} href="/dashboard/documents" />
-          <StatCard
-            label="Vigentes"
-            value={docSummary.effective}
-            tone="success"
-            href="/dashboard/documents?status=effective"
-          />
-          <StatCard
-            label="Próximos a revisión"
-            value={docSummary.dueSoon}
-            tone="warning"
-            href="/dashboard/documents"
-          />
-          <StatCard
-            label="Obsoletos"
-            value={docSummary.obsolete}
-            href="/dashboard/documents?status=obsolete"
-          />
-          <StatCard
-            label="Revisiones pend."
-            value={alerts.pendingReviews}
-            href="/dashboard/documents/tasks"
-          />
-          <StatCard
-            label="Lecturas pend."
-            value={alerts.pendingReads}
-            href="/dashboard/documents/tasks"
-          />
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Diagnósticos recientes">
-        {data.diagnostics.length === 0 ? (
-          <div className="empty-state" role="status">
-            <p>Aún no hay diagnósticos.</p>
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Diagnóstico</th>
-                  <th>Sitio</th>
-                  <th>Estado</th>
-                  <th>Avance</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.diagnostics.map((d) => (
-                  <tr key={d.id}>
-                    <td>{d.name}</td>
-                    <td>{d.siteName}</td>
-                    <td>
-                      <span className={`badge badge--status-${d.status}`}>
-                        {STATUS_LABEL[d.status] ?? d.status}
-                      </span>
-                    </td>
-                    <td>{d.progress.percentage}%</td>
-                    <td>
-                      <Link
-                        className="button button--ghost"
-                        href={`/dashboard/diagnostics/${d.id}`}
-                      >
-                        Abrir
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionCard>
+      <p className="muted exec__foot">
+        Diagnósticos registrados: {data?.diagnosticsCount ?? 0}.{' '}
+        <Link href="/dashboard/capa">Ir a acciones correctivas</Link>
+      </p>
     </main>
   );
 }

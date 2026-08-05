@@ -89,3 +89,22 @@ a ancho completo.
 4. Tablas siempre dentro de `.table-wrap`.
 5. Reutilizar tokens (nada de colores/espaciados fijos ad-hoc).
 6. Badges con etiqueta de texto (no solo color).
+
+## Dashboard Ejecutivo
+
+Componentes en `src/app/dashboard/_components/exec.tsx` (tema claro):
+
+- `KpiCard` — tarjeta KPI con anillo indicador (`ring` 0–100) y `tone`
+  (green/amber/red/blue). Si el dato aún no existe, se pasa `placeholder`
+  ("En configuración" / "Próximamente") en lugar de un valor.
+- `SemiGauge` — medidor semicircular (0–100) con zonas de color; con `value={null}`
+  muestra "En configuración" (componente preparado, sin cálculo aún).
+- `Placeholder` — estado vacío para módulos sin datos ("Próximamente" /
+  "En configuración").
+- `.exec-strip` — tira de contexto (normas activas · última actualización ·
+  próxima auditoría). `.kpi-row` — fila de KPIs (6→3→2→1 según viewport).
+
+**Regla honesta:** el dashboard **no inventa métricas**. Solo se conectan datos
+reales existentes (CAPA, documentos, marcos, diagnósticos); los módulos sin datos
+(Sentinel Score, cumplimiento por norma, auditoría, Gantt, tendencia, IA,
+certificación) se muestran como "En configuración" o "Próximamente".

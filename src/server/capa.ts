@@ -1352,38 +1352,53 @@ export async function getCapaAlerts(organizationId: string) {
 export async function getCapaDashboard(organizationId: string) {
   const now = new Date();
   const openFilter = { notIn: ['closed', 'cancelled'] };
-  const [byStatus, byPriority, recent, upcoming, capas] = await Promise.all([
-    getPrisma().capa.groupBy({
-      by: ['status'],
-      where: { organizationId, deletedAt: null },
-      _count: true,
-    }),
-    getPrisma().capa.groupBy({
-      by: ['priority'],
-      where: { organizationId, deletedAt: null, status: openFilter },
-      _count: true,
-    }),
-    getPrisma().capaStatusHistory.findMany({
-      where: { organizationId },
-      orderBy: { createdAt: 'desc' },
-      take: 6,
-    }),
-    getPrisma().capaAction.findMany({
-      where: {
-        organizationId,
-        status: { notIn: ['completed', 'cancelled'] },
-        dueDate: { gte: now },
-      },
-      orderBy: { dueDate: 'asc' },
-      take: 6,
-    }),
-    getPrisma().capa.findMany({
-      where: { organizationId, deletedAt: null },
-      select: { id: true, folio: true },
-    }),
-  ]);
+  const [byStatus, byPriority, recent, upcoming, capas, actionsCompleted, overdueActionRows] =
+    await Promise.all([
+      getPrisma().capa.groupBy({
+        by: ['status'],
+        where: { organizationId, deletedAt: null },
+        _count: true,
+      }),
+      getPrisma().capa.groupBy({
+        by: ['priority'],
+        where: { organizationId, deletedAt: null, status: openFilter },
+        _count: true,
+      }),
+      getPrisma().capaStatusHistory.findMany({
+        where: { organizationId },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      }),
+      getPrisma().capaAction.findMany({
+        where: {
+          organizationId,
+          status: { notIn: ['completed', 'cancelled'] },
+          dueDate: { gte: now },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 6,
+      }),
+      getPrisma().capa.findMany({
+        where: { organizationId, deletedAt: null },
+        select: { id: true, folio: true },
+      }),
+      getPrisma().capaAction.count({ where: { organizationId, status: 'completed' } }),
+      getPrisma().capaAction.findMany({
+        where: {
+          organizationId,
+          status: { notIn: ['completed', 'cancelled'] },
+          dueDate: { lt: now },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 6,
+      }),
+    ]);
   const folioByCapa = new Map(capas.map((c) => [c.id, c.folio]));
+  const daysAgo = (d: Date | null) =>
+    d ? Math.max(0, Math.round((now.getTime() - d.getTime()) / 86_400_000)) : null;
   return {
+    actionsCompleted,
+    actionsOverdue: overdueActionRows.length,
     byStatus: byStatus.map((s) => ({ key: s.status, count: s._count })),
     byPriority: byPriority.map((p) => ({ key: p.priority, count: p._count })),
     recent: recent.map((h) => ({
@@ -1399,6 +1414,13 @@ export async function getCapaDashboard(organizationId: string) {
       folio: folioByCapa.get(a.capaId) ?? '—',
       description: a.description,
       dueDate: a.dueDate ? a.dueDate.toISOString().slice(0, 10) : null,
+    })),
+    overdueActions: overdueActionRows.map((a) => ({
+      id: a.id,
+      capaId: a.capaId,
+      folio: folioByCapa.get(a.capaId) ?? '—',
+      description: a.description,
+      daysOverdue: daysAgo(a.dueDate),
     })),
   };
 }

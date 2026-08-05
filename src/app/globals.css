@@ -1819,3 +1819,207 @@ a.tool-card:focus-visible {
     padding: 2px 4px;
   }
 }
+
+/* =====================================================================
+   Dashboard Ejecutivo (tema claro)
+   ===================================================================== */
+.exec-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.exec-strip__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3) var(--space-4);
+}
+.exec-strip__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+.exec-strip__value {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+.kpi {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+}
+.kpi__ring {
+  flex-shrink: 0;
+  line-height: 0;
+}
+.kpi__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.kpi__label {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.kpi__value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.kpi__placeholder {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.kpi__note {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.dash-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.semigauge {
+  display: flex;
+  justify-content: center;
+}
+.center {
+  text-align: center;
+}
+
+.norm-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.norm-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+.norm-list__name {
+  font-weight: 600;
+}
+
+.exec-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+  color: var(--color-muted);
+}
+.exec-placeholder__badge {
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  border: 1px dashed var(--color-border);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+.alerts__head {
+  margin: var(--space-2) 0 var(--space-1);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.alerts__head--crit {
+  color: var(--color-danger);
+}
+.alerts__head--prev {
+  color: var(--color-warning);
+}
+.alerts {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+}
+.alerts li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.88rem;
+}
+.alerts li:last-child {
+  border-bottom: 0;
+}
+.alerts__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.alerts__dot--crit {
+  background: var(--color-danger);
+}
+.alerts__dot--prev {
+  background: var(--color-warning);
+}
+.alerts__meta {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.alerts__meta--crit {
+  color: var(--color-danger);
+}
+.alerts__meta--prev {
+  color: var(--color-warning);
+}
+.exec__foot {
+  margin-top: var(--space-4);
+  font-size: 0.88rem;
+}
+
+@media (max-width: 1440px) {
+  .kpi-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .dash-grid--3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1024px) {
+  .kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .kpi-row {
+    grid-template-columns: 1fr;
+  }
+  .dash-grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
