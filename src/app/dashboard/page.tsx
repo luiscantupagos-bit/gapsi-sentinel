@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireServerSession } from '@/server/session';
 import { getDashboardData } from '@/server/diagnostics';
+import { getDocSummary } from '@/server/documents';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Borrador',
@@ -12,7 +13,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function DashboardPage() {
   const session = await requireServerSession();
-  const data = await getDashboardData(session.organizationId);
+  const [data, docSummary] = await Promise.all([
+    getDashboardData(session.organizationId),
+    getDocSummary(session.organizationId),
+  ]);
 
   if (!data) {
     return (
@@ -43,6 +47,31 @@ export default async function DashboardPage() {
           <dd>{data.diagnosticsCount}</dd>
         </div>
       </dl>
+
+      <h2>Documentos</h2>
+      <div className="stat-row">
+        <div className="stat stat--sm">
+          <span className="stat__label">Total</span>
+          <span className="stat__value">{docSummary.total}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Vigentes</span>
+          <span className="stat__value">{docSummary.effective}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Próximos a revisión</span>
+          <span className="stat__value">{docSummary.dueSoon}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Obsoletos</span>
+          <span className="stat__value">{docSummary.obsolete}</span>
+        </div>
+      </div>
+      <p>
+        <Link className="button button--ghost" href="/dashboard/documents">
+          Ir al listado maestro
+        </Link>
+      </p>
 
       <h2>Diagnósticos recientes</h2>
       {data.diagnostics.length === 0 ? (

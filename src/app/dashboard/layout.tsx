@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getServerSession } from '@/server/session';
 import { devSignOut } from '@/features/auth/dev-actions';
@@ -31,7 +32,13 @@ export default async function DashboardLayout({
           </form>
         </div>
       </header>
-      {children}
+      <div className="shell">
+        <nav className="sidebar" aria-label="Navegación principal">
+          <Link href="/dashboard">Panel</Link>
+          <Link href="/dashboard/documents">Documentos</Link>
+        </nav>
+        <div className="shell__content">{children}</div>
+      </div>
     </div>
   );
 }
