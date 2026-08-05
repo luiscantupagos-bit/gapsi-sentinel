@@ -1231,6 +1231,427 @@ async function seedCapa(): Promise<void> {
   });
 }
 
+/** UUID determinista para la demo de análisis de calidad (TASK-008). */
+function qaUuid(
+  kind: 'a' | 'c' | 'b' | 'd' | 'e' | 'f' | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7',
+  n: number,
+): string {
+  return `00000000-0000-4000-8000-0a8${kind}${n.toString(16).padStart(8, '0')}`;
+}
+
+/**
+ * Datos demo de análisis de calidad (TASK-008): Ishikawa aprobado, árbol de
+ * causas, Pareto, AMEF, recurrencia, comparación de 3 CAPA y uno con cambios
+ * solicitados; hipótesis descartadas/confirmadas, evidencia (metadata), acción
+ * creada desde análisis e historial. Idempotente. Sin datos personales reales.
+ */
+async function seedQualityAnalysis(): Promise<void> {
+  if (await prisma.qualityAnalysis.findUnique({ where: { id: qaUuid('a', 1) } })) return;
+  const now = new Date('2026-08-04T00:00:00.000Z');
+  const capa = (n: number) => capaUuid('0', n);
+  const hist = (analysisId: string, event: string, summary?: string) =>
+    prisma.qualityAnalysisHistory.create({
+      data: {
+        organizationId: ORG_A,
+        analysisId,
+        event,
+        actorUserId: USER_A,
+        summary: summary ?? null,
+      },
+    });
+
+  // 1 + 7 + 9. Ishikawa APROBADO con hipótesis confirmada/descartada/contribuyente.
+  const a1 = qaUuid('a', 1);
+  await prisma.qualityAnalysis.create({
+    data: {
+      id: a1,
+      organizationId: ORG_A,
+      capaId: capa(4),
+      type: 'ishikawa',
+      title: 'Ishikawa: control de plagas',
+      objective: 'Identificar causas del hallazgo de auditoría',
+      status: 'approved',
+      version: 1,
+      responsibleUserId: USER_C,
+      reviewerUserId: USER_A,
+      approverUserId: USER_A,
+      approvedAt: now,
+      createdBy: USER_A,
+    },
+  });
+  const cats = ['Mano de obra', 'Método', 'Maquinaria', 'Materiales', 'Medición', 'Medio ambiente'];
+  const catIds: string[] = [];
+  for (let i = 0; i < cats.length; i += 1) {
+    const id = qaUuid('c', 1 + i);
+    catIds.push(id);
+    await prisma.ishikawaCategory.create({
+      data: {
+        id,
+        organizationId: ORG_A,
+        analysisId: a1,
+        name: cats[i]!,
+        position: i + 1,
+        createdBy: USER_A,
+      },
+    });
+  }
+  await prisma.qualityHypothesis.createMany({
+    data: [
+      {
+        id: qaUuid('b', 1),
+        organizationId: ORG_A,
+        analysisId: a1,
+        description: 'Falta de calendario de verificación de estaciones',
+        ishikawaCategoryId: catIds[1],
+        sourceTool: 'ishikawa',
+        status: 'confirmed',
+        probability: 'high',
+        justification: 'Bitácora sin registros en 3 semanas',
+        createdBy: USER_A,
+      },
+      {
+        id: qaUuid('b', 2),
+        organizationId: ORG_A,
+        analysisId: a1,
+        description: 'Estaciones físicamente dañadas',
+        ishikawaCategoryId: catIds[2],
+        sourceTool: 'ishikawa',
+        status: 'discarded',
+        probability: 'low',
+        createdBy: USER_A,
+      },
+      {
+        id: qaUuid('b', 3),
+        organizationId: ORG_A,
+        analysisId: a1,
+        description: 'Personal sin capacitación en el procedimiento',
+        ishikawaCategoryId: catIds[0],
+        sourceTool: 'ishikawa',
+        status: 'contributing',
+        probability: 'medium',
+        createdBy: USER_A,
+      },
+    ],
+  });
+  await prisma.qualityAnalysisConclusion.create({
+    data: {
+      id: qaUuid('4', 1),
+      organizationId: ORG_A,
+      analysisId: a1,
+      summary: 'La causa raíz es la ausencia de un calendario de verificación.',
+      proposedRootCause: 'Falta de calendario de verificación',
+      confirmedRootCause: 'Falta de calendario de verificación',
+      approvedAt: now,
+      createdBy: USER_A,
+    },
+  });
+  await prisma.qualityAnalysisVersion.create({
+    data: {
+      id: qaUuid('3', 1),
+      organizationId: ORG_A,
+      analysisId: a1,
+      version: 1,
+      snapshot: { type: 'ishikawa', title: 'Ishikawa: control de plagas', approved: true },
+      approvedBy: USER_A,
+    },
+  });
+  // 10. Evidencia (metadata).
+  await prisma.qualityEvidence.create({
+    data: {
+      id: qaUuid('6', 1),
+      organizationId: ORG_A,
+      analysisId: a1,
+      capaId: capa(4),
+      entityType: 'hypothesis',
+      entityId: qaUuid('b', 1),
+      evidenceType: 'investigation',
+      originalName: 'bitacora-verificacion.pdf',
+      storedName: 'seed-qa-01.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 18000,
+      extension: 'pdf',
+      storageKey: `${ORG_A}/seed-qa-01.pdf`,
+      checksum: 'seed-qa-01',
+      uploadedBy: USER_A,
+    },
+  });
+  // 11. Acción CAPA creada desde el análisis (con vínculo bidireccional).
+  const act1 = qaUuid('7', 1);
+  await prisma.capaAction.create({
+    data: {
+      id: act1,
+      organizationId: ORG_A,
+      capaId: capa(4),
+      actionType: 'corrective',
+      description: 'Implementar calendario de verificación de estaciones',
+      responsibleUserId: USER_C,
+      dueDate: new Date('2026-09-30T00:00:00.000Z'),
+      priority: 'high',
+      status: 'pending',
+      createdBy: USER_A,
+    },
+  });
+  await prisma.qualityAnalysisActionLink.create({
+    data: {
+      id: qaUuid('5', 1),
+      organizationId: ORG_A,
+      analysisId: a1,
+      capaActionId: act1,
+      sourceEntity: 'hypothesis',
+      sourceId: qaUuid('b', 1),
+      createdBy: USER_A,
+    },
+  });
+  await hist(a1, 'analysis_created', 'Ishikawa: control de plagas');
+  await hist(a1, 'analysis_approved');
+  await hist(a1, 'capa_action_created');
+
+  // 2. Árbol de causas (en desarrollo) con nodos, aristas y causa raíz propuesta.
+  const a2 = qaUuid('a', 2);
+  await prisma.qualityAnalysis.create({
+    data: {
+      id: a2,
+      organizationId: ORG_A,
+      capaId: capa(5),
+      type: 'cause_tree',
+      title: 'Árbol de causas: fuera de especificación',
+      status: 'in_progress',
+      startedAt: now,
+      responsibleUserId: USER_A,
+      createdBy: USER_A,
+    },
+  });
+  const n1 = qaUuid('d', 1);
+  const n2 = qaUuid('d', 2);
+  const n3 = qaUuid('d', 3);
+  await prisma.causeTreeNode.createMany({
+    data: [
+      {
+        id: n1,
+        organizationId: ORG_A,
+        analysisId: a2,
+        type: 'event',
+        description: 'Producto fuera de especificación',
+        createdBy: USER_A,
+      },
+      {
+        id: n2,
+        organizationId: ORG_A,
+        analysisId: a2,
+        type: 'immediate_cause',
+        description: 'Desviación en pasteurización',
+        createdBy: USER_A,
+      },
+      {
+        id: n3,
+        organizationId: ORG_A,
+        analysisId: a2,
+        type: 'systemic_cause',
+        description: 'Falta de mantenimiento del intercambiador',
+        isProposedRootCause: true,
+        rootCauseJustification: 'Historial de fallas repetidas',
+        createdBy: USER_A,
+      },
+    ],
+  });
+  await prisma.causeTreeEdge.createMany({
+    data: [
+      {
+        id: qaUuid('e', 1),
+        organizationId: ORG_A,
+        analysisId: a2,
+        fromNodeId: n2,
+        toNodeId: n1,
+        relation: 'caused',
+        createdBy: USER_A,
+      },
+      {
+        id: qaUuid('e', 2),
+        organizationId: ORG_A,
+        analysisId: a2,
+        fromNodeId: n3,
+        toNodeId: n2,
+        relation: 'contributed',
+        createdBy: USER_A,
+      },
+    ],
+  });
+  await hist(a2, 'analysis_created', 'Árbol de causas');
+
+  // 3. Pareto (en desarrollo) con datos.
+  const a3 = qaUuid('a', 3);
+  await prisma.qualityAnalysis.create({
+    data: {
+      id: a3,
+      organizationId: ORG_A,
+      capaId: capa(6),
+      type: 'pareto',
+      title: 'Pareto: no conformidades por tipo',
+      status: 'in_progress',
+      startedAt: now,
+      responsibleUserId: USER_A,
+      config: { cutoff: 80, valueKey: 'count' },
+      createdBy: USER_A,
+    },
+  });
+  const paretoData = [
+    ['Temperatura', 12],
+    ['Etiquetado', 7],
+    ['Higiene', 5],
+    ['Documentación', 3],
+    ['Otros', 1],
+  ] as const;
+  for (let i = 0; i < paretoData.length; i += 1) {
+    await prisma.paretoItem.create({
+      data: {
+        id: qaUuid('f', 1 + i),
+        organizationId: ORG_A,
+        analysisId: a3,
+        category: paretoData[i]![0],
+        count: paretoData[i]![1],
+        position: i + 1,
+        createdBy: USER_A,
+      },
+    });
+  }
+  await hist(a3, 'analysis_created', 'Pareto');
+
+  // 4. AMEF (en desarrollo) con filas y NPR.
+  const a4 = qaUuid('a', 4);
+  await prisma.qualityAnalysis.create({
+    data: {
+      id: a4,
+      organizationId: ORG_A,
+      capaId: capa(5),
+      type: 'fmea',
+      title: 'AMEF: proceso de pasteurización',
+      status: 'in_progress',
+      startedAt: now,
+      responsibleUserId: USER_A,
+      config: { scale: { severityMax: 10, occurrenceMax: 10, detectionMax: 10 } },
+      createdBy: USER_A,
+    },
+  });
+  const fmea = [
+    ['Pasteurización', 'Temperatura insuficiente', 'Sobrevivencia microbiana', 9, 4, 5, 'high'],
+    ['Envasado', 'Sello deficiente', 'Contaminación posterior', 7, 3, 4, 'medium'],
+  ] as const;
+  for (let i = 0; i < fmea.length; i += 1) {
+    const [proc, mode, effect, sev, occ, det, prio] = fmea[i]!;
+    await prisma.fmeaRow.create({
+      data: {
+        id: qaUuid('0', 1 + i),
+        organizationId: ORG_A,
+        analysisId: a4,
+        processStep: proc,
+        failureMode: mode,
+        effect,
+        severity: sev,
+        occurrence: occ,
+        detection: det,
+        npr: sev * occ * det,
+        actionPriority: prio,
+        position: i + 1,
+        createdBy: USER_A,
+      },
+    });
+  }
+  await hist(a4, 'analysis_created', 'AMEF');
+  await hist(a4, 'fmea_row_created');
+
+  // 5. Recurrencia (en desarrollo) con una coincidencia confirmada.
+  const a5 = qaUuid('a', 5);
+  await prisma.qualityAnalysis.create({
+    data: {
+      id: a5,
+      organizationId: ORG_A,
+      capaId: capa(3),
+      type: 'recurrence',
+      title: 'Recurrencia: queja de cliente',
+      status: 'in_progress',
+      startedAt: now,
+      responsibleUserId: USER_A,
+      createdBy: USER_A,
+    },
+  });
+  await prisma.recurrenceMatch.create({
+    data: {
+      id: qaUuid('1', 1),
+      organizationId: ORG_A,
+      analysisId: a5,
+      matchedCapaId: capa(1),
+      matchReason: 'mismo tipo, mismo sitio',
+      confirmation: 'possibly_recurrent',
+      justification: 'Ambas en Planta Norte por control de registros',
+      confirmedBy: USER_A,
+      createdBy: USER_A,
+    },
+  });
+  await hist(a5, 'analysis_created', 'Recurrencia');
+  await hist(a5, 'recurrence_confirmed');
+
+  // 6. Comparación de 3 CAPA (en desarrollo).
+  const a6 = qaUuid('a', 6);
+  await prisma.qualityAnalysis.create({
+    data: {
+      id: a6,
+      organizationId: ORG_A,
+      capaId: capa(4),
+      type: 'comparative',
+      title: 'Comparación de casos de inocuidad',
+      status: 'in_progress',
+      startedAt: now,
+      responsibleUserId: USER_A,
+      createdBy: USER_A,
+    },
+  });
+  const compCapas = [capa(3), capa(4), capa(6)];
+  for (let i = 0; i < compCapas.length; i += 1) {
+    await prisma.comparativeCase.create({
+      data: {
+        id: qaUuid('2', 1 + i),
+        organizationId: ORG_A,
+        analysisId: a6,
+        capaId: compCapas[i]!,
+        position: i + 1,
+        createdBy: USER_A,
+      },
+    });
+  }
+  await hist(a6, 'analysis_created', 'Comparación');
+
+  // 8. Análisis con CAMBIOS SOLICITADOS (libre).
+  const a7 = qaUuid('a', 7);
+  await prisma.qualityAnalysis.create({
+    data: {
+      id: a7,
+      organizationId: ORG_A,
+      capaId: capa(2),
+      type: 'freeform',
+      title: 'Análisis libre: desviación de peso',
+      status: 'changes_requested',
+      startedAt: now,
+      responsibleUserId: USER_C,
+      reviewerUserId: USER_A,
+      createdBy: USER_A,
+    },
+  });
+  await prisma.qualityHypothesis.create({
+    data: {
+      id: qaUuid('b', 4),
+      organizationId: ORG_A,
+      analysisId: a7,
+      description: 'Calibración de báscula fuera de rango',
+      sourceTool: 'freeform',
+      status: 'probable',
+      probability: 'medium',
+      createdBy: USER_A,
+    },
+  });
+  await hist(a7, 'analysis_created', 'Análisis libre');
+  await hist(a7, 'changes_requested', 'Falta evidencia de calibración');
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -1286,6 +1707,7 @@ async function main(): Promise<void> {
   await seedEditorDocuments();
   await seedControlDocuments();
   await seedCapa();
+  await seedQualityAnalysis();
 
   console.log(
     'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico.',
