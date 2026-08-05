@@ -1346,3 +1346,59 @@ export async function getCapaAlerts(organizationId: string) {
     ]);
   return { open, critical, overdue, pendingActions, pendingVerifications, recentlyClosed };
 }
+
+/** Datos de solo lectura para el panel: distribución por estado/prioridad,
+ *  actividad reciente y acciones próximas. No modifica lógica de negocio. */
+export async function getCapaDashboard(organizationId: string) {
+  const now = new Date();
+  const openFilter = { notIn: ['closed', 'cancelled'] };
+  const [byStatus, byPriority, recent, upcoming, capas] = await Promise.all([
+    getPrisma().capa.groupBy({
+      by: ['status'],
+      where: { organizationId, deletedAt: null },
+      _count: true,
+    }),
+    getPrisma().capa.groupBy({
+      by: ['priority'],
+      where: { organizationId, deletedAt: null, status: openFilter },
+      _count: true,
+    }),
+    getPrisma().capaStatusHistory.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+      take: 6,
+    }),
+    getPrisma().capaAction.findMany({
+      where: {
+        organizationId,
+        status: { notIn: ['completed', 'cancelled'] },
+        dueDate: { gte: now },
+      },
+      orderBy: { dueDate: 'asc' },
+      take: 6,
+    }),
+    getPrisma().capa.findMany({
+      where: { organizationId, deletedAt: null },
+      select: { id: true, folio: true },
+    }),
+  ]);
+  const folioByCapa = new Map(capas.map((c) => [c.id, c.folio]));
+  return {
+    byStatus: byStatus.map((s) => ({ key: s.status, count: s._count })),
+    byPriority: byPriority.map((p) => ({ key: p.priority, count: p._count })),
+    recent: recent.map((h) => ({
+      id: String(h.id),
+      event: h.event,
+      folio: folioByCapa.get(h.capaId) ?? '—',
+      detail: h.detail,
+      at: h.createdAt.toISOString().slice(0, 10),
+    })),
+    upcoming: upcoming.map((a) => ({
+      id: a.id,
+      capaId: a.capaId,
+      folio: folioByCapa.get(a.capaId) ?? '—',
+      description: a.description,
+      dueDate: a.dueDate ? a.dueDate.toISOString().slice(0, 10) : null,
+    })),
+  };
+}
