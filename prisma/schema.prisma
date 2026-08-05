@@ -1015,3 +1015,358 @@ model CapaComment {
   @@index([capaId, createdAt])
   @@map("capa_comments")
 }
+
+// =====================================================================
+// TASK-008 — Herramientas de calidad y analisis avanzado de causa
+// FK compuestas anti-cruce a quality_analyses/capas/capa_actions, FKs a
+// organizations/users, CHECK de enums, RLS, append-only (historial) y
+// no-borrado se anaden por SQL complementario (Prisma no las expresa).
+// =====================================================================
+
+/// Encabezado de un analisis de calidad (Ishikawa/arbol/Pareto/AMEF/...).
+model QualityAnalysis {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  capaId            String    @map("capa_id") @db.Uuid
+  /// type: ishikawa|cause_tree|pareto|fmea|recurrence|comparative|freeform
+  type              String
+  title             String
+  objective         String?
+  scope             String?
+  /// status: draft|in_progress|under_review|changes_requested|approved|cancelled
+  status            String    @default("draft")
+  version           Int       @default(1)
+  parentAnalysisId  String?   @map("parent_analysis_id") @db.Uuid
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  reviewerUserId    String?   @map("reviewer_user_id") @db.Uuid
+  approverUserId    String?   @map("approver_user_id") @db.Uuid
+  startedAt         DateTime? @map("started_at") @db.Timestamptz(6)
+  reviewedAt        DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  approvedAt        DateTime? @map("approved_at") @db.Timestamptz(6)
+  config            Json?
+  snapshot          Json?
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@unique([id, organizationId])
+  @@index([organizationId, capaId])
+  @@index([organizationId, status])
+  @@map("quality_analyses")
+}
+
+/// Participante de un analisis (colaborador/revisor/aprobador).
+model QualityAnalysisParticipant {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  /// role: participant | reviewer | approver
+  role           String   @default("participant")
+  addedBy        String?  @map("added_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([analysisId, userId, role])
+  @@index([analysisId])
+  @@map("quality_analysis_participants")
+}
+
+/// Registro comun y reutilizable de hipotesis / causas.
+model QualityHypothesis {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  analysisId         String    @map("analysis_id") @db.Uuid
+  description        String
+  category           String?
+  ishikawaCategoryId String?   @map("ishikawa_category_id") @db.Uuid
+  parentHypothesisId String?   @map("parent_hypothesis_id") @db.Uuid
+  /// sourceTool: ishikawa | cause_tree | fmea | freeform | other
+  sourceTool         String?   @map("source_tool")
+  responsibleUserId  String?   @map("responsible_user_id") @db.Uuid
+  evidenceFor        String?   @map("evidence_for")
+  evidenceAgainst    String?   @map("evidence_against")
+  /// status: pending|evaluating|discarded|contributing|probable|confirmed
+  status             String    @default("pending")
+  /// probability: low | medium | high | undetermined
+  probability        String    @default("undetermined")
+  /// impact: low | medium | high
+  impact             String?
+  conclusion         String?
+  justification      String?
+  evaluatedAt        DateTime? @map("evaluated_at") @db.Timestamptz(6)
+  evaluatorUserId    String?   @map("evaluator_user_id") @db.Uuid
+  createdBy          String?   @map("created_by") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([analysisId])
+  @@map("quality_hypotheses")
+}
+
+/// Categoria del diagrama de Ishikawa (predeterminadas 6M o personalizadas).
+model IshikawaCategory {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  name           String
+  position       Int      @default(0)
+  active         Boolean  @default(true)
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([id, organizationId])
+  @@index([analysisId])
+  @@map("ishikawa_categories")
+}
+
+/// Nodo del arbol de causas.
+model CauseTreeNode {
+  id                     String    @id @default(uuid()) @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
+  analysisId             String    @map("analysis_id") @db.Uuid
+  /// type: event|consequence|immediate_cause|contributing_cause|systemic_cause|failed_control|missing_barrier|human_factor|organizational_factor|evidence|other
+  type                   String
+  description            String
+  /// validationStatus: hypothesis | confirmed_fact | discarded
+  validationStatus       String    @default("hypothesis") @map("validation_status")
+  responsibleUserId      String?   @map("responsible_user_id") @db.Uuid
+  comment                String?
+  isProposedRootCause    Boolean   @default(false) @map("is_proposed_root_cause")
+  rootCauseJustification String?   @map("root_cause_justification")
+  posX                   Int       @default(0) @map("pos_x")
+  posY                   Int       @default(0) @map("pos_y")
+  createdBy              String?   @map("created_by") @db.Uuid
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([id, organizationId])
+  @@index([analysisId])
+  @@map("cause_tree_nodes")
+}
+
+/// Relacion dirigida entre nodos del arbol de causas.
+model CauseTreeEdge {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  fromNodeId     String   @map("from_node_id") @db.Uuid
+  toNodeId       String   @map("to_node_id") @db.Uuid
+  /// relation: caused|contributed|enabled|aggravated|evidence|contradicts
+  relation       String   @default("caused")
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([analysisId])
+  @@map("cause_tree_edges")
+}
+
+/// Elemento de un analisis de Pareto.
+model ParetoItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  category       String
+  count          Int      @default(0)
+  cost           Decimal? @db.Decimal(14, 2)
+  impact         String?
+  period         String?
+  source         String?
+  comment        String?
+  position       Int      @default(0)
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([analysisId])
+  @@map("pareto_items")
+}
+
+/// Fila de un analisis AMEF (modo de falla).
+model FmeaRow {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  analysisId         String    @map("analysis_id") @db.Uuid
+  processStep        String?   @map("process_step")
+  functionText       String?   @map("function_text")
+  requirement        String?
+  failureMode        String    @map("failure_mode")
+  effect             String?
+  severity           Int       @default(1)
+  causePotential     String?   @map("cause_potential")
+  occurrence         Int       @default(1)
+  preventionControls String?   @map("prevention_controls")
+  detectionControls  String?   @map("detection_controls")
+  detection          Int       @default(1)
+  npr                Int       @default(1)
+  /// actionPriority: low | medium | high | critical
+  actionPriority     String    @default("low") @map("action_priority")
+  recommendedAction  String?   @map("recommended_action")
+  responsibleUserId  String?   @map("responsible_user_id") @db.Uuid
+  dueDate            DateTime? @map("due_date") @db.Date
+  executedAction     String?   @map("executed_action")
+  severityPost       Int?      @map("severity_post")
+  occurrencePost     Int?      @map("occurrence_post")
+  detectionPost      Int?      @map("detection_post")
+  nprPost            Int?      @map("npr_post")
+  status             String    @default("open")
+  comment            String?
+  position           Int       @default(0)
+  createdBy          String?   @map("created_by") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([id, organizationId])
+  @@index([analysisId])
+  @@map("fmea_rows")
+}
+
+/// Coincidencia de recurrencia con otra CAPA de la organizacion.
+model RecurrenceMatch {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  matchedCapaId  String   @map("matched_capa_id") @db.Uuid
+  matchReason    String?  @map("match_reason")
+  /// confirmation: recurrent|possibly_recurrent|not_recurrent|insufficient_evidence
+  confirmation   String   @default("insufficient_evidence")
+  justification  String?
+  confirmedBy    String?  @map("confirmed_by") @db.Uuid
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([analysisId, matchedCapaId])
+  @@index([analysisId])
+  @@map("recurrence_matches")
+}
+
+/// CAPA incluida en una comparacion de casos.
+model ComparativeCase {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  capaId         String   @map("capa_id") @db.Uuid
+  position       Int      @default(0)
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([analysisId, capaId])
+  @@index([analysisId])
+  @@map("comparative_cases")
+}
+
+/// Conclusion estructurada de un analisis (1:1).
+model QualityAnalysisConclusion {
+  id                    String    @id @default(uuid()) @db.Uuid
+  organizationId        String    @map("organization_id") @db.Uuid
+  analysisId            String    @unique @map("analysis_id") @db.Uuid
+  summary               String?
+  immediateCause        String?   @map("immediate_cause")
+  contributingCauses    String?   @map("contributing_causes")
+  proposedRootCause     String?   @map("proposed_root_cause")
+  confirmedRootCause    String?   @map("confirmed_root_cause")
+  mainEvidence          String?   @map("main_evidence")
+  contradictoryEvidence String?   @map("contradictory_evidence")
+  limitations           String?
+  pendingInfo           String?   @map("pending_info")
+  recurrenceRisk        String?   @map("recurrence_risk")
+  recommendations       String?
+  responsibleUserId     String?   @map("responsible_user_id") @db.Uuid
+  approvedAt            DateTime? @map("approved_at") @db.Timestamptz(6)
+  createdBy             String?   @map("created_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([analysisId])
+  @@map("quality_analysis_conclusions")
+}
+
+/// Vinculo bidireccional entre un elemento del analisis y una accion CAPA.
+model QualityAnalysisActionLink {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  capaActionId   String   @map("capa_action_id") @db.Uuid
+  /// sourceEntity: hypothesis|cause_tree_node|fmea_row|pareto|recurrence|comparative|conclusion
+  sourceEntity   String   @map("source_entity")
+  sourceId       String?  @map("source_id") @db.Uuid
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([analysisId, capaActionId])
+  @@index([analysisId])
+  @@index([capaActionId])
+  @@map("quality_analysis_action_links")
+}
+
+/// Evidencia/archivo asociado a un analisis (binarios fuera de PostgreSQL).
+model QualityEvidence {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  capaId         String   @map("capa_id") @db.Uuid
+  /// entityType: analysis|ishikawa_category|hypothesis|cause_tree_node|fmea_row|recurrence|conclusion
+  entityType     String   @map("entity_type")
+  entityId       String?  @map("entity_id") @db.Uuid
+  evidenceType   String?  @map("evidence_type")
+  originalName   String   @map("original_name")
+  storedName     String   @map("stored_name")
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int      @map("size_bytes")
+  extension      String
+  storageKey     String   @map("storage_key")
+  checksum       String?
+  uploadedBy     String?  @map("uploaded_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([analysisId])
+  @@map("quality_evidence")
+}
+
+/// Comentario de un analisis (no se elimina fisicamente).
+model QualityAnalysisComment {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  section        String?
+  author         String?  @db.Uuid
+  body           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([analysisId, createdAt])
+  @@map("quality_analysis_comments")
+}
+
+/// Snapshot inmutable de una version aprobada de un analisis.
+model QualityAnalysisVersion {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  version        Int
+  snapshot       Json
+  approvedBy     String?  @map("approved_by") @db.Uuid
+  approvedAt     DateTime @default(now()) @map("approved_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([analysisId, version])
+  @@index([analysisId])
+  @@map("quality_analysis_versions")
+}
+
+/// Historial de un analisis (append-only).
+model QualityAnalysisHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  event          String
+  fromStatus     String?  @map("from_status")
+  toStatus       String?  @map("to_status")
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  entity         String?
+  summary        String?
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([analysisId, createdAt])
+  @@map("quality_analysis_history")
+}
