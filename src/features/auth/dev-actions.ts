@@ -11,10 +11,17 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { encodeDevToken, SESSION_COOKIE_NAME, type Session } from '@/features/auth';
 
-/** Sesión de demostración usada por el flujo de desarrollo. */
+/**
+ * Sesión de demostración usada por el flujo de desarrollo.
+ *
+ * ⚠️ TEMPORAL / solo desarrollo. Apunta a la organización y usuario del seed
+ * (Alimentos Demo A / Evaluador A) para que la demo muestre datos reales. No es
+ * autenticación real y `selectProvider()` impide el adaptador `dev` en
+ * producción. Estos IDs coinciden con `prisma/seed.ts` (ORG_A / USER_A).
+ */
 const DEMO_SESSION: Session = {
-  userId: 'dev-user',
-  organizationId: 'demo-org',
+  userId: '00000000-0000-4000-8000-0000000000a1',
+  organizationId: '00000000-0000-4000-8000-0000000000a0',
   role: 'owner',
 };
 
