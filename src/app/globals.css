@@ -1460,3 +1460,178 @@ a.tool-card:focus-visible {
   outline: 3px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* --- TASK-008: llenado guiado de análisis (etapas + ayuda) --- */
+.analysis-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-3) 0 var(--space-6);
+}
+.form-step {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.form-step__head {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+}
+.form-step__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 0.98rem;
+}
+.form-step__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.form-step__desc {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+.form-step__body {
+  padding: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* Campo etiquetado (título encima del control) */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.field__label {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.field input,
+.field select,
+.field textarea {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 400;
+}
+.field input[type='number'] {
+  width: 6rem;
+}
+
+/* Filas repetidas (evaluar causas, acciones AMEF, recurrencia) */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+.rows .wf-form {
+  align-items: flex-end;
+  background: var(--color-surface-2);
+}
+.rows__label {
+  flex-basis: 100%;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.rows__label em {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+/* Rejilla de captura de Pareto */
+.pareto-grid {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+.pareto-grid__rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-2);
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+.pareto-grid__row {
+  display: flex;
+  gap: var(--space-2);
+}
+.pareto-grid__row input:first-child {
+  flex: 1;
+}
+.pareto-grid__row input[type='number'] {
+  width: 5.5rem;
+}
+
+.analysis-steps__hint {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+/* Icono de ayuda "?" con burbuja */
+.helptip {
+  position: relative;
+  display: inline-flex;
+}
+.helptip__btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: help;
+  padding: 0;
+}
+.helptip__bubble {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: 22rem;
+  padding: var(--space-2) var(--space-3);
+  background: #0f2440;
+  color: #fff;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.4;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+}
+.helptip:hover .helptip__bubble,
+.helptip:focus-within .helptip__bubble {
+  opacity: 1;
+  visibility: visible;
+}
