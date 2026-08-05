@@ -187,5 +187,21 @@ Crea la base y ajusta `DATABASE_URL` en `.env`; luego `npm run db:migrate`,
 
 `npm run db:seed` crea: 2 organizaciones, 2 usuarios, membresías, 1 sitio por
 organización, 1 marco **maestro** (GAPSI) publicado, 1 **copia privada** de
-plantilla publicada con secciones/requisitos/preguntas/opciones, y 1 diagnóstico
-de ejemplo con respuestas e historial de estado.
+plantilla publicada con 2 secciones / 9 preguntas, y 1 diagnóstico de ejemplo con
+respuestas parciales.
+
+## Demo del diagnóstico (TASK-003)
+
+Flujo visible sobre los datos del seed (ver
+`docs/tasks/TASK-003-IMPLEMENTATION-NOTES.md`):
+
+```bash
+npm run db:up && npm run db:migrate && npm run db:seed
+npm run dev            # http://localhost:3000
+```
+
+1. En `/login`, pulsa **Entrar como usuario de demostración** (sesión dev → ORG_A).
+2. En el panel, **Abrir** el diagnóstico de ejemplo.
+3. Responde preguntas y **Guardar avance** (el progreso de captura cambia).
+4. **Enviar diagnóstico** (queda en solo lectura).
+5. **Ver resultado preliminar** (cálculo provisional, no el motor definitivo).

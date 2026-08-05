@@ -1,14 +1,15 @@
 /**
- * Datos semilla mínimos de DESARROLLO para GAPSI Sentinel (TASK-002).
+ * Datos semilla mínimos de DESARROLLO para GAPSI Sentinel (TASK-002 / TASK-003).
  *
  * Contenido: 2 organizaciones, 2 usuarios, membresías, 1 sitio por organización,
  * 1 marco maestro (GAPSI) publicado, 1 copia privada de plantilla publicada con
- * secciones/requisitos/preguntas/opciones, y 1 diagnóstico de ejemplo con
- * respuestas e historial de estado.
+ * 2 secciones / 4 requisitos / 9 preguntas (yes_no, selección única, texto; 2
+ * críticas; 1 admite "No aplica"), y 1 diagnóstico de ejemplo con algunas
+ * respuestas (progreso parcial para la demo).
  *
- * Idempotente: si la organización demo ya existe, no vuelve a insertar (los
- * triggers de inmutabilidad bloquearían re-sembrar contenido publicado). Para
- * una recarga limpia usa `npm run db:reset:local`.
+ * Idempotente y con recuperación: cada bloque solo inserta lo que falta; puede
+ * ejecutarse sobre una base con datos parciales sin borrar nada. Para una
+ * recarga limpia usa `npm run db:reset:local`.
  *
  * No usa datos personales reales.
  */
@@ -34,184 +35,248 @@ const PRIV_VER_A = '00000000-0000-4000-8000-0000000ea001';
 
 const DIAG_A = '00000000-0000-4000-8000-0000000da001';
 
-interface ContentIds {
-  section: string;
-  requirement: string;
-  qYesNo: string;
-  qChoice: string;
-  qText: string;
-  optYes: string;
-  optNo: string;
-  optAdequate: string;
-  optPartial: string;
-  optNone: string;
+// --- Definición family-agnóstica de la plantilla de ejemplo -------------------
+
+type QType = 'yes_no' | 'single_choice' | 'text';
+interface OptDef {
+  code: string;
+  label: string;
+  score: number;
+}
+interface QDef {
+  code: string;
+  prompt: string;
+  type: QType;
+  weight: number;
+  critical?: boolean;
+  na?: boolean;
+  options?: OptDef[];
+}
+interface RDef {
+  code: string;
+  title: string;
+  critical?: boolean;
+  questions: QDef[];
+}
+interface SDef {
+  code: string;
+  title: string;
+  requirements: RDef[];
 }
 
-const MASTER_IDS: ContentIds = {
-  section: '00000000-0000-4000-8000-00000000fa10',
-  requirement: '00000000-0000-4000-8000-00000000fa20',
-  qYesNo: '00000000-0000-4000-8000-00000000fa31',
-  qChoice: '00000000-0000-4000-8000-00000000fa32',
-  qText: '00000000-0000-4000-8000-00000000fa33',
-  optYes: '00000000-0000-4000-8000-00000000fa41',
-  optNo: '00000000-0000-4000-8000-00000000fa42',
-  optAdequate: '00000000-0000-4000-8000-00000000fa43',
-  optPartial: '00000000-0000-4000-8000-00000000fa44',
-  optNone: '00000000-0000-4000-8000-00000000fa45',
-};
+const YES_NO: OptDef[] = [
+  { code: 'YES', label: 'Sí', score: 1 },
+  { code: 'NO', label: 'No', score: 0 },
+];
 
-const PRIV_IDS: ContentIds = {
-  section: '00000000-0000-4000-8000-0000000ea010',
-  requirement: '00000000-0000-4000-8000-0000000ea020',
-  qYesNo: '00000000-0000-4000-8000-0000000ea031',
-  qChoice: '00000000-0000-4000-8000-0000000ea032',
-  qText: '00000000-0000-4000-8000-0000000ea033',
-  optYes: '00000000-0000-4000-8000-0000000ea041',
-  optNo: '00000000-0000-4000-8000-0000000ea042',
-  optAdequate: '00000000-0000-4000-8000-0000000ea043',
-  optPartial: '00000000-0000-4000-8000-0000000ea044',
-  optNone: '00000000-0000-4000-8000-0000000ea045',
-};
+const TEMPLATE: SDef[] = [
+  {
+    code: 'S1',
+    title: 'Control de peligros',
+    requirements: [
+      {
+        code: 'R1',
+        title: 'PCC monitoreado',
+        critical: true,
+        questions: [
+          {
+            code: 'Q1',
+            prompt: '¿Existe monitoreo de cada PCC?',
+            type: 'yes_no',
+            weight: 1,
+            critical: true,
+            options: YES_NO,
+          },
+          {
+            code: 'Q2',
+            prompt: '¿Frecuencia de verificación de los PCC?',
+            type: 'single_choice',
+            weight: 2,
+            options: [
+              { code: 'ADEQUATE', label: 'Adecuada', score: 1 },
+              { code: 'PARTIAL', label: 'Parcial', score: 0.5 },
+              { code: 'NONE', label: 'Inexistente', score: 0 },
+            ],
+          },
+          {
+            code: 'Q3',
+            prompt: 'Describa el método de monitoreo (observación).',
+            type: 'text',
+            weight: 1,
+          },
+        ],
+      },
+      {
+        code: 'R2',
+        title: 'Límites críticos definidos',
+        critical: true,
+        questions: [
+          {
+            code: 'Q4',
+            prompt: '¿Se definieron límites críticos para cada PCC?',
+            type: 'yes_no',
+            weight: 1,
+            critical: true,
+            options: YES_NO,
+          },
+          {
+            code: 'Q5',
+            prompt: '¿Aplica un control específico de alérgenos?',
+            type: 'yes_no',
+            weight: 1,
+            na: true,
+            options: YES_NO,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    code: 'S2',
+    title: 'Prerrequisitos',
+    requirements: [
+      {
+        code: 'R3',
+        title: 'Higiene del personal',
+        questions: [
+          {
+            code: 'Q6',
+            prompt: '¿Existe un programa de higiene del personal?',
+            type: 'yes_no',
+            weight: 1,
+            options: YES_NO,
+          },
+          {
+            code: 'Q7',
+            prompt: '¿Nivel de capacitación del personal?',
+            type: 'single_choice',
+            weight: 1,
+            options: [
+              { code: 'HIGH', label: 'Alto', score: 1 },
+              { code: 'MEDIUM', label: 'Medio', score: 0.5 },
+              { code: 'LOW', label: 'Bajo', score: 0 },
+            ],
+          },
+        ],
+      },
+      {
+        code: 'R4',
+        title: 'Control de proveedores',
+        questions: [
+          {
+            code: 'Q8',
+            prompt: '¿Se evalúan y aprueban los proveedores?',
+            type: 'yes_no',
+            weight: 1,
+            options: YES_NO,
+          },
+          {
+            code: 'Q9',
+            prompt: 'Comentarios sobre proveedores (observación).',
+            type: 'text',
+            weight: 1,
+          },
+        ],
+      },
+    ],
+  },
+];
 
-/** Inserta el contenido (sección/requisito/preguntas/opciones) de una versión en `draft`. */
+/** UUID determinista por familia (`f` maestro, `e` privado) y tipo. */
+function seedUuid(family: 'f' | 'e', type: '1' | '2' | '3' | '4', index: number): string {
+  const suffix = '00000000' + family + type + index.toString(16).padStart(2, '0');
+  return `00000000-0000-4000-8000-${suffix}`;
+}
+
+/** Inserta el contenido de una versión (en `draft`) de forma determinista. */
 async function seedVersionContent(
   versionId: string,
   organizationId: string | null,
-  ids: ContentIds,
+  family: 'f' | 'e',
 ): Promise<void> {
-  await prisma.templateSection.create({
-    data: {
-      id: ids.section,
-      organizationId,
-      templateVersionId: versionId,
-      code: 'S1',
-      title: 'Control de peligros',
-      position: 1,
-    },
-  });
+  let si = 0;
+  let ri = 0;
+  let qi = 0;
+  let oi = 0;
 
-  await prisma.templateRequirement.create({
-    data: {
-      id: ids.requirement,
-      organizationId,
-      templateVersionId: versionId,
-      sectionId: ids.section,
-      code: 'R1',
-      title: 'PCC monitoreado',
-      isCritical: true,
-      position: 1,
-    },
-  });
+  for (const s of TEMPLATE) {
+    si += 1;
+    const sectionId = seedUuid(family, '1', si);
+    await prisma.templateSection.create({
+      data: {
+        id: sectionId,
+        organizationId,
+        templateVersionId: versionId,
+        code: s.code,
+        title: s.title,
+        position: si,
+      },
+    });
 
-  await prisma.templateQuestion.createMany({
-    data: [
-      {
-        id: ids.qYesNo,
-        organizationId,
-        templateVersionId: versionId,
-        requirementId: ids.requirement,
-        code: 'Q1',
-        prompt: '¿Existe monitoreo de cada PCC?',
-        questionType: 'yes_no',
-        weight: 1,
-        isCritical: true,
-        allowsNotApplicable: false,
-        isScored: true,
-        position: 1,
-      },
-      {
-        id: ids.qChoice,
-        organizationId,
-        templateVersionId: versionId,
-        requirementId: ids.requirement,
-        code: 'Q2',
-        prompt: '¿Frecuencia de verificación?',
-        questionType: 'single_choice',
-        weight: 2,
-        isCritical: false,
-        allowsNotApplicable: false,
-        isScored: true,
-        position: 2,
-      },
-      {
-        id: ids.qText,
-        organizationId,
-        templateVersionId: versionId,
-        requirementId: ids.requirement,
-        code: 'Q3',
-        prompt: 'Describa el método de monitoreo (observación).',
-        questionType: 'text',
-        weight: 1,
-        isCritical: false,
-        allowsNotApplicable: false,
-        isScored: false, // texto: no puntúa por defecto
-        position: 3,
-      },
-    ],
-  });
+    for (const r of s.requirements) {
+      ri += 1;
+      const requirementId = seedUuid(family, '2', ri);
+      await prisma.templateRequirement.create({
+        data: {
+          id: requirementId,
+          organizationId,
+          templateVersionId: versionId,
+          sectionId,
+          code: r.code,
+          title: r.title,
+          isCritical: Boolean(r.critical),
+          position: ri,
+        },
+      });
 
-  await prisma.templateAnswerOption.createMany({
-    data: [
-      {
-        id: ids.optYes,
-        organizationId,
-        templateVersionId: versionId,
-        questionId: ids.qYesNo,
-        code: 'YES',
-        label: 'Sí',
-        scoreFraction: 1,
-        position: 1,
-      },
-      {
-        id: ids.optNo,
-        organizationId,
-        templateVersionId: versionId,
-        questionId: ids.qYesNo,
-        code: 'NO',
-        label: 'No',
-        scoreFraction: 0,
-        position: 2,
-      },
-      {
-        id: ids.optAdequate,
-        organizationId,
-        templateVersionId: versionId,
-        questionId: ids.qChoice,
-        code: 'ADEQUATE',
-        label: 'Adecuada',
-        scoreFraction: 1,
-        position: 1,
-      },
-      {
-        id: ids.optPartial,
-        organizationId,
-        templateVersionId: versionId,
-        questionId: ids.qChoice,
-        code: 'PARTIAL',
-        label: 'Parcial',
-        scoreFraction: 0.5,
-        position: 2,
-      },
-      {
-        id: ids.optNone,
-        organizationId,
-        templateVersionId: versionId,
-        questionId: ids.qChoice,
-        code: 'NONE',
-        label: 'Inexistente',
-        scoreFraction: 0,
-        position: 3,
-      },
-    ],
-  });
+      for (const q of r.questions) {
+        qi += 1;
+        const questionId = seedUuid(family, '3', qi);
+        await prisma.templateQuestion.create({
+          data: {
+            id: questionId,
+            organizationId,
+            templateVersionId: versionId,
+            requirementId,
+            code: q.code,
+            prompt: q.prompt,
+            questionType: q.type,
+            weight: q.weight,
+            isCritical: Boolean(q.critical),
+            allowsNotApplicable: Boolean(q.na),
+            isScored: q.type !== 'text',
+            position: qi,
+          },
+        });
+
+        let opos = 0;
+        for (const o of q.options ?? []) {
+          oi += 1;
+          opos += 1;
+          await prisma.templateAnswerOption.create({
+            data: {
+              id: seedUuid(family, '4', oi),
+              organizationId,
+              templateVersionId: versionId,
+              questionId,
+              code: o.code,
+              label: o.label,
+              scoreFraction: o.score,
+              position: opos,
+            },
+          });
+        }
+      }
+    }
+  }
 }
 
-/** Crea el marco + versión + contenido de una plantilla y la publica, si el marco no existe aún. */
+/** Crea el marco + versión + contenido y la publica, si el marco no existe aún. */
 async function ensureTemplate(
   frameworkId: string,
   versionId: string,
   organizationId: string | null,
-  ids: ContentIds,
+  family: 'f' | 'e',
   data: {
     scope: 'master' | 'organization';
     frameworkName: string;
@@ -220,9 +285,8 @@ async function ensureTemplate(
     contentHash: string;
     createdBy: string | null;
   },
-): Promise<boolean> {
-  const exists = await prisma.assessmentFramework.findUnique({ where: { id: frameworkId } });
-  if (exists) return false;
+): Promise<void> {
+  if (await prisma.assessmentFramework.findUnique({ where: { id: frameworkId } })) return;
 
   await prisma.assessmentFramework.create({
     data: {
@@ -247,21 +311,89 @@ async function ensureTemplate(
       createdBy: data.createdBy,
     },
   });
-  await seedVersionContent(versionId, organizationId, ids);
+  await seedVersionContent(versionId, organizationId, family);
   await prisma.templateVersion.update({
     where: { id: versionId },
     data: { status: 'published', publishedAt: new Date(), contentHash: data.contentHash },
   });
-  return true;
+}
+
+async function seedDiagnostic(): Promise<void> {
+  if (await prisma.diagnostic.findUnique({ where: { id: DIAG_A } })) return;
+
+  await prisma.diagnostic.create({
+    data: {
+      id: DIAG_A,
+      organizationId: ORG_A,
+      siteId: SITE_A,
+      templateVersionId: PRIV_VER_A,
+      name: 'Diagnóstico inicial Planta Norte',
+      responsibleUserId: USER_A,
+      status: 'draft',
+      createdBy: USER_A,
+    },
+  });
+  await prisma.diagnosticStateHistory.create({
+    data: {
+      organizationId: ORG_A,
+      diagnosticId: DIAG_A,
+      fromStatus: null,
+      toStatus: 'draft',
+      changedBy: USER_A,
+      note: 'Creación del diagnóstico.',
+    },
+  });
+
+  // Respuestas parciales (progreso ~33 %): Q1=Sí, Q2=Parcial, Q6=Sí.
+  const q1 = seedUuid('e', '3', 1);
+  const q2 = seedUuid('e', '3', 2);
+  const q6 = seedUuid('e', '3', 6);
+  const optYesQ1 = await prisma.templateAnswerOption.findFirstOrThrow({
+    where: { questionId: q1, code: 'YES' },
+  });
+  const optPartialQ2 = await prisma.templateAnswerOption.findFirstOrThrow({
+    where: { questionId: q2, code: 'PARTIAL' },
+  });
+  const optYesQ6 = await prisma.templateAnswerOption.findFirstOrThrow({
+    where: { questionId: q6, code: 'YES' },
+  });
+
+  await prisma.diagnosticAnswer.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        organizationId: ORG_A,
+        diagnosticId: DIAG_A,
+        questionId: q1,
+        answerStatus: 'answered',
+        selectedOptionId: optYesQ1.id,
+        answeredBy: USER_A,
+        answeredAt: new Date(),
+      },
+      {
+        organizationId: ORG_A,
+        diagnosticId: DIAG_A,
+        questionId: q2,
+        answerStatus: 'answered',
+        selectedOptionId: optPartialQ2.id,
+        answeredBy: USER_A,
+        answeredAt: new Date(),
+      },
+      {
+        organizationId: ORG_A,
+        diagnosticId: DIAG_A,
+        questionId: q6,
+        answerStatus: 'answered',
+        selectedOptionId: optYesQ6.id,
+        answeredBy: USER_A,
+        answeredAt: new Date(),
+      },
+    ],
+  });
 }
 
 async function main(): Promise<void> {
-  // Idempotente y con recuperación: se puede ejecutar sobre una base con datos
-  // parciales (p. ej. un seed que falló a mitad) sin borrar nada. Cada bloque
-  // solo inserta lo que falta.
-
-  // Organizaciones, usuarios, membresías y sitios: `skipDuplicates` los hace
-  // idempotentes (respetan sus restricciones únicas).
+  // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
     skipDuplicates: true,
     data: [
@@ -269,7 +401,6 @@ async function main(): Promise<void> {
       { id: ORG_B, name: 'Alimentos Demo B', slug: 'demo-b' },
     ],
   });
-
   await prisma.user.createMany({
     skipDuplicates: true,
     data: [
@@ -277,7 +408,6 @@ async function main(): Promise<void> {
       { id: USER_B, email: 'evaluador.b@example.test', displayName: 'Evaluador B' },
     ],
   });
-
   await prisma.membership.createMany({
     skipDuplicates: true,
     data: [
@@ -285,7 +415,6 @@ async function main(): Promise<void> {
       { organizationId: ORG_B, userId: USER_B, role: 'owner' },
     ],
   });
-
   await prisma.site.createMany({
     skipDuplicates: true,
     data: [
@@ -294,8 +423,7 @@ async function main(): Promise<void> {
     ],
   });
 
-  // Marco maestro (GAPSI) + copia privada de la organización A.
-  await ensureTemplate(MASTER_FW, MASTER_VER, null, MASTER_IDS, {
+  await ensureTemplate(MASTER_FW, MASTER_VER, null, 'f', {
     scope: 'master',
     frameworkName: 'Diagnóstico interno HACCP (maestro)',
     frameworkDescription: 'Marco maestro administrado por GAPSI.',
@@ -303,7 +431,7 @@ async function main(): Promise<void> {
     contentHash: 'seed-master-v1',
     createdBy: null,
   });
-  await ensureTemplate(PRIV_FW_A, PRIV_VER_A, ORG_A, PRIV_IDS, {
+  await ensureTemplate(PRIV_FW_A, PRIV_VER_A, ORG_A, 'e', {
     scope: 'organization',
     frameworkName: 'Diagnóstico interno HACCP (copia A)',
     frameworkDescription: 'Copia privada de la organización A a partir del maestro.',
@@ -312,68 +440,10 @@ async function main(): Promise<void> {
     createdBy: USER_A,
   });
 
-  // Diagnóstico de ejemplo (solo si aún no existe).
-  const diagnosticExists = await prisma.diagnostic.findUnique({ where: { id: DIAG_A } });
-  if (!diagnosticExists) {
-    await prisma.diagnostic.create({
-      data: {
-        id: DIAG_A,
-        organizationId: ORG_A,
-        siteId: SITE_A,
-        templateVersionId: PRIV_VER_A,
-        name: 'Diagnóstico inicial Planta Norte',
-        responsibleUserId: USER_A,
-        status: 'draft',
-        createdBy: USER_A,
-      },
-    });
-    await prisma.diagnosticStateHistory.create({
-      data: {
-        organizationId: ORG_A,
-        diagnosticId: DIAG_A,
-        fromStatus: null,
-        toStatus: 'draft',
-        changedBy: USER_A,
-        note: 'Creación del diagnóstico.',
-      },
-    });
-    // Respuestas de ejemplo (trazabilidad respuesta → pregunta congelada).
-    await prisma.diagnosticAnswer.createMany({
-      skipDuplicates: true,
-      data: [
-        {
-          organizationId: ORG_A,
-          diagnosticId: DIAG_A,
-          questionId: PRIV_IDS.qYesNo,
-          answerStatus: 'answered',
-          selectedOptionId: PRIV_IDS.optYes,
-          answeredBy: USER_A,
-          answeredAt: new Date(),
-        },
-        {
-          organizationId: ORG_A,
-          diagnosticId: DIAG_A,
-          questionId: PRIV_IDS.qChoice,
-          answerStatus: 'answered',
-          selectedOptionId: PRIV_IDS.optPartial,
-          answeredBy: USER_A,
-          answeredAt: new Date(),
-        },
-        {
-          organizationId: ORG_A,
-          diagnosticId: DIAG_A,
-          questionId: PRIV_IDS.qText,
-          answerStatus: 'answered',
-          valueText: 'Monitoreo por registro manual cada turno.',
-          answeredBy: USER_A,
-          answeredAt: new Date(),
-        },
-      ],
-    });
-  }
+  await seedDiagnostic();
 
   console.log(
-    'Seed aplicado/actualizado (idempotente): orgs, usuarios, membresías, sitios, maestro + copia privada, 1 diagnóstico.',
+    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico.',
   );
 }
 
