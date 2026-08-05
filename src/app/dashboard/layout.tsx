@@ -1,12 +1,14 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getServerSession } from '@/server/session';
-import { devSignOut } from '@/features/auth/dev-actions';
+import { getPrisma } from '@/server/db';
+import { AppSidebar } from './_components/AppSidebar';
+import { AppTopbar } from './_components/AppTopbar';
 
 /**
  * Layout del área privada. Segunda barrera de autorización en servidor: aunque
  * el middleware ya protege el enrutado, cada área privada revalida la sesión
- * antes de renderizar (defensa en profundidad).
+ * antes de renderizar (defensa en profundidad). El chrome (sidebar + topbar) se
+ * normaliza en componentes compartidos.
  */
 export default async function DashboardLayout({
   children,
@@ -17,30 +19,33 @@ export default async function DashboardLayout({
     redirect('/login?from=/dashboard');
   }
 
+  const prisma = getPrisma();
+  const [org, user, site] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: session.organizationId },
+      select: { name: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { displayName: true, email: true },
+    }),
+    prisma.site.findFirst({
+      where: { organizationId: session.organizationId, deletedAt: null },
+      select: { name: true },
+      orderBy: { name: 'asc' },
+    }),
+  ]);
+
   return (
-    <div>
-      <header className="topbar">
-        <strong>GAPSI Sentinel</strong>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span className="muted">
-            {session.role} · org {session.organizationId}
-          </span>
-          <form action={devSignOut}>
-            <button className="button button--ghost" type="submit">
-              Cerrar sesión
-            </button>
-          </form>
-        </div>
-      </header>
-      <div className="shell">
-        <nav className="sidebar" aria-label="Navegación principal">
-          <Link href="/dashboard">Panel</Link>
-          <Link href="/dashboard/documents">Documentos</Link>
-          <Link href="/dashboard/documents/tasks">Tareas</Link>
-          <Link href="/dashboard/capa">Acciones correctivas</Link>
-          <Link href="/dashboard/capa/tasks">Bandeja CAPA</Link>
-          <Link href="/dashboard/capa/analysis">Análisis</Link>
-        </nav>
+    <div className="shell">
+      <AppSidebar />
+      <div className="shell__main">
+        <AppTopbar
+          orgName={org?.name ?? 'Organización'}
+          siteName={site?.name ?? null}
+          userName={user?.displayName ?? user?.email ?? 'Usuario'}
+          role={session.role}
+        />
         <div className="shell__content">{children}</div>
       </div>
     </div>

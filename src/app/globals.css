@@ -1,17 +1,49 @@
 :root {
-  --color-bg: #0b1f2a;
+  /* Sistema visual (normalización de UI). Paleta coherente con los mockups. */
+  --color-bg: #eef1f6; /* fondo general gris muy claro */
   --color-surface: #ffffff;
-  --color-text: #14202b;
-  --color-muted: #55636e;
-  --color-primary: #0e7c66;
+  --color-surface-2: #f7f9fb;
+  --color-text: #16202b;
+  --color-muted: #64748b;
+  --color-primary: #2563eb; /* azul de acción */
+  --color-primary-hover: #1d4ed8;
   --color-primary-contrast: #ffffff;
-  --color-border: #d7dee3;
+  --color-primary-soft: #e8f0fe;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+  --color-border: #e3e8ef;
+
+  /* Sidebar azul marino muy oscuro; activo un tono más claro. */
+  --color-sidebar: #0f2440;
+  --color-sidebar-2: #0b1c33;
+  --color-sidebar-text: #aebacb;
+  --color-sidebar-text-strong: #ffffff;
+  --color-sidebar-active: #1d4ed8;
+  --color-sidebar-hover: #17325a;
+
+  /* Radios y sombras sutiles. */
   --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 4px 14px rgba(16, 24, 40, 0.08);
+
+  /* Escala de espaciado. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
   --max-width: 68rem;
   /* TASK-007: contenedor amplio para el área privada (~1760px). Las páginas
      públicas conservan --max-width; el dashboard usa --max-width-wide. */
   --max-width-wide: 110rem;
-  --sidebar-width: 13rem;
+  --sidebar-width: 15rem;
 }
 
 * {
@@ -26,7 +58,7 @@ body {
 
 body {
   color: var(--color-text);
-  background: var(--color-surface);
+  background: var(--color-bg);
   font-family:
     system-ui,
     -apple-system,
@@ -107,9 +139,80 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
+  gap: var(--space-4);
+  padding: 0 var(--space-6);
+  height: 60px;
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.topbar__selectors {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.topbar__select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: default;
+}
+.topbar__select:disabled {
+  opacity: 1;
+}
+.topbar__chevron {
+  color: var(--color-muted);
+  width: 16px;
+  height: 16px;
+}
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.topbar__bell {
+  display: inline-flex;
+  color: var(--color-muted);
+}
+.topbar__user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+.topbar__userinfo {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.topbar__username {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.topbar__userrole {
+  font-size: 0.78rem;
+  color: var(--color-muted);
 }
 
 .muted {
@@ -326,8 +429,15 @@ input[type='text'] {
   padding-top: 1.25rem;
 }
 .button--primary {
-  background: #14683a;
-  border-color: #14683a;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.button:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+.button--ghost:hover {
+  background: var(--color-primary-soft);
 }
 
 .msg {
@@ -361,73 +471,177 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
-/* --- TASK-004: navegación lateral y módulo documental --- */
+/* --- Chrome del área privada (sidebar navy + topbar + contenido) --- */
 
 .shell {
   display: flex;
-  align-items: flex-start;
-  gap: 0;
+  align-items: stretch;
+  min-height: 100vh;
 }
+.shell__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sidebar azul marino con logo, iconos y estado activo. */
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 1rem;
-  min-width: var(--sidebar-width);
-  border-right: 1px solid var(--color-border);
+  gap: 2px;
+  padding: var(--space-4) var(--space-3);
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--color-sidebar);
+  color: var(--color-sidebar-text);
 }
-/* TASK-007: en escritorio el sidebar queda fijo al hacer scroll. */
 @media (min-width: 721px) {
   .sidebar {
     position: sticky;
     top: 0;
     align-self: flex-start;
-    max-height: 100vh;
+    height: 100vh;
     overflow-y: auto;
   }
 }
-.sidebar a {
-  padding: 0.5rem 0.75rem;
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-5);
+}
+.sidebar__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+.sidebar__brandtext {
+  color: var(--color-sidebar-text-strong);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.sidebar__nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
   text-decoration: none;
-  color: var(--color-text);
+  color: var(--color-sidebar-text);
+  font-weight: 500;
+  font-size: 0.9rem;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.sidebar__link:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-sidebar-text-strong);
+}
+.sidebar__link.is-active {
+  background: var(--color-sidebar-active);
+  color: #fff;
   font-weight: 600;
 }
-.sidebar a:hover {
-  background: #eef2f4;
+.sidebar__icon {
+  flex-shrink: 0;
+  color: currentColor;
 }
+.sidebar__link--disabled {
+  color: #5b6b82;
+  cursor: not-allowed;
+}
+.sidebar__link--disabled:hover {
+  background: none;
+  color: #5b6b82;
+}
+.sidebar__group {
+  margin: var(--space-5) var(--space-3) var(--space-2);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7c94;
+}
+.sidebar__foot {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar__signout {
+  color: var(--color-sidebar-text);
+}
+
 .shell__content {
   flex: 1;
   min-width: 0;
 }
-/* TASK-007: el contenido del área privada aprovecha el ancho disponible.
-   El contenedor de cada página del dashboard usa el máximo amplio y crece de
-   forma fluida; en monitores grandes queda centrado con márgenes equilibrados.
-   Las hojas del editor/preview (.sheet/.page) conservan su ancho tipo carta. */
+/* El contenido del área privada aprovecha el ancho disponible (TASK-007). */
 .shell__content > .container {
   max-width: var(--max-width-wide);
 }
 @media (min-width: 1400px) {
   .shell__content > .container {
-    padding-left: 2rem;
-    padding-right: 2rem;
+    padding-left: var(--space-8);
+    padding-right: var(--space-8);
   }
 }
 @media (max-width: 720px) {
   .shell {
     flex-direction: column;
   }
-  /* En columna, el contenido se ancla al ancho del viewport; las tablas anchas
-     hacen scroll dentro de .table-wrap y la página no desborda horizontalmente. */
   .shell__content {
     width: 100%;
   }
+  /* El sidebar pasa a una franja superior horizontal desplazable. */
   .sidebar {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     width: 100%;
-    border-right: 0;
-    border-bottom: 1px solid var(--color-border);
+    height: auto;
+    overflow-x: auto;
+    padding: var(--space-2);
+    gap: var(--space-1);
+  }
+  .sidebar__brand,
+  .sidebar__group {
+    display: none;
+  }
+  .sidebar__nav {
+    flex-direction: row;
+  }
+  .sidebar__foot {
+    flex-direction: row;
+    margin-top: 0;
+    padding-top: 0;
+  }
+  .sidebar__foot form {
+    display: inline-flex;
+  }
+  .sidebar__link span:not(.sidebar__icon) {
+    display: none;
+  }
+  .sidebar__link {
+    padding: var(--space-2);
   }
 }
 
@@ -947,4 +1161,91 @@ a:focus-visible {
     padding-left: 20px;
     padding-right: 20px;
   }
+}
+
+/* =====================================================================
+   Normalización visual de componentes compartidos (mockups)
+   Refina tarjetas, tablas, encabezados, badges y botones sin cambiar la
+   estructura funcional de las páginas. El editor documental (.sheet/.page)
+   conserva su ancho y estilo propios.
+   ===================================================================== */
+
+.shell__content .container {
+  padding: var(--space-6);
+}
+.shell__content h1 {
+  font-size: 1.45rem;
+  letter-spacing: -0.01em;
+}
+.shell__content h2 {
+  font-size: 1.1rem;
+  margin-top: var(--space-6);
+}
+
+.button {
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+}
+
+.card,
+.stat,
+.doc-action {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.stat {
+  gap: var(--space-2);
+}
+.stat__value {
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+.stat__label {
+  font-weight: 500;
+}
+
+/* Tablas dentro de una superficie tipo tarjeta. */
+.shell__content .table-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+.shell__content table th {
+  background: var(--color-surface-2);
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.shell__content table td,
+.shell__content table th {
+  padding: 0.72rem 0.9rem;
+}
+.shell__content tbody tr:hover td {
+  background: var(--color-surface-2);
+}
+
+.badge {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0.18rem 0.6rem;
+}
+
+.filters {
+  gap: var(--space-2);
+  align-items: center;
+}
+.filters input,
+.filters select {
+  border-radius: var(--radius-sm);
+}
+.empty-state {
+  background: var(--color-surface);
+}
+.page-head {
+  margin-bottom: var(--space-5);
+}
+.msg--info {
+  border-radius: var(--radius-sm);
 }
