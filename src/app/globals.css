@@ -1427,3 +1427,36 @@ a:focus-visible {
   font-size: 0.8rem;
   white-space: nowrap;
 }
+
+/* --- Tarjetas clicables (statcards y tarjetas de herramienta) --- */
+.statcard--link {
+  text-decoration: none;
+  color: inherit;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
+}
+.statcard--link:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+.statcard--link:active {
+  transform: translateY(1px);
+}
+.statcard--link:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+a.tool-card {
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s ease;
+}
+a.tool-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+a.tool-card:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}

@@ -52,7 +52,7 @@ export default async function DashboardPage() {
   if (!data) {
     return (
       <main className="container">
-        <PageHeader title="Panel" subtitle="Resumen general del sistema" />
+        <PageHeader title="Dashboard" subtitle="Resumen general del sistema" />
         <div className="empty-state" role="status">
           <p>No se encontró la organización activa de desarrollo.</p>
           <p className="muted">Ejecuta `npm run db:seed` para cargar datos de ejemplo.</p>
@@ -74,15 +74,38 @@ export default async function DashboardPage() {
 
   return (
     <main className="container">
-      <PageHeader title="Panel" subtitle={`Resumen general · ${data.organization.name}`} />
+      <PageHeader title="Dashboard" subtitle={`Resumen general · ${data.organization.name}`} />
 
       <div className="statcard-row">
-        <StatCard label="CAPA abiertas" value={capa.open} />
-        <StatCard label="Críticas" value={capa.critical} tone="danger" />
-        <StatCard label="Vencidas" value={capa.overdue} tone="warning" />
-        <StatCard label="Acciones pendientes" value={capa.pendingActions} />
-        <StatCard label="Verificaciones" value={capa.pendingVerifications} />
-        <StatCard label="Cerradas" value={capa.recentlyClosed} tone="success" />
+        <StatCard label="CAPA abiertas" value={capa.open} href="/dashboard/capa" />
+        <StatCard
+          label="Críticas"
+          value={capa.critical}
+          tone="danger"
+          href="/dashboard/capa?severity=critical"
+        />
+        <StatCard
+          label="Vencidas"
+          value={capa.overdue}
+          tone="warning"
+          href="/dashboard/capa?overdue=1"
+        />
+        <StatCard
+          label="Acciones pendientes"
+          value={capa.pendingActions}
+          href="/dashboard/capa/tasks"
+        />
+        <StatCard
+          label="Verificaciones"
+          value={capa.pendingVerifications}
+          href="/dashboard/capa?status=effectiveness_review"
+        />
+        <StatCard
+          label="Cerradas"
+          value={capa.recentlyClosed}
+          tone="success"
+          href="/dashboard/capa?status=closed"
+        />
       </div>
 
       <div className="dash-grid dash-grid--2">
@@ -166,12 +189,34 @@ export default async function DashboardPage() {
         }
       >
         <div className="statcard-row">
-          <StatCard label="Total" value={docSummary.total} />
-          <StatCard label="Vigentes" value={docSummary.effective} tone="success" />
-          <StatCard label="Próximos a revisión" value={docSummary.dueSoon} tone="warning" />
-          <StatCard label="Obsoletos" value={docSummary.obsolete} />
-          <StatCard label="Revisiones pend." value={alerts.pendingReviews} />
-          <StatCard label="Lecturas pend." value={alerts.pendingReads} />
+          <StatCard label="Total" value={docSummary.total} href="/dashboard/documents" />
+          <StatCard
+            label="Vigentes"
+            value={docSummary.effective}
+            tone="success"
+            href="/dashboard/documents?status=effective"
+          />
+          <StatCard
+            label="Próximos a revisión"
+            value={docSummary.dueSoon}
+            tone="warning"
+            href="/dashboard/documents"
+          />
+          <StatCard
+            label="Obsoletos"
+            value={docSummary.obsolete}
+            href="/dashboard/documents?status=obsolete"
+          />
+          <StatCard
+            label="Revisiones pend."
+            value={alerts.pendingReviews}
+            href="/dashboard/documents/tasks"
+          />
+          <StatCard
+            label="Lecturas pend."
+            value={alerts.pendingReads}
+            href="/dashboard/documents/tasks"
+          />
         </div>
       </SectionCard>
 

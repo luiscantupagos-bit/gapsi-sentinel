@@ -47,13 +47,17 @@ export default async function AnalysisListPage({ searchParams }: { searchParams:
 
       <div className="tool-grid tool-grid--compact">
         {ANALYSIS_TYPES.map((t) => (
-          <div key={t} className="tool-card tool-card--static">
+          <Link
+            key={t}
+            className={`tool-card${sp.type === t ? ' is-active' : ''}`}
+            href={`/dashboard/capa/analysis?type=${t}`}
+          >
             <span className="tool-card__icon" aria-hidden>
               {ICON[t]}
             </span>
             <span className="tool-card__title">{ANALYSIS_TYPE_LABEL[t]}</span>
             <span className="tool-card__help">{ANALYSIS_TYPE_HELP[t]}</span>
-          </div>
+          </Link>
         ))}
       </div>
 

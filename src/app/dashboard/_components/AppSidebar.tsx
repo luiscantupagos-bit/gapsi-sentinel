@@ -23,7 +23,7 @@ import {
 type Item = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
 
 const MAIN: Item[] = [
-  { href: '/dashboard', label: 'Panel', icon: IconPanel },
+  { href: '/dashboard', label: 'Dashboard', icon: IconPanel },
   { href: '/dashboard/documents', label: 'Documentos', icon: IconDoc },
   { href: '/dashboard/documents/tasks', label: 'Tareas', icon: IconTasks },
   { href: '/dashboard/capa', label: 'Acciones correctivas', icon: IconCapa },
