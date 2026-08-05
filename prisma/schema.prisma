@@ -485,6 +485,16 @@ model DocumentVersion {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
 
+  // TASK-005: contenido del editor enriquecido (JSON estructurado + HTML sanitizado).
+  contentJson          Json?     @map("content_json")
+  contentHtml          String?   @map("content_html")
+  contentSchemaVersion Int       @default(1) @map("content_schema_version")
+  pageConfig           Json?     @map("page_config")
+  contentChecksum      String?   @map("content_checksum")
+  templateKey          String?   @map("template_key")
+  updatedBy            String?   @map("updated_by") @db.Uuid
+  updatedAt            DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
   document Document       @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Restrict)
   files    DocumentFile[]
 
