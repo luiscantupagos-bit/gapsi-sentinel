@@ -497,3 +497,213 @@ a:focus-visible {
   line-height: 1.9;
   padding-left: 1.1rem;
 }
+
+/* --- TASK-005: editor documental enriquecido --- */
+
+.editor {
+  padding: 0 1rem 2rem;
+}
+.editor__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0;
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+  z-index: 5;
+  border-bottom: 1px solid var(--color-border);
+}
+.editor__meta {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+.editor__status {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.tb-btn {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.tb-btn.is-active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+.tb-sep {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--color-border);
+  margin: 0 0.3rem;
+}
+.tb-select,
+.tb-color {
+  height: 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.tb-color {
+  width: 2.2rem;
+  padding: 0;
+}
+
+.props-panel {
+  margin: 0.75rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.9rem;
+}
+.props-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.props-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.props-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.props-check {
+  flex-direction: row !important;
+  align-items: center;
+}
+
+/* Hoja tipo carta */
+.sheet,
+.page {
+  background: #fff;
+  width: 100%;
+  max-width: 816px;
+  margin: 1.25rem auto;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+.sheet__content .ProseMirror {
+  min-height: 60vh;
+  padding: 48px 64px;
+  outline: none;
+}
+.ProseMirror:focus {
+  outline: none;
+}
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.ProseMirror th,
+.ProseMirror td,
+.page__body th,
+.page__body td {
+  border: 1px solid #b8c2ca;
+  padding: 0.35rem 0.5rem;
+}
+.ProseMirror img,
+.page__body img {
+  max-width: 100%;
+  height: auto;
+}
+.ProseMirror hr.page-break,
+.page__body hr.page-break {
+  border: 0;
+  border-top: 2px dashed #9aa7b1;
+  margin: 1rem 0;
+  position: relative;
+}
+.ProseMirror .selectedCell {
+  background: #e7f0fb;
+}
+
+/* Vista previa */
+.preview {
+  background: #e9edf0;
+  padding: 1rem;
+  border-radius: var(--radius);
+}
+.page {
+  padding: 0;
+}
+.page--cover {
+  min-height: 60vh;
+  padding: 3rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.cover__logo {
+  font-weight: 700;
+  color: var(--color-muted);
+}
+.cover__signs {
+  display: flex;
+  justify-content: space-around;
+  margin-top: auto;
+}
+.cover__signs dt {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.doc-header,
+.doc-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 64px;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.doc-footer {
+  border-bottom: 0;
+  border-top: 1px solid var(--color-border);
+}
+.doc-header--tabular {
+  width: auto;
+  margin: 0.75rem 64px 0;
+  border-collapse: collapse;
+}
+.doc-header--tabular td {
+  border: 1px solid var(--color-border);
+  padding: 0.3rem 0.5rem;
+}
+.page__body {
+  padding: 24px 64px;
+  min-height: 40vh;
+}
+@media (max-width: 720px) {
+  .sheet__content .ProseMirror,
+  .doc-header,
+  .doc-footer,
+  .page__body {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}

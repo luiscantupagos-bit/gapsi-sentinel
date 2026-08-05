@@ -34,9 +34,14 @@ export default async function DocumentsListPage({
     <main className="container">
       <div className="page-head">
         <h1>Listado maestro de documentos</h1>
-        <Link className="button button--primary" href="/dashboard/documents/new">
-          Nuevo documento
-        </Link>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Link className="button button--ghost" href="/dashboard/documents/new">
+            Registrar (externo)
+          </Link>
+          <Link className="button button--primary" href="/dashboard/documents/new/editor">
+            Crear dentro de Sentinel
+          </Link>
+        </div>
       </div>
 
       <form method="get" className="filters" aria-label="Filtros de documentos">

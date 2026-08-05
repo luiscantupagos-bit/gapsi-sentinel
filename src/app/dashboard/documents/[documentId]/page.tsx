@@ -16,6 +16,7 @@ const HISTORY_LABEL: Record<string, string> = {
   'document.metadata_updated': 'Metadatos modificados',
   'file.uploaded': 'Archivo cargado',
   'version.created': 'Versión creada',
+  'content.updated': 'Contenido actualizado',
   'document.archived': 'Documento archivado',
 };
 
@@ -45,11 +46,24 @@ export default async function DocumentDetailPage({
         <h1>
           <span className="muted">{doc.code}</span> {doc.title}
         </h1>
-        {doc.editable && (
-          <Link className="button button--ghost" href={`/dashboard/documents/${doc.id}/edit`}>
-            Editar metadatos
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Link className="button button--ghost" href={`/dashboard/documents/${doc.id}/preview`}>
+            Vista previa
           </Link>
-        )}
+          {doc.editable && (
+            <>
+              <Link
+                className="button button--primary"
+                href={`/dashboard/documents/${doc.id}/editor`}
+              >
+                Abrir en editor
+              </Link>
+              <Link className="button button--ghost" href={`/dashboard/documents/${doc.id}/edit`}>
+                Editar metadatos
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       <dl className="meta-grid">
