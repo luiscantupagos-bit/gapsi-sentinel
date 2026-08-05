@@ -33,6 +33,7 @@ import {
   sanitizePageConfig,
   type PageConfig,
 } from '@/features/documents/templates';
+import { isEditableStatus, type VersionStatus } from '@/features/documents/workflow-state';
 
 export class ContentTooLargeError extends Error {
   constructor() {
@@ -712,7 +713,8 @@ export async function getEditorContent(
     versionStatus: version.status,
     isCurrent: version.isCurrent,
     // Solo la versión VIGENTE en borrador es editable; las anteriores son de solo lectura.
-    editable: !doc.archivedAt && version.status === 'draft' && version.isCurrent,
+    editable:
+      !doc.archivedAt && isEditableStatus(version.status as VersionStatus) && version.isCurrent,
     templateKey: version.templateKey,
     schemaVersion: version.contentSchemaVersion,
     contentJson: (version.contentJson ?? sanitizeContent(null)) as unknown as DocNode,
@@ -736,7 +738,8 @@ export async function saveContent(
   const doc = await loadScopedDocument(organizationId, documentId);
   if (doc.archivedAt) throw new DocumentNotEditableError();
   const version = await loadScopedVersion(organizationId, documentId, versionId);
-  if (version.status !== 'draft' || !version.isCurrent) throw new DocumentNotEditableError();
+  if (!isEditableStatus(version.status as VersionStatus) || !version.isCurrent)
+    throw new DocumentNotEditableError();
 
   const content = sanitizeContent(payload.contentJson);
   if (contentByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
@@ -836,7 +839,8 @@ export async function addDocumentImage(
   const doc = await loadScopedDocument(organizationId, documentId);
   if (doc.archivedAt) throw new DocumentNotEditableError();
   const version = await loadScopedVersion(organizationId, documentId, versionId);
-  if (version.status !== 'draft' || !version.isCurrent) throw new DocumentNotEditableError();
+  if (!isEditableStatus(version.status as VersionStatus) || !version.isCurrent)
+    throw new DocumentNotEditableError();
 
   const ext = extensionOf(file.originalName);
   if (!['png', 'jpg', 'jpeg'].includes(ext) || !file.mimeType.startsWith('image/')) {

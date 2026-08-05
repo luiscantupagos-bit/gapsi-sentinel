@@ -561,3 +561,167 @@ model DocumentHistory {
   @@index([documentId, createdAt])
   @@map("document_history")
 }
+
+// =====================================================================
+// TASK-006 — Control documental avanzado
+// FK compuestas anti-cruce, CHECK, RLS, append-only y no-borrado se añaden por
+// SQL complementario en las migraciones de TASK-006 (Prisma no las expresa).
+// =====================================================================
+
+/// Flujo (secuencial) de una versión: elaboración → revisión → aprobación → publicación.
+model DocumentWorkflow {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  versionId      String   @unique @map("version_id") @db.Uuid
+  /// stage: elaboration | review | approval | published
+  stage          String   @default("elaboration")
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId])
+  @@map("document_workflows")
+}
+
+/// Asignación de revisor/aprobador dentro del flujo.
+model DocumentWorkflowStep {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  workflowId     String    @map("workflow_id") @db.Uuid
+  documentId     String    @map("document_id") @db.Uuid
+  versionId      String    @map("version_id") @db.Uuid
+  /// role: reviewer | approver
+  role           String
+  userId         String    @map("user_id") @db.Uuid
+  sequence       Int       @default(1)
+  mandatory      Boolean   @default(true)
+  dueAt          DateTime? @map("due_at") @db.Timestamptz(6)
+  /// status: pending | approved | changes_requested | rejected | cancelled
+  status         String    @default("pending")
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  decidedBy      String?   @map("decided_by") @db.Uuid
+  comment        String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([versionId])
+  @@index([userId, status])
+  @@map("document_workflow_steps")
+}
+
+/// Decisión de revisión/aprobación (append-only, conserva checksum).
+model DocumentApproval {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  documentId      String   @map("document_id") @db.Uuid
+  versionId       String   @map("version_id") @db.Uuid
+  stepId          String?  @map("step_id") @db.Uuid
+  actorUserId     String   @map("actor_user_id") @db.Uuid
+  /// stage: review | approval
+  stage           String
+  /// decision: approved | changes_requested | rejected
+  decision        String
+  comment         String?
+  contentChecksum String?  @map("content_checksum")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([versionId])
+  @@map("document_approvals")
+}
+
+/// Comentario básico asociado a una versión y etapa.
+model DocumentComment {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  documentId     String    @map("document_id") @db.Uuid
+  versionId      String    @map("version_id") @db.Uuid
+  author         String?   @db.Uuid
+  /// stage: elaboration | review | approval | published
+  stage          String?
+  /// type: general | change_request | review | approval
+  type           String    @default("general")
+  body           String
+  resolved       Boolean   @default(false)
+  resolvedBy     String?   @map("resolved_by") @db.Uuid
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([versionId])
+  @@map("document_comments")
+}
+
+/// Distribución interna de un documento publicado.
+model DocumentDistribution {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  documentId     String    @map("document_id") @db.Uuid
+  versionId      String    @map("version_id") @db.Uuid
+  /// target_type: organization | site | user | role
+  targetType     String    @map("target_type")
+  siteId         String?   @map("site_id") @db.Uuid
+  userId         String?   @map("user_id") @db.Uuid
+  role           String?
+  distributedBy  String?   @map("distributed_by") @db.Uuid
+  distributedAt  DateTime  @default(now()) @map("distributed_at") @db.Timestamptz(6)
+  readRequired   Boolean   @default(true) @map("read_required")
+  readDueAt      DateTime? @map("read_due_at") @db.Timestamptz(6)
+  /// status: active | superseded | cancelled
+  status         String    @default("active")
+
+  @@index([versionId])
+  @@index([userId])
+  @@map("document_distributions")
+}
+
+/// Acuse interno de lectura (único por usuario y versión).
+model DocumentReadAck {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  documentId      String   @map("document_id") @db.Uuid
+  versionId       String   @map("version_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  contentChecksum String   @map("content_checksum")
+  statement       String
+  acknowledgedAt  DateTime @default(now()) @map("acknowledged_at") @db.Timestamptz(6)
+
+  @@unique([versionId, userId])
+  @@index([userId])
+  @@map("document_read_acknowledgements")
+}
+
+/// Registro de copia controlada (número único por versión).
+model DocumentControlledCopy {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  documentId     String    @map("document_id") @db.Uuid
+  versionId      String    @map("version_id") @db.Uuid
+  copyNumber     Int       @map("copy_number")
+  recipient      String
+  /// format: digital | printed
+  format         String
+  issuedAt       DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
+  issuedBy       String?   @map("issued_by") @db.Uuid
+  /// status: active | replaced | recovered | destroyed | pending_recovery
+  status         String    @default("active")
+  closedAt       DateTime? @map("closed_at") @db.Timestamptz(6)
+  notes          String?
+
+  @@unique([versionId, copyNumber])
+  @@index([documentId])
+  @@map("document_controlled_copies")
+}
+
+/// Historial de cambios de estado de versión (append-only).
+model DocumentStatusHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  versionId      String   @map("version_id") @db.Uuid
+  fromStatus     String?  @map("from_status")
+  toStatus       String   @map("to_status")
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  comment        String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([versionId, createdAt])
+  @@map("document_status_history")
+}
