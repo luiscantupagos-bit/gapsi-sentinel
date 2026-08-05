@@ -33,7 +33,8 @@ export const ANALYSIS_TYPE_HELP: Record<AnalysisType, string> = {
   ishikawa: 'Organiza posibles causas por categorías para facilitar su investigación.',
   cause_tree:
     'Relaciona eventos, condiciones y controles fallidos para identificar causas sistémicas.',
-  pareto: 'Ordena los problemas por frecuencia o impacto para identificar las principales prioridades.',
+  pareto:
+    'Ordena los problemas por frecuencia o impacto para identificar las principales prioridades.',
   fmea: 'Evalúa modos de falla, efectos, causas y controles para priorizar acciones.',
   recurrence: 'Revisa si el problema o sus causas ya se habían presentado.',
   comparative: 'Compara varias CAPA para identificar patrones y causas sistémicas.',
@@ -193,11 +194,7 @@ export const CAUSE_EDGE_RELATION_LABEL: Record<CauseEdgeRelation, string> = {
 };
 
 /** Estado de validación reutilizable (nodos, causas, filas). */
-export const VALIDATION_STATUSES = [
-  'hypothesis',
-  'confirmed_fact',
-  'discarded',
-] as const;
+export const VALIDATION_STATUSES = ['hypothesis', 'confirmed_fact', 'discarded'] as const;
 export type ValidationStatus = (typeof VALIDATION_STATUSES)[number];
 export const VALIDATION_STATUS_LABEL: Record<ValidationStatus, string> = {
   hypothesis: 'Hipótesis',
