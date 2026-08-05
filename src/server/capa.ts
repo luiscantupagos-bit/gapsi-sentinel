@@ -111,7 +111,12 @@ async function recordHistory(
   capaId: string,
   event: string,
   actorUserId: string,
-  opts: { fromStatus?: string | null; toStatus?: string | null; detail?: string; related?: string } = {},
+  opts: {
+    fromStatus?: string | null;
+    toStatus?: string | null;
+    detail?: string;
+    related?: string;
+  } = {},
 ): Promise<void> {
   await tx.capaStatusHistory.create({
     data: {
@@ -299,25 +304,37 @@ export async function updateCapa(
   };
   if (input.title !== undefined) set('title', input.title.trim());
   if (input.description !== undefined) set('description', input.description.trim());
-  if (input.sourceType !== undefined) set('sourceType', inSet(CAPA_SOURCE_TYPES, input.sourceType, capa.sourceType as CapaSourceType));
-  if (input.responsibleUserId !== undefined) set('responsibleUserId', input.responsibleUserId || null);
-  if (input.priority !== undefined) set('priority', inSet(CAPA_PRIORITIES, input.priority, capa.priority as CapaPriority));
-  if (input.severity !== undefined) set('severity', inSet(CAPA_SEVERITIES, input.severity, capa.severity as CapaSeverity));
-  if (input.scope !== undefined) set('scope', inSet(CAPA_SCOPES, input.scope, capa.scope as CapaScope));
+  if (input.sourceType !== undefined)
+    set(
+      'sourceType',
+      inSet(CAPA_SOURCE_TYPES, input.sourceType, capa.sourceType as CapaSourceType),
+    );
+  if (input.responsibleUserId !== undefined)
+    set('responsibleUserId', input.responsibleUserId || null);
+  if (input.priority !== undefined)
+    set('priority', inSet(CAPA_PRIORITIES, input.priority, capa.priority as CapaPriority));
+  if (input.severity !== undefined)
+    set('severity', inSet(CAPA_SEVERITIES, input.severity, capa.severity as CapaSeverity));
+  if (input.scope !== undefined)
+    set('scope', inSet(CAPA_SCOPES, input.scope, capa.scope as CapaScope));
   if (input.impacts !== undefined) set('impacts', cleanImpacts(input.impacts));
-  if (input.tags !== undefined) set('tags', [...new Set(input.tags.map((t) => t.trim()).filter(Boolean))]);
+  if (input.tags !== undefined)
+    set('tags', [...new Set(input.tags.map((t) => t.trim()).filter(Boolean))]);
   if (input.targetDate !== undefined) set('targetDate', toDate(input.targetDate));
-  if (input.detectedAt !== undefined) set('detectedAt', toDate(input.detectedAt) ?? capa.detectedAt);
+  if (input.detectedAt !== undefined)
+    set('detectedAt', toDate(input.detectedAt) ?? capa.detectedAt);
   if (input.siteId !== undefined) set('siteId', input.siteId || null);
   if (input.area !== undefined) set('area', input.area?.trim() || null);
   if (input.process !== undefined) set('process', input.process?.trim() || null);
   if (input.product !== undefined) set('product', input.product?.trim() || null);
   if (input.diagnosticId !== undefined) set('diagnosticId', input.diagnosticId || null);
   if (input.documentId !== undefined) set('documentId', input.documentId || null);
-  if (input.documentVersionId !== undefined) set('documentVersionId', input.documentVersionId || null);
+  if (input.documentVersionId !== undefined)
+    set('documentVersionId', input.documentVersionId || null);
   if (input.requirementId !== undefined) set('requirementId', input.requirementId || null);
   if (input.findingId !== undefined) set('findingId', input.findingId || null);
-  if (input.externalReference !== undefined) set('externalReference', input.externalReference?.trim() || null);
+  if (input.externalReference !== undefined)
+    set('externalReference', input.externalReference?.trim() || null);
   for (const k of [
     'problemWhat',
     'problemWhere',
@@ -338,7 +355,10 @@ export async function updateCapa(
 
   await withOrgContext(organizationId, async (tx) => {
     await tx.capa.update({ where: { id: capaId }, data });
-    if (input.responsibleUserId !== undefined && input.responsibleUserId !== capa.responsibleUserId) {
+    if (
+      input.responsibleUserId !== undefined &&
+      input.responsibleUserId !== capa.responsibleUserId
+    ) {
       await recordHistory(tx, organizationId, capaId, 'responsible_assigned', actorId, {
         detail: 'Responsable actualizado',
       });
@@ -383,7 +403,8 @@ export async function addImmediateAction(
   const role = await memberRole(organizationId, actorId);
   if (!isEditor(capa, role, actorId)) throw new CapaPermissionError();
   assertOpen(capa);
-  if (!input.description?.trim()) throw new CapaValidationError(['La acción inmediata requiere descripción.']);
+  if (!input.description?.trim())
+    throw new CapaValidationError(['La acción inmediata requiere descripción.']);
 
   const cost = input.estimatedCost ? Number(input.estimatedCost) : null;
   return withOrgContext(organizationId, async (tx) => {
@@ -428,7 +449,9 @@ export async function updateImmediateAction(
     await tx.capaImmediateAction.update({
       where: { id: actionId },
       data: {
-        status: input.status ? inSet(IMMEDIATE_ACTION_STATUSES, input.status, action.status as ImmediateActionStatus) : undefined,
+        status: input.status
+          ? inSet(IMMEDIATE_ACTION_STATUSES, input.status, action.status as ImmediateActionStatus)
+          : undefined,
         executedAt: input.executedAt !== undefined ? toDate(input.executedAt) : undefined,
         result: input.result !== undefined ? input.result?.trim() || null : undefined,
       },
@@ -463,7 +486,9 @@ export async function saveRootCause(
     throw new CapaValidationError(['Para concluir la causa raíz indica la conclusión.']);
 
   await withOrgContext(organizationId, async (tx) => {
-    const existing = await tx.capaRootCauseAnalysis.findFirst({ where: { capaId, organizationId } });
+    const existing = await tx.capaRootCauseAnalysis.findFirst({
+      where: { capaId, organizationId },
+    });
     const rca = existing
       ? await tx.capaRootCauseAnalysis.update({
           where: { id: existing.id },
@@ -550,7 +575,8 @@ export async function addAction(
   const role = await memberRole(organizationId, actorId);
   if (!isEditor(capa, role, actorId)) throw new CapaPermissionError();
   assertOpen(capa);
-  if (!input.description?.trim()) throw new CapaValidationError(['La acción requiere descripción.']);
+  if (!input.description?.trim())
+    throw new CapaValidationError(['La acción requiere descripción.']);
 
   return withOrgContext(organizationId, async (tx) => {
     const row = await tx.capaAction.create({
@@ -591,7 +617,9 @@ export async function updateAction(
     comment?: string | null;
   },
 ): Promise<void> {
-  const action = await getPrisma().capaAction.findFirst({ where: { id: actionId, organizationId } });
+  const action = await getPrisma().capaAction.findFirst({
+    where: { id: actionId, organizationId },
+  });
   if (!action) throw new CapaNotFoundError('Acción no encontrada.');
   const capa = await loadCapa(organizationId, action.capaId);
   const role = await memberRole(organizationId, actorId);
@@ -617,7 +645,7 @@ export async function updateAction(
         dueDate: input.dueDate !== undefined ? toDate(input.dueDate) : undefined,
         result: input.result !== undefined ? input.result?.trim() || null : undefined,
         comment: input.comment !== undefined ? input.comment?.trim() || null : undefined,
-        closedAt: status === 'completed' ? action.closedAt ?? new Date() : action.closedAt,
+        closedAt: status === 'completed' ? (action.closedAt ?? new Date()) : action.closedAt,
       },
     });
     await recordHistory(tx, organizationId, action.capaId, 'action_updated', actorId, {
@@ -740,7 +768,11 @@ async function assertStageRequirements(
     const evidence =
       Boolean(capa.objectiveEvidence?.trim()) ||
       (await getPrisma().capaFile.count({
-        where: { capaId: capa.id, organizationId, evidenceType: { in: ['finding', 'investigation'] } },
+        where: {
+          capaId: capa.id,
+          organizationId,
+          evidenceType: { in: ['finding', 'investigation'] },
+        },
       })) > 0;
     if (!evidence) errors.push('Adjunta evidencia objetiva de la investigación.');
     const rca = await getPrisma().capaRootCauseAnalysis.findFirst({
@@ -749,7 +781,9 @@ async function assertStageRequirements(
     if (!rca?.rootCause?.trim()) errors.push('Concluye la causa raíz.');
   }
   if (to === 'in_implementation') {
-    const actions = await getPrisma().capaAction.findMany({ where: { capaId: capa.id, organizationId } });
+    const actions = await getPrisma().capaAction.findMany({
+      where: { capaId: capa.id, organizationId },
+    });
     if (actions.length === 0) errors.push('Agrega al menos una acción al plan.');
     if (actions.some((a) => !a.responsibleUserId || !a.dueDate))
       errors.push('Cada acción requiere responsable y fecha compromiso.');
@@ -758,7 +792,8 @@ async function assertStageRequirements(
     const pending = await getPrisma().capaAction.count({
       where: { capaId: capa.id, organizationId, status: { notIn: ['completed', 'cancelled'] } },
     });
-    if (pending > 0) errors.push('Completa (o cancela) todas las acciones antes de verificar la eficacia.');
+    if (pending > 0)
+      errors.push('Completa (o cancela) todas las acciones antes de verificar la eficacia.');
   }
   if (to === 'closed') {
     const rca = await getPrisma().capaRootCauseAnalysis.findFirst({
@@ -791,23 +826,21 @@ export async function transitionCapa(
     const isDraftOwner = from === 'draft' && isEditor(capa, role, actorId);
     if (!isAdmin(role) && !isDraftOwner)
       throw new CapaPermissionError('Solo owner/admin puede cancelar (o el creador en borrador).');
-    if (!opts.reason?.trim()) throw new CapaValidationError(['Indica el motivo de la cancelación.']);
+    if (!opts.reason?.trim())
+      throw new CapaValidationError(['Indica el motivo de la cancelación.']);
   } else if (to === 'closed') {
     if (!isAdmin(role)) throw new CapaPermissionError('El cierre requiere owner/admin.');
   } else if (!isEditor(capa, role, actorId)) {
     throw new CapaPermissionError();
   }
 
-  if (to !== 'cancelled') await assertStageRequirements(organizationId, capa, to, opts.justification);
+  if (to !== 'cancelled')
+    await assertStageRequirements(organizationId, capa, to, opts.justification);
 
   await withOrgContext(organizationId, async (tx) => {
     await tx.capa.update({ where: { id: capaId }, data: { status: to } });
     const event =
-      to === 'reported'
-        ? 'reported'
-        : to === 'cancelled'
-          ? 'cancelled'
-          : 'status_changed';
+      to === 'reported' ? 'reported' : to === 'cancelled' ? 'cancelled' : 'status_changed';
     await recordHistory(tx, organizationId, capaId, event, actorId, {
       fromStatus: from,
       toStatus: to,
@@ -880,8 +913,10 @@ export async function reopenCapa(
   const capa = await loadCapa(organizationId, capaId);
   const role = await memberRole(organizationId, actorId);
   if (!isAdmin(role)) throw new CapaPermissionError('La reapertura requiere owner/admin.');
-  if (capa.status !== 'closed') throw new CapaValidationError(['Solo una CAPA cerrada puede reabrirse.']);
-  if (!canReopenTo(input.target)) throw new CapaValidationError(['Destino de reapertura no válido.']);
+  if (capa.status !== 'closed')
+    throw new CapaValidationError(['Solo una CAPA cerrada puede reabrirse.']);
+  if (!canReopenTo(input.target))
+    throw new CapaValidationError(['Destino de reapertura no válido.']);
   const errors: string[] = [];
   if (!input.reason?.trim()) errors.push('Indica el motivo de la reapertura.');
   if (!input.responsibleUserId) errors.push('Asigna un nuevo responsable.');
@@ -1025,7 +1060,9 @@ export async function listCapas(organizationId: string, filters: CapaListFilters
       _avg: { progress: true },
     }),
   ]);
-  const progressByCapa = new Map(actionAgg.map((a) => [a.capaId, Math.round(a._avg.progress ?? 0)]));
+  const progressByCapa = new Map(
+    actionAgg.map((a) => [a.capaId, Math.round(a._avg.progress ?? 0)]),
+  );
 
   const list = rows.map((c) => {
     const days = daysBetween(c.targetDate, now);
@@ -1037,8 +1074,8 @@ export async function listCapas(organizationId: string, filters: CapaListFilters
       status: c.status,
       severity: c.severity,
       priority: c.priority,
-      siteName: c.siteId ? sites.get(c.siteId) ?? null : null,
-      responsibleName: c.responsibleUserId ? members.get(c.responsibleUserId) ?? null : null,
+      siteName: c.siteId ? (sites.get(c.siteId) ?? null) : null,
+      responsibleName: c.responsibleUserId ? (members.get(c.responsibleUserId) ?? null) : null,
       targetDate: c.targetDate ? c.targetDate.toISOString().slice(0, 10) : null,
       daysRemaining: days,
       overdue: days !== null && days < 0 && c.status !== 'closed' && c.status !== 'cancelled',
@@ -1113,38 +1150,58 @@ export async function getCreateOptions(organizationId: string) {
 /** Detalle completo de una CAPA con sus entidades relacionadas. */
 export async function getCapaDetail(organizationId: string, capaId: string) {
   const capa = await loadCapa(organizationId, capaId);
-  const [immediateActions, rca, whySteps, actions, reviews, files, relations, history, comments, members, sites] =
-    await Promise.all([
-      getPrisma().capaImmediateAction.findMany({
-        where: { capaId, organizationId },
-        orderBy: { createdAt: 'asc' },
-      }),
-      getPrisma().capaRootCauseAnalysis.findFirst({ where: { capaId, organizationId } }),
-      getPrisma().capaWhyStep.findMany({ where: { capaId, organizationId }, orderBy: { level: 'asc' } }),
-      getPrisma().capaAction.findMany({ where: { capaId, organizationId }, orderBy: { createdAt: 'asc' } }),
-      getPrisma().capaEffectivenessReview.findMany({
-        where: { capaId, organizationId },
-        orderBy: { createdAt: 'desc' },
-      }),
-      getPrisma().capaFile.findMany({ where: { capaId, organizationId }, orderBy: { createdAt: 'desc' } }),
-      getPrisma().capaRelation.findMany({ where: { capaId, organizationId } }),
-      getPrisma().capaStatusHistory.findMany({
-        where: { capaId, organizationId },
-        orderBy: { createdAt: 'desc' },
-        take: 200,
-      }),
-      getPrisma().capaComment.findMany({
-        where: { capaId, organizationId },
-        orderBy: { createdAt: 'desc' },
-        take: 200,
-      }),
-      memberDirectory(organizationId),
-      siteDirectory(organizationId),
-    ]);
-  const nameOf = (id: string | null) => (id ? members.get(id) ?? null : null);
+  const [
+    immediateActions,
+    rca,
+    whySteps,
+    actions,
+    reviews,
+    files,
+    relations,
+    history,
+    comments,
+    members,
+    sites,
+  ] = await Promise.all([
+    getPrisma().capaImmediateAction.findMany({
+      where: { capaId, organizationId },
+      orderBy: { createdAt: 'asc' },
+    }),
+    getPrisma().capaRootCauseAnalysis.findFirst({ where: { capaId, organizationId } }),
+    getPrisma().capaWhyStep.findMany({
+      where: { capaId, organizationId },
+      orderBy: { level: 'asc' },
+    }),
+    getPrisma().capaAction.findMany({
+      where: { capaId, organizationId },
+      orderBy: { createdAt: 'asc' },
+    }),
+    getPrisma().capaEffectivenessReview.findMany({
+      where: { capaId, organizationId },
+      orderBy: { createdAt: 'desc' },
+    }),
+    getPrisma().capaFile.findMany({
+      where: { capaId, organizationId },
+      orderBy: { createdAt: 'desc' },
+    }),
+    getPrisma().capaRelation.findMany({ where: { capaId, organizationId } }),
+    getPrisma().capaStatusHistory.findMany({
+      where: { capaId, organizationId },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    }),
+    getPrisma().capaComment.findMany({
+      where: { capaId, organizationId },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    }),
+    memberDirectory(organizationId),
+    siteDirectory(organizationId),
+  ]);
+  const nameOf = (id: string | null) => (id ? (members.get(id) ?? null) : null);
   return {
     capa,
-    siteName: capa.siteId ? sites.get(capa.siteId) ?? null : null,
+    siteName: capa.siteId ? (sites.get(capa.siteId) ?? null) : null,
     responsibleName: nameOf(capa.responsibleUserId),
     reporterName: nameOf(capa.reportedBy),
     immediateActions,
@@ -1173,62 +1230,73 @@ export async function getCapaUserContext(
 ): Promise<CapaUserContext> {
   const capa = await loadCapa(organizationId, capaId);
   const role = await memberRole(organizationId, userId);
-  return { role, isAdmin: isAdmin(role), canEdit: isEditor(capa, role, userId) && (capa.status !== 'closed' && capa.status !== 'cancelled') };
+  return {
+    role,
+    isAdmin: isAdmin(role),
+    canEdit:
+      isEditor(capa, role, userId) && capa.status !== 'closed' && capa.status !== 'cancelled',
+  };
 }
 
 /** Bandeja de tareas del usuario. */
 export async function getCapaTasks(organizationId: string, userId: string) {
   const now = new Date();
   const soon = new Date(now.getTime() + actionSoonDays() * 86_400_000);
-  const [assigned, pendingContainment, pendingInvestigation, overdueActions, upcomingActions, verifications] =
-    await Promise.all([
-      getPrisma().capa.findMany({
-        where: {
-          organizationId,
-          deletedAt: null,
-          responsibleUserId: userId,
-          status: { notIn: ['closed', 'cancelled'] },
-        },
-        orderBy: { targetDate: 'asc' },
-      }),
-      getPrisma().capa.findMany({
-        where: { organizationId, deletedAt: null, responsibleUserId: userId, status: 'containment' },
-      }),
-      getPrisma().capa.findMany({
-        where: {
-          organizationId,
-          deletedAt: null,
-          responsibleUserId: userId,
-          status: 'under_investigation',
-        },
-      }),
-      getPrisma().capaAction.findMany({
-        where: {
-          organizationId,
-          responsibleUserId: userId,
-          status: { notIn: ['completed', 'cancelled'] },
-          dueDate: { lt: now },
-        },
-        orderBy: { dueDate: 'asc' },
-      }),
-      getPrisma().capaAction.findMany({
-        where: {
-          organizationId,
-          responsibleUserId: userId,
-          status: { notIn: ['completed', 'cancelled'] },
-          dueDate: { gte: now, lte: soon },
-        },
-        orderBy: { dueDate: 'asc' },
-      }),
-      getPrisma().capa.findMany({
-        where: {
-          organizationId,
-          deletedAt: null,
-          responsibleUserId: userId,
-          status: 'effectiveness_review',
-        },
-      }),
-    ]);
+  const [
+    assigned,
+    pendingContainment,
+    pendingInvestigation,
+    overdueActions,
+    upcomingActions,
+    verifications,
+  ] = await Promise.all([
+    getPrisma().capa.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+        responsibleUserId: userId,
+        status: { notIn: ['closed', 'cancelled'] },
+      },
+      orderBy: { targetDate: 'asc' },
+    }),
+    getPrisma().capa.findMany({
+      where: { organizationId, deletedAt: null, responsibleUserId: userId, status: 'containment' },
+    }),
+    getPrisma().capa.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+        responsibleUserId: userId,
+        status: 'under_investigation',
+      },
+    }),
+    getPrisma().capaAction.findMany({
+      where: {
+        organizationId,
+        responsibleUserId: userId,
+        status: { notIn: ['completed', 'cancelled'] },
+        dueDate: { lt: now },
+      },
+      orderBy: { dueDate: 'asc' },
+    }),
+    getPrisma().capaAction.findMany({
+      where: {
+        organizationId,
+        responsibleUserId: userId,
+        status: { notIn: ['completed', 'cancelled'] },
+        dueDate: { gte: now, lte: soon },
+      },
+      orderBy: { dueDate: 'asc' },
+    }),
+    getPrisma().capa.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+        responsibleUserId: userId,
+        status: 'effectiveness_review',
+      },
+    }),
+  ]);
   const closures = await getPrisma().capa.findMany({
     where: { organizationId, deletedAt: null, status: 'effectiveness_review' },
   });
@@ -1238,12 +1306,7 @@ export async function getCapaTasks(organizationId: string, userId: string) {
     title: c.title,
     targetDate: c.targetDate ? c.targetDate.toISOString().slice(0, 10) : null,
   });
-  const fmtA = (a: {
-    id: string;
-    capaId: string;
-    description: string;
-    dueDate: Date | null;
-  }) => ({
+  const fmtA = (a: { id: string; capaId: string; description: string; dueDate: Date | null }) => ({
     id: a.id,
     capaId: a.capaId,
     description: a.description,

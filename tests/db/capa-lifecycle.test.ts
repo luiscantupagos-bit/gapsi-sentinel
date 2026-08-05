@@ -196,9 +196,9 @@ describe.skipIf(!hasDb)('CAPA — ciclo de vida', () => {
     expect(d.capa.closureChecksum).toBeTruthy();
     expect(d.capa.closedBy).toBe(s.owner);
     // Solo lectura: no se puede editar ni añadir acciones.
-    await expect(
-      updateCapa(s.orgId, s.owner, capaId, { title: 'otro' }),
-    ).rejects.toBeInstanceOf(CapaValidationError);
+    await expect(updateCapa(s.orgId, s.owner, capaId, { title: 'otro' })).rejects.toBeInstanceOf(
+      CapaValidationError,
+    );
     await expect(
       addAction(s.orgId, s.owner, capaId, { actionType: 'other', description: 'z' }),
     ).rejects.toBeInstanceOf(CapaValidationError);

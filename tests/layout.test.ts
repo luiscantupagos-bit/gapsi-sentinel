@@ -31,7 +31,9 @@ describe('layout amplio (TASK-007)', () => {
   });
 
   it('el contenido del dashboard usa el contenedor amplio', () => {
-    expect(css).toMatch(/\.shell__content\s*>\s*\.container\s*\{[^}]*max-width:\s*var\(--max-width-wide\)/);
+    expect(css).toMatch(
+      /\.shell__content\s*>\s*\.container\s*\{[^}]*max-width:\s*var\(--max-width-wide\)/,
+    );
   });
 
   it('las tablas permiten scroll horizontal', () => {

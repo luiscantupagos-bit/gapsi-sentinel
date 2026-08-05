@@ -47,9 +47,9 @@ describe.skipIf(!hasDb)('CAPA — permisos y aislamiento', () => {
       description: 'Y',
       sourceType: 'internal_nc',
     });
-    await expect(
-      updateCapa(fx.orgId, other, capaId, { title: 'hackeado' }),
-    ).rejects.toBeInstanceOf(CapaPermissionError);
+    await expect(updateCapa(fx.orgId, other, capaId, { title: 'hackeado' })).rejects.toBeInstanceOf(
+      CapaPermissionError,
+    );
   });
 
   it('el responsable asignado sí puede editar', async () => {
@@ -121,9 +121,9 @@ describe.skipIf(!hasDb)('CAPA — permisos y aislamiento', () => {
       sourceType: 'internal_nc',
     });
     await expect(getCapaDetail(b.orgId, capaId)).rejects.toBeInstanceOf(CapaNotFoundError);
-    await expect(
-      updateCapa(b.orgId, b.userId, capaId, { title: 'x' }),
-    ).rejects.toBeInstanceOf(CapaNotFoundError);
+    await expect(updateCapa(b.orgId, b.userId, capaId, { title: 'x' })).rejects.toBeInstanceOf(
+      CapaNotFoundError,
+    );
     // El listado de B no incluye la CAPA de A.
     const listB = await listCapas(b.orgId);
     expect(listB.some((c) => c.id === capaId)).toBe(false);
