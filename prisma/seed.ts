@@ -838,6 +838,399 @@ async function seedControlDocuments(): Promise<void> {
   await makeDoc(6, 'CTL-06', 'Política obsoleta', 'obsolete', 'obsolete', false, null);
 }
 
+/** UUID determinista para la demo CAPA por tipo de entidad. */
+function capaUuid(kind: '0' | '1' | '2' | '3' | '4' | '5' | '6', n: number): string {
+  return `00000000-0000-4000-8000-00000ca${kind}${n.toString(16).padStart(4, '0')}`;
+}
+
+/**
+ * Datos demo del módulo CAPA (TASK-007). Cubre distintos estados del ciclo,
+ * severidad crítica, vencidas, acciones con responsables y estados, evidencia
+ * (solo metadata, sin binarios) e historial representativo. Idempotente.
+ */
+async function seedCapa(): Promise<void> {
+  if (await prisma.capa.findUnique({ where: { id: capaUuid('0', 1) } })) return;
+
+  const YEAR = 2026;
+  const past = new Date('2026-07-01T00:00:00.000Z'); // vencida (hoy 2026-08-05)
+  const future = new Date('2026-12-31T00:00:00.000Z');
+  const detected = new Date('2026-08-01T00:00:00.000Z');
+
+  interface CapaDef {
+    n: number;
+    folioSeq: number;
+    title: string;
+    description: string;
+    sourceType: string;
+    status: string;
+    severity: string;
+    priority: string;
+    scope: string;
+    impacts: string[];
+    responsible: string | null;
+    targetDate: Date | null;
+    problemWhat?: string;
+    objectiveEvidence?: string;
+  }
+
+  const DEFS: CapaDef[] = [
+    {
+      n: 1,
+      folioSeq: 1,
+      title: 'Registro incompleto de temperatura',
+      description: 'Se detectó un registro de temperatura sin firmar en Planta Norte.',
+      sourceType: 'internal_nc',
+      status: 'draft',
+      severity: 'low',
+      priority: 'normal',
+      scope: 'point',
+      impacts: ['quality'],
+      responsible: null,
+      targetDate: null,
+    },
+    {
+      n: 2,
+      folioSeq: 2,
+      title: 'Desviación de peso en línea de envasado',
+      description: 'Peso neto por debajo de especificación en un lote.',
+      sourceType: 'deviation',
+      status: 'reported',
+      severity: 'medium',
+      priority: 'high',
+      scope: 'batch',
+      impacts: ['quality', 'customer'],
+      responsible: USER_C,
+      targetDate: future,
+    },
+    {
+      n: 3,
+      folioSeq: 3,
+      title: 'Queja de cliente por material extraño',
+      description: 'Cliente reporta presencia de material extraño en producto.',
+      sourceType: 'customer_complaint',
+      status: 'containment',
+      severity: 'high',
+      priority: 'urgent',
+      scope: 'batch',
+      impacts: ['safety', 'customer', 'reputation'],
+      responsible: USER_C,
+      targetDate: future,
+      problemWhat: 'Material extraño detectado por el cliente',
+    },
+    {
+      n: 4,
+      folioSeq: 4,
+      title: 'Hallazgo de auditoría: control de plagas',
+      description: 'Auditoría interna detecta estaciones de control sin verificación.',
+      sourceType: 'audit_nc',
+      status: 'under_investigation',
+      severity: 'high',
+      priority: 'high',
+      scope: 'site',
+      impacts: ['safety', 'legal'],
+      responsible: USER_C,
+      targetDate: future,
+      problemWhat: 'Estaciones de control de plagas sin verificar',
+      objectiveEvidence: 'Bitácora de verificación incompleta',
+    },
+    {
+      n: 5,
+      folioSeq: 5,
+      title: 'Resultado fuera de especificación en producto terminado',
+      description: 'Análisis microbiológico fuera de límite en producto terminado.',
+      sourceType: 'out_of_spec',
+      status: 'action_plan',
+      severity: 'critical',
+      priority: 'urgent',
+      scope: 'batch',
+      impacts: ['safety', 'quality', 'product'],
+      responsible: USER_A,
+      targetDate: past, // vencida
+      problemWhat: 'Recuento microbiológico fuera de especificación',
+      objectiveEvidence: 'Reporte de laboratorio',
+    },
+    {
+      n: 6,
+      folioSeq: 6,
+      title: 'Incidente de inocuidad por temperatura de cámara',
+      description: 'Cámara de refrigeración superó el límite durante 3 horas.',
+      sourceType: 'safety_incident',
+      status: 'effectiveness_review',
+      severity: 'high',
+      priority: 'high',
+      scope: 'line',
+      impacts: ['safety', 'product'],
+      responsible: USER_C,
+      targetDate: future,
+      problemWhat: 'Temperatura de cámara fuera de rango',
+      objectiveEvidence: 'Gráfico de temperatura',
+    },
+    {
+      n: 7,
+      folioSeq: 7,
+      title: 'No conformidad de etiquetado (cerrada)',
+      description: 'Etiqueta sin fecha de caducidad en un lote; corregido y verificado.',
+      sourceType: 'internal_nc',
+      status: 'closed',
+      severity: 'medium',
+      priority: 'normal',
+      scope: 'batch',
+      impacts: ['legal', 'customer'],
+      responsible: USER_C,
+      targetDate: past,
+      problemWhat: 'Etiqueta sin fecha de caducidad',
+      objectiveEvidence: 'Muestras de etiqueta',
+    },
+    {
+      n: 8,
+      folioSeq: 8,
+      title: 'Oportunidad de mejora: capacitación en higiene',
+      description: 'Se propone reforzar la capacitación de higiene del personal.',
+      sourceType: 'improvement',
+      status: 'reported',
+      severity: 'low',
+      priority: 'normal',
+      scope: 'organization',
+      impacts: ['personnel', 'quality'],
+      responsible: USER_A,
+      targetDate: past, // vencida
+    },
+  ];
+
+  for (const d of DEFS) {
+    const capaId = capaUuid('0', d.n);
+    await prisma.capa.create({
+      data: {
+        id: capaId,
+        organizationId: ORG_A,
+        folio: `CAPA-${YEAR}-${String(d.folioSeq).padStart(4, '0')}`,
+        year: YEAR,
+        title: d.title,
+        description: d.description,
+        sourceType: d.sourceType,
+        status: d.status,
+        siteId: SITE_A,
+        severity: d.severity,
+        priority: d.priority,
+        scope: d.scope,
+        impacts: d.impacts,
+        responsibleUserId: d.responsible,
+        reportedBy: USER_A,
+        detectedAt: detected,
+        targetDate: d.targetDate,
+        problemWhat: d.problemWhat ?? null,
+        objectiveEvidence: d.objectiveEvidence ?? null,
+        createdBy: USER_A,
+      },
+    });
+    await prisma.capaStatusHistory.create({
+      data: {
+        organizationId: ORG_A,
+        capaId,
+        event: 'created',
+        toStatus: 'draft',
+        actorUserId: USER_A,
+        detail: `Folio CAPA-${YEAR}-${String(d.folioSeq).padStart(4, '0')}`,
+      },
+    });
+  }
+
+  // Acción inmediata (contención) para la queja de cliente (n=3) y la auditoría (n=4).
+  await prisma.capaImmediateAction.createMany({
+    data: [
+      {
+        id: capaUuid('1', 3),
+        organizationId: ORG_A,
+        capaId: capaUuid('0', 3),
+        actionType: 'containment',
+        description: 'Retener y segregar el lote afectado',
+        responsibleUserId: USER_C,
+        status: 'completed',
+        executedAt: detected,
+        createdBy: USER_A,
+      },
+      {
+        id: capaUuid('1', 4),
+        organizationId: ORG_A,
+        capaId: capaUuid('0', 4),
+        actionType: 'correction',
+        description: 'Verificar de inmediato todas las estaciones',
+        responsibleUserId: USER_C,
+        status: 'in_progress',
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  // Causa raíz (5 porqués) para investigación (4), plan (5), eficacia (6) y cerrada (7).
+  for (const [n, root] of [
+    [4, 'Falta de un calendario de verificación de estaciones'],
+    [5, 'Desviación en el proceso de pasteurización'],
+    [6, 'Falla del sensor de temperatura sin alarma'],
+    [7, 'Plantilla de etiqueta desactualizada'],
+  ] as const) {
+    const rcaId = capaUuid('2', n);
+    await prisma.capaRootCauseAnalysis.create({
+      data: {
+        id: rcaId,
+        organizationId: ORG_A,
+        capaId: capaUuid('0', n),
+        method: 'five_whys',
+        rootCause: root,
+        investigatorUserId: USER_C,
+        concludedAt: detected,
+        createdBy: USER_A,
+      },
+    });
+    await prisma.capaWhyStep.createMany({
+      data: [
+        {
+          organizationId: ORG_A,
+          capaId: capaUuid('0', n),
+          rcaId,
+          level: 1,
+          answer: 'Se observó la desviación.',
+        },
+        {
+          organizationId: ORG_A,
+          capaId: capaUuid('0', n),
+          rcaId,
+          level: 2,
+          answer: 'El control no se ejecutó.',
+        },
+        { organizationId: ORG_A, capaId: capaUuid('0', n), rcaId, level: 3, answer: root },
+      ],
+    });
+  }
+
+  // Plan de acciones para el plan (5), la eficacia (6) y la cerrada (7).
+  await prisma.capaAction.createMany({
+    data: [
+      {
+        id: capaUuid('4', 5),
+        organizationId: ORG_A,
+        capaId: capaUuid('0', 5),
+        actionType: 'corrective',
+        description: 'Revalidar parámetros de pasteurización',
+        responsibleUserId: USER_A,
+        dueDate: future,
+        priority: 'urgent',
+        status: 'in_progress',
+        progress: 40,
+        createdBy: USER_A,
+      },
+      {
+        id: capaUuid('4', 15),
+        organizationId: ORG_A,
+        capaId: capaUuid('0', 5),
+        actionType: 'preventive',
+        description: 'Capacitar al personal de proceso',
+        responsibleUserId: USER_C,
+        dueDate: future,
+        priority: 'high',
+        status: 'pending',
+        progress: 0,
+        createdBy: USER_A,
+      },
+      {
+        id: capaUuid('4', 6),
+        organizationId: ORG_A,
+        capaId: capaUuid('0', 6),
+        actionType: 'maintenance',
+        description: 'Reemplazar sensor y configurar alarma',
+        responsibleUserId: USER_A,
+        dueDate: past,
+        priority: 'high',
+        status: 'completed',
+        progress: 100,
+        closedAt: detected,
+        createdBy: USER_A,
+      },
+      {
+        id: capaUuid('4', 7),
+        organizationId: ORG_A,
+        capaId: capaUuid('0', 7),
+        actionType: 'document_change',
+        description: 'Actualizar plantilla de etiqueta',
+        responsibleUserId: USER_C,
+        dueDate: past,
+        priority: 'normal',
+        status: 'completed',
+        progress: 100,
+        closedAt: detected,
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  // Verificación de eficacia para la cerrada (7): eficaz, verificada por otro usuario.
+  await prisma.capaEffectivenessReview.create({
+    data: {
+      id: capaUuid('5', 7),
+      organizationId: ORG_A,
+      capaId: capaUuid('0', 7),
+      criterion: 'Sin recurrencia de etiquetas sin caducidad en 3 lotes',
+      method: 'Revisión documental',
+      executedAt: detected,
+      verifierUserId: USER_A,
+      conclusion: 'effective',
+      createdBy: USER_A,
+    },
+  });
+
+  // Cierre de la CAPA 7 (metadata; acuse interno, no firma legal).
+  await prisma.capa.update({
+    where: { id: capaUuid('0', 7) },
+    data: {
+      closedBy: USER_A,
+      closedAt: detected,
+      closureSummary: 'Causa eliminada; verificación eficaz sin recurrencia.',
+      closureChecksum: 'seed-capa-07-closure',
+    },
+  });
+
+  // Evidencia (solo metadata; binarios fuera de PostgreSQL).
+  await prisma.capaFile.createMany({
+    data: [
+      {
+        id: capaUuid('6', 4),
+        organizationId: ORG_A,
+        capaId: capaUuid('0', 4),
+        evidenceType: 'investigation',
+        originalName: 'bitacora-plagas.pdf',
+        storedName: 'seed-capa-04.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 12000,
+        extension: 'pdf',
+        storageKey: `${ORG_A}/seed-capa-04.pdf`,
+        checksum: 'seed-capa-04',
+        uploadedBy: USER_A,
+      },
+      {
+        id: capaUuid('6', 7),
+        organizationId: ORG_A,
+        capaId: capaUuid('0', 7),
+        evidenceType: 'closure',
+        originalName: 'etiqueta-corregida.png',
+        storedName: 'seed-capa-07.png',
+        mimeType: 'image/png',
+        sizeBytes: 34000,
+        extension: 'png',
+        storageKey: `${ORG_A}/seed-capa-07.png`,
+        checksum: 'seed-capa-07',
+        uploadedBy: USER_A,
+      },
+    ],
+  });
+
+  // Ajusta el contador de folios para que las CAPA creadas por la app continúen.
+  await prisma.capaFolioCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: YEAR } },
+    create: { organizationId: ORG_A, year: YEAR, lastSeq: DEFS.length },
+    update: { lastSeq: DEFS.length },
+  });
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -892,6 +1285,7 @@ async function main(): Promise<void> {
   await seedDocuments();
   await seedEditorDocuments();
   await seedControlDocuments();
+  await seedCapa();
 
   console.log(
     'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico.',

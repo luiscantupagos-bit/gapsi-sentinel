@@ -268,3 +268,34 @@ Flujo de prueba manual:
 
 Variable opcional: `DOCUMENTS_REVIEW_SOON_DAYS` (umbral de próxima revisión; 30
 días por defecto).
+
+## No conformidades y acciones correctivas CAPA (TASK-007)
+
+Módulo formal para registrar, investigar, corregir y cerrar no conformidades,
+desviaciones, hallazgos, quejas, incidentes y oportunidades de mejora (ver
+`docs/tasks/TASK-007-IMPLEMENTATION-NOTES.md`). Estados: Borrador → Reportada →
+En contención → En investigación → Plan de acciones → En implementación →
+Verificación de eficacia → Cerrada (o Cancelada). Folio automático
+`CAPA-AAAA-####` único por organización y año.
+
+Esta tarea también incluye un **ajuste transversal de layout**: el área privada
+usa un contenedor amplio y fluido (~1760px) con sidebar fijo en escritorio,
+tarjetas responsive y tablas con scroll horizontal, sin afectar tabletas ni
+móviles.
+
+Flujo de prueba manual:
+
+1. Abrir `/dashboard/capa`, buscar y filtrar; **Registrar CAPA**.
+2. Asignar responsable y fecha objetivo; **Avanzar** a reportada y contención;
+   registrar una **acción inmediata**.
+3. Avanzar a investigación; capturar **5 porqués** y **causa raíz**.
+4. Avanzar al **plan de acciones**; crear acciones con responsable y fecha;
+   completarlas; adjuntar **evidencia**.
+5. Avanzar a **verificación de eficacia**; con "no eficaz" el cierre se bloquea;
+   con "eficaz" **Cerrar CAPA** (queda en solo lectura).
+6. **Reabrir** (owner/admin) con motivo, nuevo responsable y fecha.
+7. Revisar **historial**, **bandeja** (`/dashboard/capa/tasks`) y resumen del
+   dashboard.
+
+Variable opcional: `CAPA_ACTION_SOON_DAYS` (umbral de acción próxima; 15 días por
+defecto).
