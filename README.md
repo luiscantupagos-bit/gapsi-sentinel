@@ -299,3 +299,24 @@ Flujo de prueba manual:
 
 Variable opcional: `CAPA_ACTION_SOON_DAYS` (umbral de acción próxima; 15 días por
 defecto).
+
+## Herramientas de calidad y análisis de causa (TASK-008)
+
+Amplía CAPA con herramientas formales y visuales de investigación (ver
+`docs/tasks/TASK-008-IMPLEMENTATION-NOTES.md`): **Ishikawa, árbol de causas,
+Pareto, AMEF, recurrencia y comparación de casos**, con hipótesis, conclusiones,
+versionado y conversión a acciones CAPA. Las herramientas ayudan a investigar; no
+deciden la causa raíz.
+
+Estados del análisis: Borrador → En desarrollo → En revisión → (Aprobado /
+Cambios solicitados), con Cancelado. Aprobado queda en solo lectura; para cambiar
+se crea una nueva versión. Cada herramienta ofrece una visualización SVG y una
+**vista de tabla accesible**.
+
+Flujo de prueba manual: abrir una CAPA → **Análisis** → **Nuevo análisis**; elegir
+herramienta; capturar datos (causas/nodos/ítems/filas AMEF); crear acción CAPA
+desde un elemento; escribir conclusión; **enviar a revisión** → **aprobar** (solo
+lectura) → **nueva versión**. Listado global en `/dashboard/capa/analysis`.
+
+Fuera de alcance: IA, análisis semántico, búsqueda web, auditorías, proyectos,
+Gantt y HACCP.
