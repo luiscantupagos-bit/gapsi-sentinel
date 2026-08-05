@@ -15,8 +15,37 @@ import {
   validateDocumentMetadata,
   isDueSoon,
   isOverdue,
+  extensionOf,
   type DocumentMetadataInput,
 } from '@/features/documents/catalog';
+import {
+  CONTENT_SCHEMA_VERSION,
+  contentByteSize,
+  contentChecksum,
+  maxContentBytes,
+  renderContentHtml,
+  sanitizeContent,
+  type DocNode,
+} from '@/features/documents/content-schema';
+import {
+  DEFAULT_PAGE_CONFIG,
+  getTemplate,
+  sanitizePageConfig,
+  type PageConfig,
+} from '@/features/documents/templates';
+
+export class ContentTooLargeError extends Error {
+  constructor() {
+    super('El contenido supera el tamaño máximo permitido.');
+    this.name = 'ContentTooLargeError';
+  }
+}
+export class UnsupportedImageError extends Error {
+  constructor() {
+    super('Solo se permiten imágenes PNG o JPG.');
+    this.name = 'UnsupportedImageError';
+  }
+}
 
 export class DocumentNotFoundError extends Error {
   constructor() {
@@ -554,4 +583,282 @@ export async function linkDocument(
       });
     }),
   );
+}
+
+// --- TASK-005: editor documental enriquecido ---------------------------------
+
+const asJson = (value: unknown): Prisma.InputJsonValue => value as Prisma.InputJsonValue;
+
+async function loadScopedVersion(organizationId: string, documentId: string, versionId: string) {
+  const version = await getPrisma().documentVersion.findFirst({
+    where: { id: versionId, documentId, organizationId },
+  });
+  if (!version) throw new DocumentNotFoundError();
+  return version;
+}
+
+/** Crea un documento interno editado dentro de Sentinel a partir de una plantilla. */
+export async function createEditorDocument(
+  organizationId: string,
+  userId: string,
+  input: { code: string; title: string; documentType: string; templateKey: string },
+): Promise<string> {
+  const template = getTemplate(input.templateKey);
+  const errors = validateDocumentMetadata({
+    code: input.code,
+    title: input.title,
+    documentType: input.documentType,
+    versionLabel: 'v1',
+    origin: 'internal',
+    status: 'draft',
+    confidentiality: 'internal',
+  });
+  if (!template) errors.push('Plantilla inválida.');
+  if (errors.length) throw new DocumentValidationError(errors);
+
+  const content = sanitizeContent(template!.build());
+  const html = renderContentHtml(content);
+  const pageConfig = sanitizePageConfig({
+    ...DEFAULT_PAGE_CONFIG,
+    cover: { enabled: template!.cover },
+  });
+
+  return saneCreate(() =>
+    withOrgContext(organizationId, async (tx) => {
+      const document = await tx.document.create({
+        data: {
+          organizationId,
+          code: input.code.trim(),
+          title: input.title.trim(),
+          documentType: input.documentType,
+          origin: 'internal',
+          status: 'draft',
+          confidentiality: 'internal',
+          currentVersionLabel: 'v1',
+          createdBy: userId,
+          responsibleUserId: userId,
+        },
+      });
+      await tx.documentVersion.create({
+        data: {
+          organizationId,
+          documentId: document.id,
+          label: 'v1',
+          status: 'draft',
+          isCurrent: true,
+          author: userId,
+          updatedBy: userId,
+          templateKey: template!.key,
+          contentSchemaVersion: CONTENT_SCHEMA_VERSION,
+          contentJson: asJson(content),
+          contentHtml: html,
+          contentChecksum: contentChecksum(content),
+          pageConfig: asJson(pageConfig),
+        },
+      });
+      await tx.documentHistory.create({
+        data: {
+          organizationId,
+          documentId: document.id,
+          action: 'document.created',
+          actorUserId: userId,
+        },
+      });
+      return document.id;
+    }),
+  );
+}
+
+export async function getEditorContent(
+  organizationId: string,
+  documentId: string,
+  versionId?: string,
+) {
+  const doc = await loadScopedDocument(organizationId, documentId);
+  const prisma = getPrisma();
+  const version = versionId
+    ? await loadScopedVersion(organizationId, documentId, versionId)
+    : ((await prisma.documentVersion.findFirst({
+        where: { documentId, organizationId, isCurrent: true },
+      })) ??
+      (await prisma.documentVersion.findFirst({
+        where: { documentId, organizationId },
+        orderBy: { createdAt: 'desc' },
+      })));
+  if (!version) throw new DocumentNotFoundError();
+
+  const versions = await prisma.documentVersion.findMany({
+    where: { documentId, organizationId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, label: true, status: true, isCurrent: true },
+  });
+  const org = await prisma.organization.findUniqueOrThrow({
+    where: { id: organizationId },
+    select: { name: true },
+  });
+  const editorName = version.updatedBy
+    ? ((await userNames([version.updatedBy])).get(version.updatedBy) ?? null)
+    : null;
+
+  return {
+    documentId: doc.id,
+    documentCode: doc.code,
+    documentTitle: doc.title,
+    documentStatus: doc.status,
+    organizationName: org.name,
+    siteId: doc.siteId,
+    versionId: version.id,
+    label: version.label,
+    versionStatus: version.status,
+    isCurrent: version.isCurrent,
+    // Solo la versión VIGENTE en borrador es editable; las anteriores son de solo lectura.
+    editable: !doc.archivedAt && version.status === 'draft' && version.isCurrent,
+    templateKey: version.templateKey,
+    schemaVersion: version.contentSchemaVersion,
+    contentJson: (version.contentJson ?? sanitizeContent(null)) as unknown as DocNode,
+    contentHtml: version.contentHtml,
+    pageConfig: (version.pageConfig ?? DEFAULT_PAGE_CONFIG) as unknown as PageConfig,
+    updatedAt: version.updatedAt,
+    updatedByName: editorName,
+    versions,
+  };
+}
+
+/** Guarda el contenido de una versión BORRADOR (sanea, valida tamaño, checksum). */
+export async function saveContent(
+  organizationId: string,
+  userId: string,
+  documentId: string,
+  versionId: string,
+  payload: { contentJson: unknown; pageConfig?: unknown },
+  recordHistory = false,
+): Promise<{ checksum: string; savedAt: string }> {
+  const doc = await loadScopedDocument(organizationId, documentId);
+  if (doc.archivedAt) throw new DocumentNotEditableError();
+  const version = await loadScopedVersion(organizationId, documentId, versionId);
+  if (version.status !== 'draft' || !version.isCurrent) throw new DocumentNotEditableError();
+
+  const content = sanitizeContent(payload.contentJson);
+  if (contentByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
+  const pageConfig = sanitizePageConfig(
+    payload.pageConfig ?? version.pageConfig ?? DEFAULT_PAGE_CONFIG,
+  );
+  const html = renderContentHtml(content);
+  const checksum = contentChecksum(content);
+
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.documentVersion.update({
+      where: { id: versionId },
+      data: {
+        contentJson: asJson(content),
+        contentHtml: html,
+        contentChecksum: checksum,
+        pageConfig: asJson(pageConfig),
+        contentSchemaVersion: CONTENT_SCHEMA_VERSION,
+        updatedBy: userId,
+      },
+    });
+    if (recordHistory) {
+      await tx.documentHistory.create({
+        data: { organizationId, documentId, action: 'content.updated', actorUserId: userId },
+      });
+    }
+  });
+  return { checksum, savedAt: new Date().toISOString() };
+}
+
+/** Crea una nueva versión BORRADOR copiando el contenido de la vigente. */
+export async function createEditorVersion(
+  organizationId: string,
+  userId: string,
+  documentId: string,
+  input: { label: string; changeNotes?: string | null },
+): Promise<string> {
+  const doc = await loadScopedDocument(organizationId, documentId);
+  if (doc.archivedAt) throw new DocumentNotEditableError();
+  if (!input.label?.trim())
+    throw new DocumentValidationError(['La etiqueta de versión es obligatoria.']);
+
+  const prisma = getPrisma();
+  const current =
+    (await prisma.documentVersion.findFirst({
+      where: { documentId, organizationId, isCurrent: true },
+    })) ??
+    (await prisma.documentVersion.findFirst({
+      where: { documentId, organizationId },
+      orderBy: { createdAt: 'desc' },
+    }));
+
+  return saneCreate(() =>
+    withOrgContext(organizationId, async (tx) => {
+      await tx.documentVersion.updateMany({
+        where: { documentId, organizationId, isCurrent: true },
+        data: { isCurrent: false },
+      });
+      const created = await tx.documentVersion.create({
+        data: {
+          organizationId,
+          documentId,
+          label: input.label.trim(),
+          changeNotes: input.changeNotes ?? null,
+          status: 'draft',
+          isCurrent: true,
+          author: userId,
+          updatedBy: userId,
+          templateKey: current?.templateKey ?? null,
+          contentSchemaVersion: current?.contentSchemaVersion ?? CONTENT_SCHEMA_VERSION,
+          contentJson: current?.contentJson ? asJson(current.contentJson) : Prisma.JsonNull,
+          contentHtml: current?.contentHtml ?? null,
+          contentChecksum: current?.contentChecksum ?? null,
+          pageConfig: current?.pageConfig ? asJson(current.pageConfig) : Prisma.JsonNull,
+        },
+      });
+      await tx.document.update({
+        where: { id: documentId },
+        data: { currentVersionLabel: input.label.trim() },
+      });
+      await tx.documentHistory.create({
+        data: { organizationId, documentId, action: 'version.created', actorUserId: userId },
+      });
+      return created.id;
+    }),
+  );
+}
+
+/** Sube una imagen (PNG/JPG) a una versión borrador y devuelve su URL protegida. */
+export async function addDocumentImage(
+  organizationId: string,
+  userId: string,
+  documentId: string,
+  versionId: string,
+  file: { originalName: string; mimeType: string; data: Buffer },
+): Promise<{ fileId: string; url: string }> {
+  const doc = await loadScopedDocument(organizationId, documentId);
+  if (doc.archivedAt) throw new DocumentNotEditableError();
+  const version = await loadScopedVersion(organizationId, documentId, versionId);
+  if (version.status !== 'draft' || !version.isCurrent) throw new DocumentNotEditableError();
+
+  const ext = extensionOf(file.originalName);
+  if (!['png', 'jpg', 'jpeg'].includes(ext) || !file.mimeType.startsWith('image/')) {
+    throw new UnsupportedImageError();
+  }
+  const saved = await saveDocumentFile({ organizationId, ...file });
+  const created = await withOrgContext(organizationId, (tx) =>
+    tx.documentFile.create({
+      data: {
+        organizationId,
+        documentVersionId: versionId,
+        kind: 'image',
+        originalName: saved.originalName,
+        storedName: saved.storedName,
+        mimeType: saved.mimeType,
+        sizeBytes: saved.sizeBytes,
+        extension: saved.extension,
+        storageKey: saved.storageKey,
+        checksum: saved.checksum,
+        uploadedBy: userId,
+      },
+    }),
+  );
+  return { fileId: created.id, url: `/dashboard/documents/${documentId}/files/${created.id}` };
 }
