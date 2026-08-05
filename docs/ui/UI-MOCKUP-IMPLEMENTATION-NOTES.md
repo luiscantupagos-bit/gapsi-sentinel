@@ -80,3 +80,75 @@ fluido en 1440/1280/1024/375). El editor documental conserva su hoja (816px).
   estructura en el navegador.
 - Refinamiento fino por página (densidad exacta, paginación visual) si se requiere
   mayor fidelidad.
+
+---
+
+# Validación visual final (capturas reales vs. mockups)
+
+## Método de captura
+
+El navegador integrado no compone frames (no permite `screenshot`). Alternativa
+usada **sin agregar dependencias**: **Microsoft Edge del sistema en modo
+`--headless=new`** controlado por el **Chrome DevTools Protocol** vía las APIs
+globales `fetch` y `WebSocket` de Node 24 (script `scratchpad/shoot.mjs`). Se
+inyecta la cookie de sesión de desarrollo (`gapsi_session`) con `Network.setCookie`
+y se captura cada ruta a **1920×1080** con `Page.captureScreenshot`.
+
+Capturas generadas en `docs/ui/screenshots/final/`:
+
+- `01_panel.png` · `02_documentos.png` · `03_tareas.png`
+- `04_acciones_correctivas.png` · `05_bandeja_capa.png` · `06_analisis.png`
+
+> Nota: los mockups de referencia se recibieron como imágenes en la conversación;
+> **no existen** como `docs/ui-references/*.png` en el repo, por lo que la
+> comparación se hizo contra esas imágenes. El recuadro rojo "1 Issue" que aparece
+> abajo-izquierda en algunas capturas es el **indicador de desarrollo de Next.js**,
+> no forma parte de la interfaz (no aparece en producción).
+
+## Comparación por página
+
+| Aspecto    | Panel       | Documentos | Tareas | Acciones corr. | Bandeja CAPA         | Análisis |
+| ---------- | ----------- | ---------- | ------ | -------------- | -------------------- | -------- |
+| Estructura | ✔          | ✔         | ~      | ✔             | ✔ (tras corrección) | ✔       |
+| Sidebar    | ✔          | ✔         | ✔     | ✔             | ✔                   | ✔       |
+| Topbar     | ✔          | ✔         | ✔     | ✔             | ✔                   | ✔       |
+| Títulos    | Dashboard\* | ✔         | ~      | ✔             | ✔                   | ✔       |
+| Tarjetas   | ✔          | —          | —      | —              | ✔                   | ✔       |
+| Filtros    | —           | ✔         | —      | ✔             | —                    | ✔       |
+| Tablas     | ✔          | ✔         | ✔     | ✔             | ✔                   | ✔       |
+| Botones    | ✔          | ✔ (2)     | —      | ✔             | ✔                   | ~        |
+| Badges     | ✔          | ✔         | ✔     | ✔             | ✔                   | ✔       |
+| Espaciado  | ✔          | ✔         | ✔     | ✔             | ✔                   | ✔       |
+| Tipografía | ✔          | ✔         | ✔     | ✔             | ✔                   | ✔       |
+| Responsive | ✔          | ✔         | ✔     | ✔             | ✔                   | ✔       |
+
+`*` Título "Dashboard" por solicitud explícita del usuario (el mockup dice "Panel").
+
+## Estimación honesta de similitud
+
+| Página               | Similitud | Comentario                                                                                                                                                                                                                                                                                                                                   |
+| -------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Panel                | ~90%      | Coincide en sidebar, topbar, statcards, donut, barras, actividad y próximas tareas. Diferencias **intencionales**: título "Dashboard" (petición del usuario), sin deltas de tendencia (el sistema no calcula históricos), datos reales en lugar de los ficticios del mockup.                                                                 |
+| Documentos           | ~88%      | Chrome, filtros, tabla y badges equivalentes. Título ajustado a "Documentos" + subtítulo. Mantiene 2 botones (registrar externo / crear interno) y columnas más ricas por funcionalidad real.                                                                                                                                                |
+| Tareas               | ~60%      | Divergencia **conceptual**: la ruta actual es la bandeja de **tareas documentales**; el mockup plantea un **gestor de tareas global** con pestañas (Mis tareas/Todas/Vencidas/Próximas/Completadas) y tabla unificada, que sería **funcionalidad nueva** (fuera de alcance de una normalización visual). El chrome y el estilo sí coinciden. |
+| Acciones correctivas | ~90%      | Muy cercano. Se añadió subtítulo y se renombró el botón a "Nueva CAPA". La tabla real incluye columnas adicionales (Sitio, Severidad, Fecha objetivo, Avance).                                                                                                                                                                               |
+| Bandeja CAPA         | ~82%      | Se añadieron las **4 tarjetas resumen** (Por atender/Vencidas/Próximas/En revisión) y subtítulo, alineando el encabezado con el mockup. Se conservan las secciones por tipo de tarea (más informativas) en lugar de las pestañas + tabla única del mockup.                                                                                   |
+| Análisis             | ~92%      | Prácticamente idéntico (7 tarjetas de herramienta, filtros, tabla, badges). Sin botón "+ Nuevo análisis" porque los análisis se crean **dentro de una CAPA**; las tarjetas de herramienta filtran por tipo. Iconos con emoji en lugar de iconos de línea.                                                                                    |
+
+## Correcciones aplicadas (solo diferencias visuales claras y seguras)
+
+- **Bandeja CAPA**: 4 tarjetas resumen (datos existentes de `getCapaTasks`) + subtítulo.
+- **Acciones correctivas**: subtítulo descriptivo + botón "Nueva CAPA".
+- **Documentos**: título "Documentos" + subtítulo "Gestiona los documentos del sistema".
+
+No se modificó lógica, datos, base de datos, migraciones ni funcionalidades.
+
+## Diferencias remanentes (justificadas, no corregidas)
+
+- **Datos reales** en vez de los ficticios del mockup (usuario "Evaluador A /
+  Propietario", organización "Alimentos Demo A", cifras reales); sin tendencias
+  históricas inventadas.
+- **Módulos futuros** deshabilitados en el sidebar (rutas inexistentes).
+- **Tareas**: gestor global de tareas = funcionalidad futura (no se inventa).
+- **Análisis**: creación desde la CAPA (no botón global); iconos emoji.
+- **Documentos/Acciones**: columnas adicionales por mayor funcionalidad real.

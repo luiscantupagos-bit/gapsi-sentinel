@@ -48,9 +48,14 @@ export default async function CapaListPage({ searchParams }: { searchParams: Pro
   return (
     <main className="container">
       <div className="page-head">
-        <h1>Acciones correctivas (CAPA)</h1>
+        <div>
+          <h1>Acciones correctivas (CAPA)</h1>
+          <p className="muted page-head__sub">
+            Gestiona el ciclo completo de acciones correctivas y preventivas
+          </p>
+        </div>
         <Link className="button" href="/dashboard/capa/new">
-          Registrar CAPA
+          Nueva CAPA
         </Link>
       </div>
       <p>

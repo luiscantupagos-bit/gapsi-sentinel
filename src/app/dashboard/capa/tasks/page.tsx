@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireServerSession } from '@/server/session';
 import { getCapaTasks } from '@/server/capa';
+import { PageHeader, StatCard } from '../../_components/ui';
 
 interface Row {
   id: string;
@@ -83,10 +84,17 @@ export default async function CapaTasksPage() {
 
   return (
     <main className="container">
-      <p>
+      <p className="no-print">
         <Link href="/dashboard/capa">← Volver al listado</Link>
       </p>
-      <h1>Bandeja de tareas CAPA</h1>
+      <PageHeader title="Bandeja CAPA" subtitle="Resumen y seguimiento de CAPA por atender" />
+
+      <div className="statcard-row">
+        <StatCard label="Por atender" value={inbox.assigned.length} />
+        <StatCard label="Vencidas" value={inbox.overdueActions.length} tone="danger" />
+        <StatCard label="Próximas a vencer" value={inbox.upcomingActions.length} tone="warning" />
+        <StatCard label="En revisión" value={inbox.verifications.length} />
+      </div>
 
       <h2>CAPA asignadas ({inbox.assigned.length})</h2>
       <CapaTable items={inbox.assigned} />

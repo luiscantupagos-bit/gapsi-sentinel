@@ -33,7 +33,10 @@ export default async function DocumentsListPage({
   return (
     <main className="container">
       <div className="page-head">
-        <h1>Listado maestro de documentos</h1>
+        <div>
+          <h1>Documentos</h1>
+          <p className="muted page-head__sub">Gestiona los documentos del sistema</p>
+        </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <Link className="button button--ghost" href="/dashboard/documents/new">
             Registrar (externo)
