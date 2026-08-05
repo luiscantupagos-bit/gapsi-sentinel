@@ -205,3 +205,25 @@ npm run dev            # http://localhost:3000
 3. Responde preguntas y **Guardar avance** (el progreso de captura cambia).
 4. **Enviar diagnóstico** (queda en solo lectura).
 5. **Ver resultado preliminar** (cálculo provisional, no el motor definitivo).
+
+## Módulo documental (TASK-004)
+
+Gestión documental básica conectada a PostgreSQL (ver
+`docs/tasks/TASK-004-IMPLEMENTATION-NOTES.md`). No incluye editor tipo Word.
+
+En el menú lateral del panel → **Documentos**:
+
+1. **Listado maestro** con búsqueda y filtros (tipo, estado, sitio, origen).
+2. **Nuevo documento** (código único por organización; puede adjuntar un archivo).
+3. **Detalle**: descargar archivos, agregar anexos, crear versión, ver historial,
+   archivar, editar metadatos.
+
+Almacenamiento local de desarrollo en `storage/documents/` (no versionada).
+Formatos permitidos: PDF, DOC(X), XLS(X), PNG, JPG/JPEG. Variables opcionales:
+
+```bash
+# Tamaño máximo de subida (bytes; por defecto 10 MB)
+DOCUMENTS_MAX_UPLOAD_BYTES=10485760
+# Carpeta de almacenamiento local (por defecto ./storage/documents)
+DOCUMENTS_STORAGE_DIR=./storage/documents
+```

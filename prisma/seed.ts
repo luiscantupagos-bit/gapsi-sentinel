@@ -392,6 +392,127 @@ async function seedDiagnostic(): Promise<void> {
   });
 }
 
+/** UUID determinista para documentos ('c') y versiones ('d') de demostración. */
+function docUuid(kind: 'c' | 'd', n: number): string {
+  return `00000000-0000-4000-8000-00000000d0${kind}${n.toString(16)}`;
+}
+
+interface DocDef {
+  code: string;
+  title: string;
+  documentType: string;
+  origin: string;
+  status: string;
+  issuedAt: string;
+  nextReviewAt: string | null;
+  description?: string;
+}
+
+// Documentos de demostración para ORG_A (sin archivos binarios).
+const DEMO_DOCS: DocDef[] = [
+  {
+    code: 'POL-01',
+    title: 'Política de inocuidad alimentaria',
+    documentType: 'policy',
+    origin: 'internal',
+    status: 'effective',
+    issuedAt: '2026-01-01',
+    nextReviewAt: '2027-01-01',
+    description: 'Compromiso de la dirección con la inocuidad (demo).',
+  },
+  {
+    code: 'PRO-01',
+    title: 'Procedimiento de limpieza y desinfección',
+    documentType: 'procedure',
+    origin: 'internal',
+    status: 'effective',
+    issuedAt: '2026-02-01',
+    nextReviewAt: '2026-08-20',
+  },
+  {
+    code: 'FOR-01',
+    title: 'Formato de registro de temperatura',
+    documentType: 'form',
+    origin: 'internal',
+    status: 'effective',
+    issuedAt: '2026-03-01',
+    nextReviewAt: '2027-03-01',
+  },
+  {
+    code: 'EXT-01',
+    title: 'NOM-251 (documento externo)',
+    documentType: 'external',
+    origin: 'external',
+    status: 'effective',
+    issuedAt: '2025-10-01',
+    nextReviewAt: null,
+    description: 'Referencia normativa externa (demo).',
+  },
+  {
+    code: 'INS-01',
+    title: 'Instructivo de calibración de termómetros',
+    documentType: 'instruction',
+    origin: 'internal',
+    status: 'in_review',
+    issuedAt: '2026-06-01',
+    nextReviewAt: '2026-08-12',
+  },
+  {
+    code: 'MAN-01',
+    title: 'Manual HACCP (edición anterior)',
+    documentType: 'manual',
+    origin: 'internal',
+    status: 'obsolete',
+    issuedAt: '2024-01-01',
+    nextReviewAt: '2025-01-01',
+    description: 'Versión obsoleta conservada (demo).',
+  },
+];
+
+async function seedDocuments(): Promise<void> {
+  if (await prisma.document.findUnique({ where: { id: docUuid('c', 1) } })) return;
+
+  for (let i = 0; i < DEMO_DOCS.length; i += 1) {
+    const d = DEMO_DOCS[i]!;
+    const documentId = docUuid('c', i + 1);
+    const versionId = docUuid('d', i + 1);
+    await prisma.document.create({
+      data: {
+        id: documentId,
+        organizationId: ORG_A,
+        code: d.code,
+        title: d.title,
+        description: d.description ?? null,
+        documentType: d.documentType,
+        origin: d.origin,
+        status: d.status,
+        confidentiality: 'internal',
+        currentVersionLabel: 'v1',
+        siteId: SITE_A,
+        responsibleUserId: USER_A,
+        issuedAt: new Date(`${d.issuedAt}T00:00:00.000Z`),
+        nextReviewAt: d.nextReviewAt ? new Date(`${d.nextReviewAt}T00:00:00.000Z`) : null,
+        createdBy: USER_A,
+      },
+    });
+    await prisma.documentVersion.create({
+      data: {
+        id: versionId,
+        organizationId: ORG_A,
+        documentId,
+        label: 'v1',
+        status: d.status === 'effective' ? 'published' : 'draft',
+        isCurrent: true,
+        author: USER_A,
+        publishedAt: d.status === 'effective' ? new Date(`${d.issuedAt}T00:00:00.000Z`) : null,
+      },
+    });
+    await prisma.documentHistory.create({
+      data: { organizationId: ORG_A, documentId, action: 'document.created', actorUserId: USER_A },
+    });
+  }
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -441,6 +562,7 @@ async function main(): Promise<void> {
   });
 
   await seedDiagnostic();
+  await seedDocuments();
 
   console.log(
     'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico.',
