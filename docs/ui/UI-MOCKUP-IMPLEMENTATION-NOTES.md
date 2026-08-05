@@ -213,3 +213,25 @@ modificó lógica de negocio, esquema ni migraciones.
 El mockup se recibió como imagen en la conversación; el archivo
 `docs/ui-references/dashboard-ejecutivo-final.jpeg` no pudo generarse desde aquí
 (sin bytes de origen). Ver `docs/ui-references/README.md`.
+
+## Mockup: pantalla de análisis de Pareto (detalle)
+
+Referencia recibida como imagen en la conversación (gráfico de Pareto imprimible
+en tamaño carta, con barras, línea acumulada, corte 80% y tabla de datos). No se
+incrustó la imagen; se implementó el patrón adaptado al sistema visual actual.
+
+**Adaptaciones respecto al mockup:**
+
+- Barras del grupo vital en verde (`#16a34a`) y no vitales en azul-gris
+  (`#93b4d8`); línea acumulada ámbar; corte 80% discontinuo azul marino. Sin
+  gradientes ni sombras pesadas; radios y espaciado del sistema.
+- Se añadió interacción (hover/foco, tooltip, resaltado sincronizado con la
+  tabla) que la imagen estática no muestra, respetando accesibilidad y
+  `prefers-reduced-motion`.
+- La tabla acompaña al gráfico (60/40) como alternativa accesible y para
+  impresión en una hoja carta.
+- La "Interpretación rápida" usa exclusivamente datos ya calculados; si el
+  análisis aún no tiene datos, la tarjeta se omite (no se inventan métricas).
+
+Detalles de implementación y verificación por breakpoint en
+`docs/tasks/TASK-008-IMPLEMENTATION-NOTES.md`.

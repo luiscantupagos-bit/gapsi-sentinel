@@ -2023,3 +2023,210 @@ a.tool-card:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* =====================================================================
+   Pareto — pantalla de detalle ejecutiva (layout + gráfico interactivo)
+   ===================================================================== */
+.pareto-detail .report-head__meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+/* Resultado: gráfico ~60% + tabla ~40% */
+.pareto-results {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+}
+.pareto-results__table .table-wrap {
+  border: 0;
+  box-shadow: none;
+}
+.shell__content .pareto-results tbody tr.is-hover td {
+  background: var(--color-primary-soft);
+}
+.pareto-results tbody tr {
+  cursor: default;
+}
+
+/* Gráfico interactivo */
+.pareto-chart {
+  position: relative;
+}
+.pareto-chart svg {
+  animation: pareto-fade 0.35s ease both;
+}
+@keyframes pareto-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pareto-bar {
+  cursor: pointer;
+  outline: none;
+}
+.pareto-bar__rect {
+  transition:
+    opacity 0.15s ease,
+    stroke-width 0.15s ease;
+}
+.pareto-bar:focus-visible .pareto-bar__rect {
+  stroke: var(--color-primary);
+  stroke-width: 2.5;
+}
+.pareto-line {
+  transition: opacity 0.2s ease;
+}
+
+.pareto-tip {
+  position: absolute;
+  transform: translate(-50%, -110%);
+  min-width: 11rem;
+  max-width: 15rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  pointer-events: none;
+  z-index: 30;
+}
+.pareto-tip strong {
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+.pareto-tip__vital {
+  color: var(--color-success);
+  font-weight: 700;
+}
+.pareto-tip__nonvital {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.pareto-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+.pareto-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pareto-legend__sw {
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+}
+.pareto-legend__sw--vital {
+  background: #16a34a;
+}
+.pareto-legend__sw--nonvital {
+  background: #93b4d8;
+}
+.pareto-legend__sw--line {
+  height: 3px;
+  background: #d97706;
+}
+
+/* Captura en rejilla */
+.pareto-capture {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+.pareto-capture__gen,
+.pareto-capture__form {
+  align-items: flex-end;
+  width: 100%;
+}
+.pareto-capture__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-2);
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+.pareto-capture__cell {
+  display: flex;
+  gap: 6px;
+}
+.pareto-capture__cell input:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.pareto-capture__cell input[type='number'] {
+  width: 4.5rem;
+}
+
+/* Interpretación rápida */
+.pareto-insights__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.pareto-insights__grid > div {
+  display: flex;
+  flex-direction: column;
+}
+.pareto-insights__val {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+.pareto-insights__val small {
+  font-size: 1rem;
+  color: var(--color-muted);
+}
+.pareto-insights__val--text {
+  font-size: 1.15rem;
+}
+.pareto-insights__lbl {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+/* Conclusión: resumen/recomendaciones ancho completo; resto en 2 columnas */
+.conclusion-form__full {
+  width: 100%;
+}
+.conclusion-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-3);
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .pareto-results {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pareto-chart svg,
+  .pareto-bar__rect,
+  .pareto-line {
+    animation: none !important;
+    transition: none !important;
+  }
+}

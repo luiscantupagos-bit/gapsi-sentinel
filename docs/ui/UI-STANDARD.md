@@ -108,3 +108,42 @@ Componentes en `src/app/dashboard/_components/exec.tsx` (tema claro):
 reales existentes (CAPA, documentos, marcos, diagnósticos); los módulos sin datos
 (Sentinel Score, cumplimiento por norma, auditoría, Gantt, tendencia, IA,
 certificación) se muestran como "En configuración" o "Próximamente".
+
+## Pantalla de resultado analítico (patrón Pareto)
+
+Para pantallas que capturan datos y muestran un resultado analítico, el orden es:
+**capturar → ver resultado → interpretar → documentar conclusión → acciones →
+evidencia/comentarios → historial**. El gráfico y su tabla aparecen juntos
+inmediatamente después de la captura.
+
+- **Resultado en dos paneles** (`.pareto-results`): gráfico ~60% + tabla ~40% en
+  escritorio (`grid-template-columns: minmax(0,3fr) minmax(0,2fr)`), colapsan a
+  una columna ≤1024px; la tabla usa `.table-wrap` (scroll interno en móvil).
+- **Gráfico interactivo:** hover/foco resaltan el elemento activo y atenúan el
+  resto (nunca solo por color); tooltip con el detalle completo; línea acumulada
+  ámbar (`#d97706`) continua y línea de corte 80% azul marino discontinua
+  (`stroke-dasharray`). Barras `role="button"` + `tabIndex` + `aria-label`.
+- **Tabla = alternativa accesible** del gráfico, con estado de hover compartido
+  (resaltar barra ↔ resaltar fila) y marca textual del grupo vital.
+- **Interpretación:** tarjeta de lectura rápida que **solo** presenta valores ya
+  calculados; se omite si no hay datos. Nunca inventa métricas nuevas.
+- **Movimiento:** transiciones ligeras que se anulan con
+  `@media (prefers-reduced-motion: reduce)`.
+
+## Regla global de elementos clickeables
+
+Toda tarjeta, fila de tabla, folio, código o título resumen debe navegar a su
+detalle cuando exista una ruta real:
+
+- tarjeta/fila completa clickeable, con `cursor: pointer` y estados `:hover` y
+  `:focus-visible` visibles;
+- el folio/código se mantiene como **enlace explícito** además del área
+  clickeable;
+- navegable por teclado y con atributos accesibles;
+- los botones/enlaces internos no disparan la navegación del contenedor
+  (`stopPropagation` o áreas separadas);
+- nunca se crean enlaces sin destino real; se reutilizan las rutas existentes;
+- se conservan permisos y visibilidad (si el usuario no puede ver el detalle, no
+  se enlaza);
+- se aplica de forma consistente en Panel, Documentos, Tareas, CAPA, Bandeja
+  CAPA, Análisis y módulos futuros.

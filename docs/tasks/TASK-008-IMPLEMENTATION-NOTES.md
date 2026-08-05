@@ -173,3 +173,53 @@ historial; permisos; aislamiento entre organizaciones; escritorio/laptop/móvil.
   propietario y las pruebas fuerzan el rol.
 - **Pendientes para futuras tareas:** IA/semántica, auditorías, proyectos, Gantt,
   HACCP, exportación avanzada.
+
+## Rediseño de la pantalla de detalle del Pareto (UX/orden/acabado)
+
+Se reorganizó **solo el tipo `pareto`** de la vista de detalle
+(`analysis/[analysisId]/page.tsx`) para seguir el flujo natural de trabajo. Los
+demás tipos de análisis conservan intacto su camino por `AnalysisEditPanel`.
+
+**Orden funcional (rama `type === 'pareto'`):**
+
+1. Encabezado compacto (título, badge de estado, `vN · tipo · folio-CAPA
+(enlace) · responsable · revisor`, botón Imprimir).
+2. Estado del análisis + Equipo (2 columnas, `.no-print`).
+3. Captura de datos (antes del gráfico) en rejilla responsive.
+4. **Resultado**: gráfico interactivo (~60%) + tabla accesible (~40%),
+   lado a lado en escritorio, apilado ≤1024px.
+5. Interpretación rápida (solo datos ya calculados por `paretoInsights`).
+6. Conclusión (formulario en rejilla; resumen y recomendaciones a ancho completo)
+   - conclusión registrada (imprimible).
+7. Convertir en acción CAPA.
+8. Evidencia + Comentar (2 columnas).
+9. Acciones/Evidencias/Comentarios derivados (3 columnas) e Historial.
+
+**Componentes nuevos** (`analysis/_components/`): `InteractiveParetoChart.tsx`
+(barras + línea acumulada ámbar + corte 80% discontinuo; hover/foco resaltan
+barra, punto y tooltip), `ParetoResults.tsx` (estado de hover compartido
+gráfico↔tabla), `ParetoInsights.tsx` (tarjeta de interpretación),
+`AnalysisFormSections.tsx` (formularios extraídos: estado, equipo, captura,
+conclusión, acción CAPA, evidencia, comentario).
+
+**Dominio:** `paretoInsights()` en `features/capa/analysis-state.ts` **reutiliza
+las filas ya calculadas** (total, categorías vitales, acumulado del grupo vital,
+categoría principal, posición de corte). No recalcula ni inventa métricas;
+devuelve `null` si no hay datos.
+
+**Interacción/accesibilidad:** barras `role="button"` con `tabIndex` y
+`aria-label`; tooltip por foco de teclado; la tabla es la alternativa accesible
+(no depende del color: grupo vital = verde + badge "Sí"); animaciones respetan
+`prefers-reduced-motion`.
+
+**Verificación visual** (dev server, tab del navegador):
+
+- 1920: sin overflow, resultado en 2 columnas, captura en 7 columnas.
+- 1280: gráfico 60% / tabla 40%, lado a lado, sin overflow.
+- 768 y ≤ móvil: 1 columna, tabla con scroll interno, sin overflow horizontal.
+- Foco de teclado en una barra → resalta barra + punto + fila y muestra tooltip
+  con categoría, cantidad, %, % acumulado, grupo vital/no vital y ranking.
+
+**Restricciones respetadas:** no se tocó lógica de negocio, permisos, estados,
+BD, migraciones, RLS ni los cálculos existentes; no se reemplazaron datos
+dinámicos por estáticos; no se incrustaron imágenes del mockup.
