@@ -3,6 +3,7 @@ import { requireServerSession } from '@/server/session';
 import { getDashboardData } from '@/server/diagnostics';
 import { getDocSummary } from '@/server/documents';
 import { getWorkflowAlerts } from '@/server/document-workflow';
+import { getCapaAlerts } from '@/server/capa';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Borrador',
@@ -14,10 +15,11 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function DashboardPage() {
   const session = await requireServerSession();
-  const [data, docSummary, alerts] = await Promise.all([
+  const [data, docSummary, alerts, capa] = await Promise.all([
     getDashboardData(session.organizationId),
     getDocSummary(session.organizationId),
     getWorkflowAlerts(session.organizationId, session.userId),
+    getCapaAlerts(session.organizationId),
   ]);
 
   if (!data) {
@@ -101,6 +103,39 @@ export default async function DashboardPage() {
       <p>
         <Link className="button button--ghost" href="/dashboard/documents/tasks">
           Ver bandeja de tareas
+        </Link>
+      </p>
+
+      <h2>Acciones correctivas (CAPA)</h2>
+      <div className="stat-row">
+        <div className="stat stat--sm">
+          <span className="stat__label">Abiertas</span>
+          <span className="stat__value">{capa.open}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Críticas</span>
+          <span className="stat__value">{capa.critical}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Vencidas</span>
+          <span className="stat__value">{capa.overdue}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Acciones pendientes</span>
+          <span className="stat__value">{capa.pendingActions}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Verificaciones pendientes</span>
+          <span className="stat__value">{capa.pendingVerifications}</span>
+        </div>
+        <div className="stat stat--sm">
+          <span className="stat__label">Cerradas</span>
+          <span className="stat__value">{capa.recentlyClosed}</span>
+        </div>
+      </div>
+      <p>
+        <Link className="button button--ghost" href="/dashboard/capa">
+          Ir a acciones correctivas
         </Link>
       </p>
 

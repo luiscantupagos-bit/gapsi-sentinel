@@ -525,6 +525,65 @@ a:focus-visible {
   padding-left: 1.1rem;
 }
 
+/* --- TASK-007: módulo CAPA (badges y formulario) --- */
+.badge--sev-low {
+  background: #e6f4ea;
+  color: #14683a;
+}
+.badge--sev-medium {
+  background: #fef7e0;
+  color: #7a5a00;
+}
+.badge--sev-high {
+  background: #fdece0;
+  color: #a5480a;
+}
+.badge--sev-critical {
+  background: #fce8e6;
+  color: #a11a09;
+  border-color: #f3b7b0;
+}
+.badge--capa-draft {
+  background: #eef2f4;
+  color: #33424e;
+}
+.badge--capa-reported,
+.badge--capa-containment {
+  background: #e7f0fb;
+  color: #1a4f8a;
+}
+.badge--capa-under_investigation,
+.badge--capa-action_plan,
+.badge--capa-in_implementation {
+  background: #fef7e0;
+  color: #7a5a00;
+}
+.badge--capa-effectiveness_review {
+  background: #ede7fb;
+  color: #4b2e83;
+}
+.badge--capa-closed {
+  background: #e6f4ea;
+  color: #14683a;
+}
+.badge--capa-cancelled {
+  background: #e7e9ec;
+  color: #55636e;
+}
+.capa-impacts {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+.capa-impacts legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
 /* --- TASK-006: control documental --- */
 .wf-panel {
   display: flex;
