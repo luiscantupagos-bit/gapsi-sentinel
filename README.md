@@ -227,3 +227,20 @@ DOCUMENTS_MAX_UPLOAD_BYTES=10485760
 # Carpeta de almacenamiento local (por defecto ./storage/documents)
 DOCUMENTS_STORAGE_DIR=./storage/documents
 ```
+
+## Editor documental enriquecido (TASK-005)
+
+Crea documentos internos con un editor tipo procesador de textos (TipTap). Ver
+`docs/tasks/TASK-005-IMPLEMENTATION-NOTES.md`.
+
+En **Documentos** → **Crear dentro de Sentinel**:
+
+1. Elige una plantilla (Procedimiento, Política, Formato, etc.).
+2. Edita con títulos, fuentes/tamaños/colores, listas, tablas, imágenes, salto de
+   página, etc. El contenido se guarda como JSON estructurado y se sanea en
+   servidor (sin scripts).
+3. **Guardar** (o autoguardado), **Vista previa** (hoja carta con encabezado/pie/
+   portada), **Crear nueva versión** (la anterior queda en solo lectura).
+
+Variable opcional: `DOCUMENTS_MAX_CONTENT_BYTES` (tamaño máximo de contenido; 512
+KB por defecto).

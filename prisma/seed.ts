@@ -14,6 +14,18 @@
  * No usa datos personales reales.
  */
 import { PrismaClient } from '@prisma/client';
+// Imports RELATIVOS (tsx no resuelve el alias '@/'); estas rutas no usan alias.
+import {
+  CONTENT_SCHEMA_VERSION,
+  contentChecksum,
+  renderContentHtml,
+  sanitizeContent,
+} from '../src/features/documents/content-schema';
+import {
+  DEFAULT_PAGE_CONFIG,
+  getTemplate,
+  sanitizePageConfig,
+} from '../src/features/documents/templates';
 
 const prisma = new PrismaClient();
 
@@ -513,6 +525,107 @@ async function seedDocuments(): Promise<void> {
   }
 }
 
+/** UUID determinista para documentos del editor. */
+function edUuid(kind: 'c' | 'd', n: number): string {
+  return `00000000-0000-4000-8000-00000000d1${kind}${n.toString(16)}`;
+}
+
+interface EdDocDef {
+  code: string;
+  title: string;
+  templateKey: string;
+  documentType: string;
+  versions: { label: string; status: string; current: boolean }[];
+}
+
+const EDITOR_DOCS: EdDocDef[] = [
+  {
+    code: 'PRO-SEN-01',
+    title: 'Procedimiento de recepción de materia prima',
+    templateKey: 'procedure',
+    documentType: 'procedure',
+    versions: [
+      { label: 'v1', status: 'published', current: false },
+      { label: 'v2', status: 'draft', current: true },
+    ],
+  },
+  {
+    code: 'POL-SEN-01',
+    title: 'Política de calidad (creada en Sentinel)',
+    templateKey: 'policy',
+    documentType: 'policy',
+    versions: [{ label: 'v1', status: 'draft', current: true }],
+  },
+  {
+    code: 'FOR-SEN-01',
+    title: 'Formato de control de temperatura',
+    templateKey: 'form',
+    documentType: 'form',
+    versions: [{ label: 'v1', status: 'draft', current: true }],
+  },
+];
+
+async function seedEditorDocuments(): Promise<void> {
+  if (await prisma.document.findUnique({ where: { id: edUuid('c', 1) } })) return;
+
+  let vi = 0;
+  for (let i = 0; i < EDITOR_DOCS.length; i += 1) {
+    const d = EDITOR_DOCS[i]!;
+    const documentId = edUuid('c', i + 1);
+    const template = getTemplate(d.templateKey)!;
+    const content = sanitizeContent(template.build());
+    const html = renderContentHtml(content);
+    const checksum = contentChecksum(content);
+    const pageConfig = sanitizePageConfig({
+      ...DEFAULT_PAGE_CONFIG,
+      cover: { enabled: template.cover },
+    });
+
+    const currentLabel = d.versions.find((v) => v.current)?.label ?? d.versions[0]!.label;
+    await prisma.document.create({
+      data: {
+        id: documentId,
+        organizationId: ORG_A,
+        code: d.code,
+        title: d.title,
+        documentType: d.documentType,
+        origin: 'internal',
+        status: 'draft',
+        confidentiality: 'internal',
+        currentVersionLabel: currentLabel,
+        siteId: SITE_A,
+        responsibleUserId: USER_A,
+        createdBy: USER_A,
+      },
+    });
+    for (const v of d.versions) {
+      vi += 1;
+      await prisma.documentVersion.create({
+        data: {
+          id: edUuid('d', vi),
+          organizationId: ORG_A,
+          documentId,
+          label: v.label,
+          status: v.status,
+          isCurrent: v.current,
+          author: USER_A,
+          updatedBy: USER_A,
+          templateKey: template.key,
+          contentSchemaVersion: CONTENT_SCHEMA_VERSION,
+          contentJson: content as unknown as object,
+          contentHtml: html,
+          contentChecksum: checksum,
+          pageConfig: pageConfig as unknown as object,
+          publishedAt: v.status === 'published' ? new Date('2026-06-01T00:00:00.000Z') : null,
+        },
+      });
+    }
+    await prisma.documentHistory.create({
+      data: { organizationId: ORG_A, documentId, action: 'document.created', actorUserId: USER_A },
+    });
+  }
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -563,6 +676,7 @@ async function main(): Promise<void> {
 
   await seedDiagnostic();
   await seedDocuments();
+  await seedEditorDocuments();
 
   console.log(
     'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico.',
