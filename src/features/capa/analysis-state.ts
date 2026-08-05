@@ -362,6 +362,40 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+export interface ParetoInsights {
+  total: number;
+  categories: number;
+  vitalCount: number;
+  vitalCumulative: number; // % acumulado del grupo vital
+  topCategory: string | null;
+  topPercentage: number;
+  cutoff: number;
+  cutoffPosition: number | null; // ranking (1-based) donde se supera el corte
+}
+
+/**
+ * Resumen de interpretación del Pareto a partir de datos YA calculados por
+ * `computePareto` (no recalcula ni inventa métricas). Devuelve null si no hay
+ * datos.
+ */
+export function paretoInsights(result: ParetoResult): ParetoInsights | null {
+  if (result.rows.length === 0 || result.total <= 0) return null;
+  const vital = result.rows.filter((r) => r.vitalFew);
+  const last = vital[vital.length - 1];
+  const cutoffIdx = result.rows.findIndex((r) => r.cumulativePercentage >= result.cutoff);
+  const top = result.rows[0];
+  return {
+    total: result.total,
+    categories: result.rows.length,
+    vitalCount: result.vitalFewCount,
+    vitalCumulative: last?.cumulativePercentage ?? 0,
+    topCategory: top?.category ?? null,
+    topPercentage: top?.percentage ?? 0,
+    cutoff: result.cutoff,
+    cutoffPosition: cutoffIdx >= 0 ? cutoffIdx + 1 : null,
+  };
+}
+
 // --- Detección de ciclos del árbol de causas (puro) --------------------------
 
 export interface Edge {

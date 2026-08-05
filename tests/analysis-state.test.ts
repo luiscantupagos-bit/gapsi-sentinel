@@ -12,6 +12,7 @@ import {
   canTransitionAnalysis,
   computeNpr,
   computePareto,
+  paretoInsights,
   isAnalysisEditable,
   isAnalysisReadOnly,
   isValidScaleValue,
@@ -101,6 +102,23 @@ describe('Pareto (cálculo puro)', () => {
     expect(r.total).toBe(0);
     expect(r.rows).toEqual([]);
     expect(r.vitalFewCount).toBe(0);
+  });
+
+  it('interpretación (paretoInsights) reutiliza datos calculados', () => {
+    const r = computePareto([
+      { category: 'A', count: 60 },
+      { category: 'B', count: 25 },
+      { category: 'C', count: 10 },
+      { category: 'D', count: 5 },
+    ]);
+    const ins = paretoInsights(r);
+    expect(ins).not.toBeNull();
+    expect(ins?.total).toBe(100);
+    expect(ins?.categories).toBe(4);
+    expect(ins?.vitalCount).toBe(2); // A + B
+    expect(ins?.topCategory).toBe('A');
+    expect(ins?.cutoffPosition).toBe(2); // el acumulado supera 80% en la 2ª categoría
+    expect(paretoInsights(computePareto([]))).toBeNull();
   });
 
   it('puede ordenar por costo', () => {
