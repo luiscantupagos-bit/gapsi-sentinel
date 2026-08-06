@@ -163,6 +163,7 @@ export interface GlobalTaskItem {
   detailHref: string | null;
   originHref: string;
   overdue: boolean;
+  estimatedHours: number | null;
 }
 
 /** Etiqueta en español para un estado de módulo agregado (mapeado al de tarea). */
@@ -241,6 +242,7 @@ async function nativeItems(
       detailHref: `/dashboard/tasks/${task.id}`,
       originHref: `/dashboard/tasks/${task.id}`,
       overdue: !isTerminalTask(task.status as TaskStatus) && !!target && target < t,
+      estimatedHours: task.estimatedHours ? Number(task.estimatedHours) : null,
     };
   });
 }
@@ -287,6 +289,7 @@ async function aggregatedItems(organizationId: string, userId: string): Promise<
       progress: a.progress,
       sourceType: 'capa_action',
       sourceId: a.id,
+      estimatedHours: null,
       detailHref: `/dashboard/capa/${a.capaId}`,
       originHref: `/dashboard/capa/${a.capaId}`,
       overdue: a.status !== 'completed' && a.status !== 'cancelled' && !!due && due < t,
@@ -329,6 +332,7 @@ async function aggregatedItems(organizationId: string, userId: string): Promise<
       progress: null,
       sourceType: s.role === 'reviewer' ? 'doc_review' : 'doc_approval',
       sourceId: s.id,
+      estimatedHours: null,
       detailHref: `/dashboard/documents/${s.documentId}`,
       originHref: `/dashboard/documents/${s.documentId}`,
       overdue: !!due && due < t,
@@ -376,6 +380,7 @@ async function aggregatedItems(organizationId: string, userId: string): Promise<
       progress: null,
       sourceType: 'fmea_row',
       sourceId: r.id,
+      estimatedHours: null,
       detailHref: `/dashboard/capa/${analysis.capaId}/analysis/${analysis.id}`,
       originHref: `/dashboard/capa/${analysis.capaId}/analysis/${analysis.id}`,
       overdue: status !== 'completed' && !!due && due < t,
@@ -415,6 +420,7 @@ async function aggregatedItems(organizationId: string, userId: string): Promise<
         progress: null,
         sourceType: 'doc_read',
         sourceId: r.distributionId,
+        estimatedHours: null,
         detailHref: `/dashboard/documents/${r.documentId}/preview?version=${r.versionId}`,
         originHref: `/dashboard/documents/${r.documentId}/preview?version=${r.versionId}`,
         overdue: !!due && due < t,

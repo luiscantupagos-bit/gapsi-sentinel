@@ -329,6 +329,7 @@ export async function getProjectDetail(organizationId: string, projectId: string
       priority: t.priority,
       progress: t.progress,
       responsibleName: t.responsibleUserId ? (names.get(t.responsibleUserId) ?? null) : null,
+      startDate: isoDate(t.startDate),
       targetDate: isoDate(t.targetDate),
       milestoneId: t.milestoneId,
     })),
@@ -742,6 +743,79 @@ export async function listOrgMembers(organizationId: string) {
     select: { user: { select: { id: true, displayName: true, email: true } } },
   });
   return memberships.map((m) => ({ id: m.user.id, name: m.user.displayName ?? m.user.email }));
+}
+
+/** Hitos con fecha (para calendario y dashboard), opcionalmente en un rango. */
+export async function listMilestones(
+  organizationId: string,
+  range?: { from?: string; to?: string },
+) {
+  const where: Prisma.ProjectMilestoneWhereInput = {
+    organizationId,
+    targetDate: { not: null },
+  };
+  if (range?.from || range?.to) {
+    where.targetDate = {
+      ...(range.from ? { gte: new Date(`${range.from}T00:00:00.000Z`) } : {}),
+      ...(range.to ? { lte: new Date(`${range.to}T00:00:00.000Z`) } : {}),
+    };
+  }
+  const milestones = await getPrisma().projectMilestone.findMany({
+    where,
+    orderBy: { targetDate: 'asc' },
+  });
+  const projectIds = [...new Set(milestones.map((m) => m.projectId))];
+  const projects = projectIds.length
+    ? await getPrisma().project.findMany({
+        where: { id: { in: projectIds }, organizationId },
+        select: { id: true, folio: true, name: true },
+      })
+    : [];
+  const pMap = new Map(projects.map((p) => [p.id, p]));
+  const t = today();
+  return milestones.map((m) => ({
+    id: m.id,
+    name: m.name,
+    status: m.status,
+    targetDate: isoDate(m.targetDate),
+    projectId: m.projectId,
+    projectName: pMap.get(m.projectId)?.name ?? null,
+    projectFolio: pMap.get(m.projectId)?.folio ?? null,
+    overdue:
+      m.status !== 'reached' &&
+      m.status !== 'cancelled' &&
+      !!m.targetDate &&
+      isoDate(m.targetDate)! < t,
+  }));
+}
+
+/** Contexto de permisos del usuario sobre un proyecto (para la interfaz). */
+export async function getUserProjectContext(
+  organizationId: string,
+  userId: string,
+  projectId: string,
+) {
+  const role =
+    (
+      await getPrisma().membership.findFirst({
+        where: { organizationId, userId },
+        select: { role: true },
+      })
+    )?.role ?? 'viewer';
+  const project = await getPrisma().project.findFirst({
+    where: { id: projectId, organizationId },
+    select: { responsibleUserId: true },
+  });
+  const leads = new Set(
+    (
+      await getPrisma().projectMember.findMany({
+        where: { projectId, organizationId, role: 'lead' },
+        select: { userId: true },
+      })
+    ).map((m) => m.userId),
+  );
+  const canManageProject = project ? canManage(project, role, userId, leads) : false;
+  return { role, isAdmin: isAdmin(role), canManage: canManageProject };
 }
 
 export const _projectStatuses = PROJECT_STATUSES;

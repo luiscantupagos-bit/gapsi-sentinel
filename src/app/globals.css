@@ -2267,8 +2267,8 @@ a.tool-card:focus-visible {
   font-weight: 600;
 }
 
-/* Barra de herramientas / búsqueda */
-.toolbar {
+/* Barra de herramientas / búsqueda (listas) */
+.list-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
@@ -2283,7 +2283,7 @@ a.tool-card:focus-visible {
 .searchbar input[type='search'] {
   min-width: 15rem;
 }
-.toolbar__links {
+.list-toolbar__links {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -2342,25 +2342,25 @@ a.tool-card:focus-visible {
   font-weight: 500;
 }
 
-/* Barra de progreso compacta */
-.progress {
+/* Barra de progreso compacta (tareas/proyectos) */
+.tprogress {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-.progress__track {
+.tprogress__track {
   width: 4rem;
   height: 6px;
   border-radius: 3px;
   background: var(--color-surface-2);
   overflow: hidden;
 }
-.progress__fill {
+.tprogress__fill {
   display: block;
   height: 100%;
   background: var(--color-primary);
 }
-.progress__num {
+.tprogress__num {
   font-size: 0.78rem;
   color: var(--color-muted);
   min-width: 2.5rem;
@@ -2423,5 +2423,409 @@ a.tool-card:focus-visible {
 @media (max-width: 900px) {
   .two-col {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Badges de estado de proyecto */
+.badge--proj-draft {
+  background: #e5e7eb;
+  color: #374151;
+}
+.badge--proj-planned {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.badge--proj-active {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.badge--proj-on_hold {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--proj-under_review {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+.badge--proj-completed {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--proj-cancelled {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Badges de estado de hito */
+.badge--ms-pending {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.badge--ms-at_risk {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--ms-reached {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--ms-overdue {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.badge--ms-cancelled {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Gantt */
+.gantt {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+.gantt__inner {
+  min-width: 720px;
+}
+.gantt__head,
+.gantt__row {
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+}
+.gantt__head {
+  background: var(--color-surface-2);
+  font-weight: 600;
+}
+.gantt__name {
+  padding: 6px 10px;
+  border-right: 1px solid var(--color-border);
+  position: sticky;
+  left: 0;
+  background: var(--color-surface);
+  z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85rem;
+}
+.gantt__head .gantt__name {
+  background: var(--color-surface-2);
+}
+.gantt__timeline {
+  position: relative;
+  height: 30px;
+}
+.gantt__timeline--head {
+  height: 24px;
+}
+.gantt__month {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  border-left: 1px solid var(--color-border);
+  padding-left: 4px;
+  display: flex;
+  align-items: center;
+}
+.gantt__grid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--color-border);
+  opacity: 0.5;
+}
+.gantt__today {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-danger);
+  z-index: 2;
+}
+.gantt__bar {
+  position: absolute;
+  top: 7px;
+  height: 15px;
+  background: color-mix(in srgb, var(--color-primary) 30%, white);
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 5px;
+}
+.gantt__progress {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+}
+.gantt__bar.is-overdue {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+.gantt__milestone {
+  position: absolute;
+  top: 8px;
+  width: 13px;
+  height: 13px;
+  background: var(--color-warning);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 2px;
+}
+.gantt__milestone.is-overdue {
+  background: var(--color-danger);
+}
+.gantt__nodate {
+  position: absolute;
+  left: 6px;
+  top: 7px;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+.gantt__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  list-style: none;
+  padding: 8px 12px;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.gantt__legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gantt__swatch {
+  width: 14px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.gantt__swatch--bar {
+  background: var(--color-primary);
+}
+.gantt__swatch--ms {
+  background: var(--color-warning);
+  transform: rotate(45deg);
+  width: 10px;
+  height: 10px;
+}
+.gantt__swatch--today {
+  background: var(--color-danger);
+  width: 3px;
+}
+.gantt__swatch--overdue {
+  background: transparent;
+  border: 2px solid var(--color-danger);
+}
+
+/* Badges de tono genérico + utilidades TASK-009 */
+.badge--success {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.button--xs {
+  padding: 3px 8px;
+  font-size: 0.78rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Kanban */
+.kanban {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(15rem, 1fr);
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-3);
+  align-items: start;
+}
+.kanban__col {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  min-width: 15rem;
+}
+.kanban__colhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.kanban__count {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  font-weight: 700;
+}
+.kanban__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  min-height: 3rem;
+}
+.kanban__empty {
+  color: var(--color-muted);
+  text-align: center;
+  margin: var(--space-2) 0;
+}
+.kanban__card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+}
+.kanban__card.is-overdue {
+  border-left: 3px solid var(--color-danger);
+}
+.kanban__cardtop {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  align-items: baseline;
+}
+.kanban__title {
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+}
+.kanban__title:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.kanban__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+.kanban__move {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.kanban__move select {
+  flex: 1;
+  min-width: 6rem;
+  font-size: 0.8rem;
+  padding: 3px 6px;
+}
+
+/* Calendario */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.cal-title {
+  text-transform: capitalize;
+  font-size: 1.05rem;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.cal-weekday {
+  background: var(--color-surface-2);
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-align: center;
+}
+.cal-cell {
+  background: var(--color-surface);
+  min-height: 6.5rem;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cal-cell.is-out {
+  background: var(--color-surface-2);
+}
+.cal-cell.is-today {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.cal-daynum {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.cal-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cal-item {
+  display: block;
+  font-size: 0.74rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+}
+.cal-item--milestone {
+  border-left-color: var(--color-warning);
+  background: #fef3c7;
+}
+.cal-item.is-overdue {
+  border-left-color: var(--color-danger);
+  background: #fee2e2;
+}
+
+@media (max-width: 720px) {
+  .cal-cell {
+    min-height: 4.5rem;
+  }
+  .cal-item {
+    font-size: 0.68rem;
   }
 }
