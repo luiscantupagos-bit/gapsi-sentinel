@@ -84,7 +84,7 @@ export default async function TasksPage({
         ))}
       </nav>
 
-      <div className="toolbar">
+      <div className="list-toolbar">
         <form method="get" className="searchbar">
           <input type="hidden" name="tab" value={tabKey} />
           <input
@@ -98,7 +98,7 @@ export default async function TasksPage({
             Buscar
           </button>
         </form>
-        <div className="toolbar__links">
+        <div className="list-toolbar__links">
           <Link className="button button--ghost" href="/dashboard/tasks/board">
             Tablero
           </Link>

@@ -31,14 +31,14 @@ export function taskTypeLabel(t: string): string {
 function Progress({ value }: { value: number | null }) {
   if (value === null) return <span className="muted">—</span>;
   return (
-    <span className="progress" title={`${value}%`}>
-      <span className="progress__track">
+    <span className="tprogress" title={`${value}%`}>
+      <span className="tprogress__track">
         <span
-          className="progress__fill"
+          className="tprogress__fill"
           style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
         />
       </span>
-      <span className="progress__num">{value}%</span>
+      <span className="tprogress__num">{value}%</span>
     </span>
   );
 }
