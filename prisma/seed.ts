@@ -1652,6 +1652,416 @@ async function seedQualityAnalysis(): Promise<void> {
   await hist(a7, 'changes_requested', 'Falta evidencia de calibración');
 }
 
+/** UUID determinista para la demo de proyectos y tareas (TASK-009). */
+function ptUuid(kind: '0' | '1' | '2' | '3', n: number): string {
+  return `00000000-0000-4000-8000-00000f7${kind}${n.toString(16).padStart(4, '0')}`;
+}
+
+/**
+ * Datos demo de proyectos y tareas globales (TASK-009). Idempotente (early-return
+ * por el primer proyecto). Cubre estados variados, hitos, tareas de proyecto y
+ * manual, dependencias, comentarios, una relación a CAPA e historial.
+ */
+async function seedProjectsAndTasks(): Promise<void> {
+  if (await prisma.project.findUnique({ where: { id: ptUuid('0', 1) } })) return;
+
+  const start = new Date('2026-06-01T00:00:00.000Z');
+  const past = new Date('2026-07-01T00:00:00.000Z'); // vencida (hoy 2026-08-05)
+  const soon = new Date('2026-08-20T00:00:00.000Z');
+  const future = new Date('2026-12-31T00:00:00.000Z');
+
+  await prisma.project.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('0', 1),
+        organizationId: ORG_A,
+        siteId: SITE_A,
+        folio: 'PRJ-2026-0001',
+        name: 'Implementación de mejoras HACCP',
+        description: 'Despliegue de controles y verificación en Planta Norte.',
+        objective: 'Cerrar brechas del diagnóstico y reforzar inocuidad.',
+        projectType: 'implementation',
+        status: 'active',
+        priority: 'high',
+        responsibleUserId: USER_A,
+        sponsorUserId: USER_C,
+        startDate: start,
+        targetDate: future,
+        progress: 40,
+        origin: 'capa',
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('0', 2),
+        organizationId: ORG_A,
+        folio: 'PRJ-2026-0002',
+        name: 'Certificación FSSC 22000',
+        projectType: 'certification',
+        status: 'planned',
+        priority: 'normal',
+        responsibleUserId: USER_C,
+        startDate: new Date('2026-09-01T00:00:00.000Z'),
+        targetDate: new Date('2027-03-31T00:00:00.000Z'),
+        progress: 0,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('0', 3),
+        organizationId: ORG_A,
+        folio: 'PRJ-2026-0003',
+        name: 'Digitalización documental',
+        projectType: 'documentation',
+        status: 'draft',
+        priority: 'low',
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('0', 4),
+        organizationId: ORG_A,
+        folio: 'PRJ-2026-0004',
+        name: 'Reducción de mermas',
+        projectType: 'continuous_improvement',
+        status: 'on_hold',
+        priority: 'normal',
+        responsibleUserId: USER_A,
+        startDate: start,
+        targetDate: past, // en riesgo/vencido
+        progress: 25,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('0', 5),
+        organizationId: ORG_A,
+        folio: 'PRJ-2026-0005',
+        name: 'Actualización de infraestructura de frío',
+        projectType: 'infrastructure',
+        status: 'completed',
+        priority: 'high',
+        responsibleUserId: USER_C,
+        startDate: new Date('2026-01-01T00:00:00.000Z'),
+        targetDate: new Date('2026-05-31T00:00:00.000Z'),
+        closedAt: new Date('2026-05-28T00:00:00.000Z'),
+        progress: 100,
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  await prisma.projectMember.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('1', 101),
+        organizationId: ORG_A,
+        projectId: ptUuid('0', 1),
+        userId: USER_A,
+        role: 'lead',
+        addedBy: USER_A,
+      },
+      {
+        id: ptUuid('1', 102),
+        organizationId: ORG_A,
+        projectId: ptUuid('0', 1),
+        userId: USER_C,
+        role: 'member',
+        addedBy: USER_A,
+      },
+    ],
+  });
+
+  await prisma.projectMilestone.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('1', 1),
+        organizationId: ORG_A,
+        projectId: ptUuid('0', 1),
+        name: 'Diagnóstico de brechas',
+        status: 'reached',
+        targetDate: new Date('2026-06-15T00:00:00.000Z'),
+        actualDate: new Date('2026-06-14T00:00:00.000Z'),
+        responsibleUserId: USER_A,
+        sequence: 1,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('1', 2),
+        organizationId: ORG_A,
+        projectId: ptUuid('0', 1),
+        name: 'Plan de acciones aprobado',
+        status: 'pending',
+        targetDate: soon,
+        responsibleUserId: USER_C,
+        sequence: 2,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('1', 3),
+        organizationId: ORG_A,
+        projectId: ptUuid('0', 1),
+        name: 'Verificación de eficacia',
+        status: 'at_risk',
+        targetDate: new Date('2026-11-30T00:00:00.000Z'),
+        responsibleUserId: USER_A,
+        sequence: 3,
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  await prisma.projectRelation.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('3', 1),
+        organizationId: ORG_A,
+        projectId: ptUuid('0', 1),
+        relationType: 'capa',
+        targetId: capaUuid('0', 1),
+        note: 'Proyecto derivado de la CAPA de inocuidad.',
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  // Tareas nativas (del proyecto 1 y una manual independiente).
+  await prisma.task.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('2', 1),
+        organizationId: ORG_A,
+        siteId: SITE_A,
+        folio: 'TSK-2026-0001',
+        title: 'Definir plan de verificación de estaciones',
+        taskType: 'project',
+        origin: 'project',
+        status: 'pending',
+        priority: 'high',
+        projectId: ptUuid('0', 1),
+        milestoneId: ptUuid('1', 2),
+        responsibleUserId: USER_A,
+        startDate: start,
+        targetDate: soon,
+        estimatedHours: 8,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('2', 2),
+        organizationId: ORG_A,
+        folio: 'TSK-2026-0002',
+        title: 'Actualizar procedimientos de limpieza',
+        taskType: 'project',
+        origin: 'project',
+        status: 'in_progress',
+        priority: 'normal',
+        projectId: ptUuid('0', 1),
+        responsibleUserId: USER_C,
+        startDate: start,
+        targetDate: future,
+        progress: 50,
+        estimatedHours: 12,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('2', 3),
+        organizationId: ORG_A,
+        folio: 'TSK-2026-0003',
+        title: 'Instalar sensores de temperatura',
+        taskType: 'project',
+        origin: 'project',
+        status: 'blocked',
+        priority: 'high',
+        projectId: ptUuid('0', 1),
+        responsibleUserId: USER_A,
+        blockedReason: 'Pendiente de compra de equipo.',
+        targetDate: future,
+        estimatedHours: 6,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('2', 4),
+        organizationId: ORG_A,
+        folio: 'TSK-2026-0004',
+        title: 'Capacitar al personal en el nuevo control',
+        taskType: 'project',
+        origin: 'project',
+        status: 'pending',
+        priority: 'urgent',
+        projectId: ptUuid('0', 1),
+        responsibleUserId: USER_C,
+        targetDate: past, // vencida
+        estimatedHours: 4,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('2', 5),
+        organizationId: ORG_A,
+        folio: 'TSK-2026-0005',
+        title: 'Levantar diagnóstico inicial',
+        taskType: 'project',
+        origin: 'project',
+        status: 'completed',
+        priority: 'normal',
+        projectId: ptUuid('0', 1),
+        responsibleUserId: USER_A,
+        startDate: start,
+        targetDate: new Date('2026-06-14T00:00:00.000Z'),
+        closedAt: new Date('2026-06-14T00:00:00.000Z'),
+        progress: 100,
+        result: 'Diagnóstico completado y documentado.',
+        estimatedHours: 10,
+        actualHours: 11,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('2', 6),
+        organizationId: ORG_A,
+        folio: 'TSK-2026-0006',
+        title: 'Revisar indicadores de calidad del mes',
+        taskType: 'follow_up',
+        origin: 'manual',
+        status: 'pending',
+        priority: 'normal',
+        responsibleUserId: USER_A,
+        targetDate: soon,
+        estimatedHours: 2,
+        createdBy: USER_A,
+      },
+      {
+        id: ptUuid('2', 7),
+        organizationId: ORG_A,
+        folio: 'TSK-2026-0007',
+        title: 'Seguimiento a análisis de recurrencia',
+        taskType: 'other',
+        origin: 'manual',
+        status: 'under_review',
+        priority: 'normal',
+        responsibleUserId: USER_C,
+        targetDate: future,
+        progress: 80,
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  await prisma.taskAssignment.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('3', 20),
+        organizationId: ORG_A,
+        taskId: ptUuid('2', 2),
+        userId: USER_A,
+        role: 'participant',
+        addedBy: USER_A,
+      },
+    ],
+  });
+
+  // Dependencias finish-to-start: T2 depende de T1; T3 depende de T2.
+  await prisma.taskDependency.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('3', 30),
+        organizationId: ORG_A,
+        fromTaskId: ptUuid('2', 1),
+        toTaskId: ptUuid('2', 2),
+        mandatory: true,
+      },
+      {
+        id: ptUuid('3', 31),
+        organizationId: ORG_A,
+        fromTaskId: ptUuid('2', 2),
+        toTaskId: ptUuid('2', 3),
+        mandatory: false,
+      },
+    ],
+  });
+
+  await prisma.taskRelation.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('3', 40),
+        organizationId: ORG_A,
+        taskId: ptUuid('2', 1),
+        relationType: 'project',
+        targetId: ptUuid('0', 1),
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  await prisma.taskComment.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: ptUuid('3', 50),
+        organizationId: ORG_A,
+        taskId: ptUuid('2', 2),
+        author: USER_C,
+        body: 'Avance del 50%, falta validar el turno nocturno.',
+      },
+    ],
+  });
+
+  await prisma.taskStatusHistory.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        organizationId: ORG_A,
+        taskId: ptUuid('2', 1),
+        event: 'task.created',
+        toStatus: 'pending',
+        actorUserId: USER_A,
+      },
+      {
+        organizationId: ORG_A,
+        taskId: ptUuid('2', 5),
+        event: 'task.status',
+        fromStatus: 'in_progress',
+        toStatus: 'completed',
+        actorUserId: USER_A,
+      },
+    ],
+  });
+  await prisma.projectStatusHistory.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        organizationId: ORG_A,
+        projectId: ptUuid('0', 1),
+        event: 'project.created',
+        toStatus: 'draft',
+        actorUserId: USER_A,
+      },
+      {
+        organizationId: ORG_A,
+        projectId: ptUuid('0', 1),
+        event: 'project.status',
+        fromStatus: 'planned',
+        toStatus: 'active',
+        actorUserId: USER_A,
+      },
+    ],
+  });
+
+  // Contadores de folio para que las creaciones por UI continúen la numeración.
+  await prisma.projectFolioCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: 2026 } },
+    create: { organizationId: ORG_A, year: 2026, lastSeq: 5 },
+    update: { lastSeq: 5 },
+  });
+  await prisma.taskFolioCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: 2026 } },
+    create: { organizationId: ORG_A, year: 2026, lastSeq: 7 },
+    update: { lastSeq: 7 },
+  });
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -1708,9 +2118,10 @@ async function main(): Promise<void> {
   await seedControlDocuments();
   await seedCapa();
   await seedQualityAnalysis();
+  await seedProjectsAndTasks();
 
   console.log(
-    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico.',
+    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos y tareas.',
   );
 }
 

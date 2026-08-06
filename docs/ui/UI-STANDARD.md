@@ -147,3 +147,28 @@ detalle cuando exista una ruta real:
   se enlaza);
 - se aplica de forma consistente en Panel, Documentos, Tareas, CAPA, Bandeja
   CAPA, Análisis y módulos futuros.
+
+## Gestor de tareas y proyectos (TASK-009)
+
+Patrón visual del módulo transversal:
+
+- **Listas** con KPIs clickeables, pestañas de filtros rápidos, búsqueda y tablas
+  cuyas **filas exponen código y título como enlaces** (`.tbl-linkable`): las
+  tareas nativas abren su detalle; las agregadas (CAPA, documental, AMEF) abren su
+  módulo de origen. Nunca se muestran UUID ni estados internos en inglés (se usan
+  badges con etiqueta en español `badge--task-*`, `badge--prio-*`, `badge--proj-*`,
+  `badge--ms-*`).
+- **Kanban** (`.kanban`) por estado, con scroll horizontal interno y movimiento
+  por selector accesible validado en servidor.
+- **Calendario** (`.cal-grid`) mensual: color + texto (no solo color), celdas con
+  ítems clickeables.
+- **Gantt** propio (`.gantt`) con columna de nombres fija (`position: sticky`),
+  scroll horizontal interno, barras/hitos clickeables, marcador de hoy y vencidos;
+  sin librería externa.
+- **Barra de progreso compacta** `.tprogress` (distinta de la barra `.progress`
+  del diagnóstico).
+
+Se reafirma la **regla global de elementos clickeables** (ver sección anterior):
+tarjetas, códigos, folios y títulos navegan a su detalle real cuando existe, con
+hover/focus visibles, navegación por teclado y sin enlaces falsos; los botones
+internos no disparan la navegación del contenedor.

@@ -19,6 +19,14 @@ La primera versión NO intenta construir toda la plataforma. Su objetivo es perm
 7. Generar un reporte ejecutivo.
 8. Registrar oportunidades de seguimiento comercial.
 
+## Módulos entregados
+
+Sobre el diagnóstico se han incorporado, por tareas aprobadas: gestión documental
+y control documental (TASK-004/005/006), CAPA y análisis de calidad
+(TASK-007/008), y el **gestor global de tareas y proyectos** (TASK-009) con
+hitos, dependencias y vistas Lista/Kanban/Calendario/Gantt/Carga de trabajo. Ver
+`docs/tasks/TASK-009-IMPLEMENTATION-NOTES.md`.
+
 ## Principio rector
 
 Cada incremento debe poder demostrarse, probarse y potencialmente venderse.
