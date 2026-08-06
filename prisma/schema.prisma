@@ -1370,3 +1370,372 @@ model QualityAnalysisHistory {
   @@index([analysisId, createdAt])
   @@map("quality_analysis_history")
 }
+
+// =====================================================================
+// TASK-009 — Proyectos y gestor global de tareas
+// Modelo híbrido A-céntrico: `tasks` es la fuente de verdad de tareas
+// nativas (manuales, de proyecto, convertidas); las tareas de otros módulos
+// (CAPA, documental, AMEF) se AGREGAN en vivo desde su origen (no se copian).
+// FK compuestas anti-cruce para relaciones INTRA-módulo (proyecto/tarea/hito);
+// los punteros a otros módulos son genéricos (source_type/source_id,
+// relation_type/target_id) validados por alcance en servidor + RLS, porque no
+// todos los destinos exponen `@@unique([id, organization_id])` (p.ej. capa_actions).
+// CHECK de enums, RLS, append-only y no-borrado se añaden por SQL complementario.
+// =====================================================================
+
+/// Proyecto transversal (mejora continua, CAPA, implementación, cumplimiento, etc.).
+model Project {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  folio             String
+  name              String
+  description       String?
+  objective         String?
+  scope             String?
+  /// project_type: continuous_improvement|capa|implementation|compliance|certification|infrastructure|training|risk_reduction|documentation|other
+  projectType       String    @map("project_type")
+  /// status: draft|planned|active|on_hold|under_review|completed|cancelled
+  status            String    @default("draft")
+  /// priority: low|normal|high|urgent
+  priority          String    @default("normal")
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  sponsorUserId     String?   @map("sponsor_user_id") @db.Uuid
+  startDate         DateTime? @map("start_date") @db.Date
+  targetDate        DateTime? @map("target_date") @db.Date
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz(6)
+  progress          Int       @default(0)
+  budgetEstimated   Decimal?  @map("budget_estimated") @db.Decimal(14, 2)
+  actualCost        Decimal?  @map("actual_cost") @db.Decimal(14, 2)
+  /// origin: manual|capa|analysis|document|other
+  origin            String    @default("manual")
+  risksSummary      String?   @map("risks_summary")
+  expectedOutcome   String?   @map("expected_outcome")
+  actualOutcome     String?   @map("actual_outcome")
+  tags              Json?
+  metadata          Json?
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  members    ProjectMember[]
+  milestones ProjectMilestone[]
+  relations  ProjectRelation[]
+  comments   ProjectComment[]
+  files      ProjectFile[]
+  tasks      Task[]
+
+  @@unique([organizationId, folio])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("projects")
+}
+
+/// Contador atómico de folios de proyecto por organización y año (PRJ-AAAA-0001).
+model ProjectFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("project_folio_counters")
+}
+
+/// Participante de un proyecto.
+model ProjectMember {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  projectId      String   @map("project_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  /// role: lead|member|viewer
+  role           String   @default("member")
+  addedBy        String?  @map("added_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([projectId, userId])
+  @@unique([id, organizationId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+/// Hito de un proyecto.
+model ProjectMilestone {
+  id                   String    @id @default(uuid()) @db.Uuid
+  organizationId       String    @map("organization_id") @db.Uuid
+  projectId            String    @map("project_id") @db.Uuid
+  name                 String
+  description          String?
+  targetDate           DateTime? @map("target_date") @db.Date
+  actualDate           DateTime? @map("actual_date") @db.Date
+  responsibleUserId    String?   @map("responsible_user_id") @db.Uuid
+  /// status: pending|at_risk|reached|overdue|cancelled
+  status               String    @default("pending")
+  acceptanceCriteria   String?   @map("acceptance_criteria")
+  dependsOnMilestoneId String?   @map("depends_on_milestone_id") @db.Uuid
+  sequence             Int       @default(1)
+  createdBy            String?   @map("created_by") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  tasks   Task[]
+
+  @@unique([id, organizationId])
+  @@index([projectId])
+  @@map("project_milestones")
+}
+
+/// Relación de un proyecto con otro módulo (puntero genérico validado en servidor).
+model ProjectRelation {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  projectId      String   @map("project_id") @db.Uuid
+  /// relation_type: capa|analysis|document|document_version|external
+  relationType   String   @map("relation_type")
+  targetId       String?  @map("target_id") @db.Uuid
+  externalRef    String?  @map("external_ref")
+  note           String?
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([projectId])
+  @@map("project_relations")
+}
+
+/// Comentario de un proyecto (no-borrado).
+model ProjectComment {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  projectId      String   @map("project_id") @db.Uuid
+  author         String?  @db.Uuid
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([projectId, createdAt])
+  @@map("project_comments")
+}
+
+/// Archivo/evidencia de un proyecto (metadatos; binarios fuera de BD).
+model ProjectFile {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  projectId      String   @map("project_id") @db.Uuid
+  /// kind: attachment | evidence
+  kind           String   @default("attachment")
+  originalName   String   @map("original_name")
+  storedName     String   @map("stored_name")
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int      @map("size_bytes")
+  extension      String
+  storageKey     String   @map("storage_key")
+  checksum       String?
+  uploadedBy     String?  @map("uploaded_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([projectId])
+  @@map("project_files")
+}
+
+/// Historial de estados de un proyecto (append-only).
+model ProjectStatusHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  projectId      String   @map("project_id") @db.Uuid
+  event          String
+  fromStatus     String?  @map("from_status")
+  toStatus       String?  @map("to_status")
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  detail         String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([projectId, createdAt])
+  @@map("project_status_history")
+}
+
+/// Tarea global. Fuente de verdad de tareas nativas (manual/proyecto/convertida).
+model Task {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  folio             String
+  title             String
+  description       String?
+  /// task_type: manual|doc_review|doc_approval|doc_read|capa_action|effectiveness_review|analysis|fmea_action|project|follow_up|other
+  taskType          String    @default("manual") @map("task_type")
+  /// origin: manual|project|capa|analysis|document|fmea|other
+  origin            String    @default("manual")
+  /// status: draft|pending|in_progress|blocked|under_review|completed|cancelled
+  status            String    @default("pending")
+  /// priority: low|normal|high|urgent
+  priority          String    @default("normal")
+  projectId         String?   @map("project_id") @db.Uuid
+  milestoneId       String?   @map("milestone_id") @db.Uuid
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  createdBy         String?   @map("created_by") @db.Uuid
+  startDate         DateTime? @map("start_date") @db.Date
+  targetDate        DateTime? @map("target_date") @db.Date
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz(6)
+  progress          Int       @default(0)
+  estimatedHours    Decimal?  @map("estimated_hours") @db.Decimal(8, 2)
+  actualHours       Decimal?  @map("actual_hours") @db.Decimal(8, 2)
+  blockedReason     String?   @map("blocked_reason")
+  result            String?
+  /// source_type: capa_action|doc_review|doc_approval|doc_read|fmea_row|analysis|capa (para tareas convertidas/enlazadas)
+  sourceType        String?   @map("source_type")
+  sourceId          String?   @map("source_id") @db.Uuid
+  tags              Json?
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project   Project?          @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  milestone ProjectMilestone? @relation(fields: [milestoneId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  assignments      TaskAssignment[]
+  relations        TaskRelation[]
+  comments         TaskComment[]
+  files            TaskFile[]
+  dependenciesFrom TaskDependency[] @relation("dep_from")
+  dependenciesTo   TaskDependency[] @relation("dep_to")
+
+  @@unique([organizationId, folio])
+  @@unique([id, organizationId])
+  @@unique([organizationId, sourceType, sourceId])
+  @@index([organizationId, status])
+  @@index([responsibleUserId, status])
+  @@index([projectId])
+  @@map("tasks")
+}
+
+/// Contador atómico de folios de tarea por organización y año (TSK-AAAA-0001).
+model TaskFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("task_folio_counters")
+}
+
+/// Participante de una tarea.
+model TaskAssignment {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  taskId         String   @map("task_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  /// role: assignee|participant|watcher
+  role           String   @default("participant")
+  addedBy        String?  @map("added_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([taskId, userId])
+  @@unique([id, organizationId])
+  @@index([userId])
+  @@map("task_assignments")
+}
+
+/// Relación/trazabilidad de una tarea con su origen (puntero genérico validado en servidor).
+model TaskRelation {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  taskId         String   @map("task_id") @db.Uuid
+  /// relation_type: document|document_version|capa|capa_action|analysis|fmea_row|project|milestone|parent_task|external
+  relationType   String   @map("relation_type")
+  targetId       String?  @map("target_id") @db.Uuid
+  externalRef    String?  @map("external_ref")
+  note           String?
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([taskId])
+  @@map("task_relations")
+}
+
+/// Dependencia entre tareas (finish-to-start). `to` depende de `from`.
+model TaskDependency {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  fromTaskId     String   @map("from_task_id") @db.Uuid
+  toTaskId       String   @map("to_task_id") @db.Uuid
+  /// dep_type: finish_to_start
+  depType        String   @default("finish_to_start") @map("dep_type")
+  mandatory      Boolean  @default(true)
+  lagDays        Int      @default(0) @map("lag_days")
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  fromTask Task @relation("dep_from", fields: [fromTaskId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  toTask   Task @relation("dep_to", fields: [toTaskId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([fromTaskId, toTaskId])
+  @@index([toTaskId])
+  @@map("task_dependencies")
+}
+
+/// Comentario de una tarea (no-borrado).
+model TaskComment {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  taskId         String   @map("task_id") @db.Uuid
+  author         String?  @db.Uuid
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([taskId, createdAt])
+  @@map("task_comments")
+}
+
+/// Archivo/evidencia de una tarea (metadatos; binarios fuera de BD).
+model TaskFile {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  taskId         String   @map("task_id") @db.Uuid
+  /// kind: attachment | evidence
+  kind           String   @default("attachment")
+  originalName   String   @map("original_name")
+  storedName     String   @map("stored_name")
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int      @map("size_bytes")
+  extension      String
+  storageKey     String   @map("storage_key")
+  checksum       String?
+  uploadedBy     String?  @map("uploaded_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([taskId])
+  @@map("task_files")
+}
+
+/// Historial de estados de una tarea (append-only).
+model TaskStatusHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  taskId         String   @map("task_id") @db.Uuid
+  event          String
+  fromStatus     String?  @map("from_status")
+  toStatus       String?  @map("to_status")
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  detail         String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([taskId, createdAt])
+  @@map("task_status_history")
+}
