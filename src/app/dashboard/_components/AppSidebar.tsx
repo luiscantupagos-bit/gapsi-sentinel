@@ -24,8 +24,9 @@ type Item = { href: string; label: string; icon: React.ComponentType<{ className
 
 const MAIN: Item[] = [
   { href: '/dashboard', label: 'Dashboard', icon: IconPanel },
+  { href: '/dashboard/tasks', label: 'Tareas', icon: IconTasks },
+  { href: '/dashboard/projects', label: 'Proyectos', icon: IconProjects },
   { href: '/dashboard/documents', label: 'Documentos', icon: IconDoc },
-  { href: '/dashboard/documents/tasks', label: 'Tareas', icon: IconTasks },
   { href: '/dashboard/capa', label: 'Acciones correctivas', icon: IconCapa },
   { href: '/dashboard/capa/tasks', label: 'Bandeja CAPA', icon: IconInbox },
   { href: '/dashboard/capa/analysis', label: 'Análisis', icon: IconAnalysis },
@@ -34,7 +35,6 @@ const MAIN: Item[] = [
 // Módulos previstos; aún sin ruta funcional → se muestran deshabilitados.
 const MODULES: { label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { label: 'Auditorías', icon: IconAudit },
-  { label: 'Proyectos', icon: IconProjects },
   { label: 'Riesgos', icon: IconRisk },
   { label: 'Proveedores', icon: IconSupplier },
   { label: 'Capacitación', icon: IconTraining },

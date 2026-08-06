@@ -2230,3 +2230,198 @@ a.tool-card:focus-visible {
     transition: none !important;
   }
 }
+
+/* =====================================================================
+   TASK-009 — Gestor global de tareas y proyectos
+   ===================================================================== */
+.container--narrow {
+  max-width: 52rem;
+}
+
+/* Pestañas / filtros rápidos */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+  margin: var(--space-4) 0 var(--space-3);
+}
+.tab {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-bottom: none;
+  text-decoration: none;
+}
+.tab:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.tab.is-active {
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  font-weight: 600;
+}
+
+/* Barra de herramientas / búsqueda */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+.searchbar {
+  display: flex;
+  gap: 6px;
+}
+.searchbar input[type='search'] {
+  min-width: 15rem;
+}
+.toolbar__links {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Badges de estado de tarea */
+.badge--task-draft {
+  background: #e5e7eb;
+  color: #374151;
+}
+.badge--task-pending {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.badge--task-in_progress {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.badge--task-blocked {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.badge--task-under_review {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--task-completed {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--task-cancelled {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Badges de prioridad */
+.badge--prio-low {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+.badge--prio-normal {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.badge--prio-high {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--prio-urgent {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.badge--soft {
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+/* Barra de progreso compacta */
+.progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.progress__track {
+  width: 4rem;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+.progress__fill {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+}
+.progress__num {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+/* Tabla clickeable */
+.tbl-linkable td {
+  vertical-align: middle;
+}
+.tbl-linkable .tbl-title {
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+}
+.tbl-linkable .tbl-title:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.tbl-linkable td.mono a {
+  font-variant-numeric: tabular-nums;
+}
+.shell__content .tbl-linkable tbody tr.is-overdue td {
+  background: color-mix(in srgb, var(--color-danger) 6%, transparent);
+}
+.due--overdue {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.small {
+  font-size: 0.78rem;
+}
+
+/* Layout de detalle en dos columnas */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-3);
+  width: 100%;
+}
+.field--full {
+  width: 100%;
+}
+.dep-list,
+.rel-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}

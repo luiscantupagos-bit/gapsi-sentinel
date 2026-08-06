@@ -1058,4 +1058,33 @@ export async function convertToTask(
   return taskId;
 }
 
+/** Contexto de permisos del usuario sobre una tarea (para la interfaz). */
+export async function getUserTaskContext(organizationId: string, userId: string, taskId: string) {
+  const role =
+    (
+      await getPrisma().membership.findFirst({
+        where: { organizationId, userId },
+        select: { role: true },
+      })
+    )?.role ?? 'viewer';
+  const task = await getPrisma().task.findFirst({
+    where: { id: taskId, organizationId },
+    select: { responsibleUserId: true, createdBy: true },
+  });
+  const parts = await participantIds(organizationId, taskId);
+  const canActOn = task ? canAct(task, role, userId, parts) : false;
+  return { role, isAdmin: isAdmin(role), canCreate: canCreate(role), canAct: canActOn };
+}
+
+/** Tareas nativas de la organización para elegir dependencias (excluye una). */
+export async function listNativeTasksBrief(organizationId: string, excludeId?: string) {
+  const rows = await getPrisma().task.findMany({
+    where: { organizationId, id: excludeId ? { not: excludeId } : undefined },
+    select: { id: true, folio: true, title: true, status: true },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+  return rows;
+}
+
 export const _taskStatuses = TASK_STATUSES;
