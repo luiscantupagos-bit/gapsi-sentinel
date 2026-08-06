@@ -179,3 +179,21 @@ numeración. Sin datos personales reales.
 Tipos de dependencia avanzados, DnD en Kanban, escala semanal en Gantt, capacidad
 configurable para carga de trabajo, y adopción masiva (backfill opcional) de
 acciones CAPA como tareas gestionadas si se decide en el futuro.
+
+## Corrección de reproducibilidad de migraciones (follow-up)
+
+Durante la validación se detectó que la migración `20260805120000_projects_tasks`
+—generada con `prisma migrate diff --from-schema-datasource`— incluía un bloque
+de `DROP` (139 FK + 1 índice único) sobre restricciones **SQL crudo** de
+documentos y CAPA que no están declaradas en `schema.prisma` (FK compuestas
+anti-cruce, de organización y de usuario). En una reconstrucción desde cero, esto
+dejaba esas tablas sin FK y obligaba a ejecutar SQL manual por `psql`.
+
+**Corregido** con una migración **nueva** `20260805130000_repair_legacy_constraints`
+que re-crea de forma idempotente (guardas `IF NOT EXISTS` por nombre y tabla, sin
+`try/catch`) exactamente los objetos eliminados, restaurando el índice único antes
+de las FK que lo requieren. No se modificó ninguna migración anterior ni la de
+TASK-009. La secuencia completa (`down -v` → `db:up` → `db:migrate` → `db:seed`×2
+→ `test:db`) se aplica **solo con comandos del proyecto, sin SQL manual**. Guardia
+de regresión: `tests/db/schema-integrity.test.ts`. Procedimiento en
+`docs/operations/DATABASE-REBUILD.md`.
