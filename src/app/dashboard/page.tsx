@@ -5,6 +5,8 @@ import { getDashboardData } from '@/server/diagnostics';
 import { getDocSummary } from '@/server/documents';
 import { getWorkflowAlerts } from '@/server/document-workflow';
 import { getCapaAlerts, getCapaDashboard } from '@/server/capa';
+import { getTaskSummary, listGlobalTasks } from '@/server/tasks';
+import { getProjectSummary, listMilestones } from '@/server/projects';
 import {
   CAPA_PRIORITY_LABEL,
   CAPA_STATUS_LABEL,
@@ -36,7 +38,21 @@ const PRIORITY_COLOR: Record<string, string> = {
 export default async function DashboardPage() {
   const session = await requireServerSession();
   const org = session.organizationId;
-  const [data, docSummary, alerts, capa, capaBoard, frameworks, findings] = await Promise.all([
+  const soon30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [
+    data,
+    docSummary,
+    alerts,
+    capa,
+    capaBoard,
+    frameworks,
+    findings,
+    taskSummary,
+    projectSummary,
+    overdueTasks,
+    upcomingMilestones,
+  ] = await Promise.all([
     getDashboardData(org),
     getDocSummary(org),
     getWorkflowAlerts(org, session.userId),
@@ -47,6 +63,10 @@ export default async function DashboardPage() {
       select: { code: true, name: true },
     }),
     getPrisma().diagnosticFinding.count({ where: { organizationId: org } }),
+    getTaskSummary(org, session.userId),
+    getProjectSummary(org),
+    listGlobalTasks(org, session.userId, { quick: 'overdue' }),
+    listMilestones(org, { from: todayStr, to: soon30 }),
   ]);
 
   const orgName = data?.organization.name ?? 'Organización';
@@ -114,6 +134,93 @@ export default async function DashboardPage() {
         <KpiCard label="Hallazgos pendientes" value={findings} tone="blue" ring={100} />
         <KpiCard label="Riesgos críticos" tone="red" placeholder="Próximamente" />
       </div>
+
+      {/* Tareas y proyectos (datos reales) */}
+      <SectionCard
+        title="Tareas y proyectos"
+        action={
+          <Link className="button button--ghost" href="/dashboard/tasks">
+            Ver tareas
+          </Link>
+        }
+      >
+        <div className="statcard-row">
+          <StatCard
+            label="Tareas abiertas"
+            value={taskSummary.open}
+            href="/dashboard/tasks?tab=all"
+          />
+          <StatCard
+            label="Tareas vencidas"
+            value={taskSummary.overdue}
+            tone={taskSummary.overdue > 0 ? 'danger' : 'default'}
+            href="/dashboard/tasks?tab=overdue"
+          />
+          <StatCard
+            label="Próximas (7d)"
+            value={taskSummary.dueSoon}
+            tone="warning"
+            href="/dashboard/tasks?tab=due_soon"
+          />
+          <StatCard
+            label="Proyectos activos"
+            value={projectSummary.active}
+            tone="success"
+            href="/dashboard/projects?status=active"
+          />
+          <StatCard
+            label="Proyectos en riesgo"
+            value={projectSummary.atRisk}
+            tone={projectSummary.atRisk > 0 ? 'danger' : 'default'}
+            href="/dashboard/projects?status=active"
+          />
+        </div>
+
+        <div className="dash-grid dash-grid--2">
+          <div>
+            <p className="alerts__head alerts__head--crit">Tareas vencidas</p>
+            {overdueTasks.length === 0 ? (
+              <p className="empty-state">Sin tareas vencidas.</p>
+            ) : (
+              <ul className="alerts">
+                {overdueTasks.slice(0, 6).map((t) => (
+                  <li key={t.id}>
+                    <span className="alerts__dot alerts__dot--crit" aria-hidden />
+                    <Link href={t.detailHref ?? t.originHref}>
+                      {t.folio ?? t.sourceFolio ?? 'tarea'} · {t.title}
+                    </Link>
+                    <span className="alerts__meta alerts__meta--crit">
+                      {t.responsibleName ?? 'sin asignar'} · vence {t.targetDate}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <p className="alerts__head alerts__head--prev">Hitos próximos (30 días)</p>
+            {upcomingMilestones.length === 0 ? (
+              <p className="empty-state">Sin hitos próximos.</p>
+            ) : (
+              <ul className="alerts">
+                {upcomingMilestones.slice(0, 6).map((m) => (
+                  <li key={m.id}>
+                    <span
+                      className={`alerts__dot ${m.overdue ? 'alerts__dot--crit' : 'alerts__dot--prev'}`}
+                      aria-hidden
+                    />
+                    <Link href={`/dashboard/projects/${m.projectId}`}>
+                      ◆ {m.name}
+                      {m.projectFolio ? ` · ${m.projectFolio}` : ''}
+                    </Link>
+                    <span className="alerts__meta">objetivo {m.targetDate}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </SectionCard>
 
       {/* Fila 2 — Sentinel Score · Cumplimiento por norma · Alertas */}
       <div className="dash-grid dash-grid--3">
