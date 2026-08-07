@@ -120,3 +120,16 @@ export const IconLogout = (p: IconProps) => (
     <path d="M16 17l5-5-5-5M21 12H9" />
   </Svg>
 );
+
+export const IconDiagnostic = (p: IconProps) => (
+  <Svg className={p.className}>
+    <path d="M9 3h6a1 1 0 0 1 1 1v1h1a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1V4a1 1 0 0 1 1-1z" />
+    <path d="M9 13l2 2 4-4" />
+  </Svg>
+);
+export const IconChart = (p: IconProps) => (
+  <Svg className={p.className}>
+    <path d="M4 20V4M4 20h16" />
+    <path d="M8 16v-4M12 16V8M16 16v-6" />
+  </Svg>
+);

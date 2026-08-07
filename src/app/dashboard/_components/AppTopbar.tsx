@@ -1,5 +1,3 @@
-import { IconBell, IconChevron } from './icons';
-
 const ROLE_LABEL: Record<string, string> = {
   owner: 'Propietario',
   admin: 'Administrador',
@@ -13,10 +11,10 @@ function initials(name: string): string {
 }
 
 /**
- * Barra superior. Muestra la organización y el sitio ACTIVOS (datos reales de la
- * sesión), una campana decorativa (sin backend de notificaciones aún) y el
- * usuario con su rol. Los selectores muestran el valor real; no cambian de
- * organización porque el adaptador de desarrollo usa una sesión fija.
+ * Barra superior. Muestra la organización y el sitio ACTIVOS de la sesión como
+ * CONTEXTO (texto, no selectores interactivos: aún no hay cambio de contexto), y
+ * el usuario con su rol. Sin controles falsos (sin campana decorativa ni botones
+ * deshabilitados que aparenten interacción).
  */
 export function AppTopbar({
   orgName,
@@ -31,23 +29,20 @@ export function AppTopbar({
 }) {
   return (
     <header className="topbar">
-      <div className="topbar__selectors">
-        <button type="button" className="topbar__select" disabled title="Organización activa">
-          <span>{orgName}</span>
-          <IconChevron className="topbar__chevron" />
-        </button>
+      <div className="topbar__context">
+        <div className="topbar__ctxitem">
+          <span className="topbar__ctxlabel">Organización</span>
+          <span className="topbar__ctxvalue">{orgName}</span>
+        </div>
         {siteName && (
-          <button type="button" className="topbar__select" disabled title="Sitio activo">
-            <span>{siteName}</span>
-            <IconChevron className="topbar__chevron" />
-          </button>
+          <div className="topbar__ctxitem">
+            <span className="topbar__ctxlabel">Sitio</span>
+            <span className="topbar__ctxvalue">{siteName}</span>
+          </div>
         )}
       </div>
 
       <div className="topbar__right">
-        <span className="topbar__bell" aria-hidden title="Notificaciones (próximamente)">
-          <IconBell />
-        </span>
         <div className="topbar__user">
           <span className="avatar" aria-hidden>
             {initials(userName)}

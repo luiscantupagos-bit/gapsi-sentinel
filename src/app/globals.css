@@ -148,41 +148,36 @@ a {
   top: 0;
   z-index: 20;
 }
-.topbar__selectors {
+.topbar__context {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-6);
   flex-wrap: wrap;
+  min-width: 0;
 }
-.topbar__select {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: default;
+.topbar__ctxitem {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
 }
-.topbar__select:disabled {
-  opacity: 1;
-}
-.topbar__chevron {
+.topbar__ctxlabel {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--color-muted);
-  width: 16px;
-  height: 16px;
+}
+.topbar__ctxvalue {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .topbar__right {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-}
-.topbar__bell {
-  display: inline-flex;
-  color: var(--color-muted);
 }
 .topbar__user {
   display: flex;
@@ -528,6 +523,18 @@ a:focus-visible {
   font-weight: 700;
   font-size: 1rem;
 }
+.sidebar__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.sidebar__section {
+  display: flex;
+  flex-direction: column;
+}
 .sidebar__nav {
   list-style: none;
   margin: 0;
@@ -612,36 +619,64 @@ a:focus-visible {
   .shell__content {
     width: 100%;
   }
-  /* El sidebar pasa a una franja superior horizontal desplazable. */
+  /* Móvil: franja superior horizontal desplazable, con etiquetas visibles y
+     estado activo claro (no un carrusel de solo iconos). */
   .sidebar {
     flex-direction: row;
     flex-wrap: nowrap;
+    align-items: center;
     width: 100%;
     height: auto;
-    overflow-x: auto;
-    padding: var(--space-2);
-    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
   }
-  .sidebar__brand,
+  .sidebar__brand {
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .sidebar__brandtext {
+    display: none;
+  }
+  .sidebar__scroll {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: var(--space-2);
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar__section {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+  }
   .sidebar__group {
     display: none;
   }
   .sidebar__nav {
     flex-direction: row;
+    gap: var(--space-1);
   }
   .sidebar__foot {
     flex-direction: row;
     margin-top: 0;
     padding-top: 0;
+    flex-shrink: 0;
   }
   .sidebar__foot form {
     display: inline-flex;
   }
-  .sidebar__link span:not(.sidebar__icon) {
+  .sidebar__link {
+    padding: var(--space-2) var(--space-3);
+    white-space: nowrap;
+  }
+  /* En la franja móvil se muestra la etiqueta del ítem activo; el resto solo
+     icono para ahorrar espacio, con la etiqueta accesible por título. */
+  .sidebar__link:not(.is-active) span:not(.sidebar__icon) {
     display: none;
   }
-  .sidebar__link {
-    padding: var(--space-2);
+  .sidebar__signout span:not(.sidebar__icon) {
+    display: none;
   }
 }
 

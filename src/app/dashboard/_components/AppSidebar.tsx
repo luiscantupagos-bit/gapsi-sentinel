@@ -7,47 +7,62 @@ import {
   IconAnalysis,
   IconAudit,
   IconCapa,
+  IconChart,
+  IconDiagnostic,
   IconDoc,
-  IconInbox,
   IconLogout,
   IconPanel,
   IconProjects,
   IconReport,
-  IconRisk,
-  IconSettings,
-  IconSupplier,
   IconTasks,
-  IconTraining,
 } from './icons';
 
 type Item = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+type Group = { title: string | null; items: Item[] };
 
-const MAIN: Item[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: IconPanel },
-  { href: '/dashboard/tasks', label: 'Tareas', icon: IconTasks },
-  { href: '/dashboard/projects', label: 'Proyectos', icon: IconProjects },
-  { href: '/dashboard/documents', label: 'Documentos', icon: IconDoc },
-  { href: '/dashboard/capa', label: 'Acciones correctivas', icon: IconCapa },
-  { href: '/dashboard/capa/tasks', label: 'Bandeja CAPA', icon: IconInbox },
-  { href: '/dashboard/capa/analysis', label: 'Análisis', icon: IconAnalysis },
-  { href: '/dashboard/audits', label: 'Auditorías', icon: IconAudit },
-  { href: '/dashboard/quality-events', label: 'Eventos de calidad', icon: IconInbox },
-  { href: '/dashboard/kpis', label: 'Indicadores (KPI)', icon: IconReport },
-  { href: '/dashboard/analytics', label: 'Analítica', icon: IconRisk },
+// Arquitectura de información definitiva (CORE-ALIGN-001). Solo rutas reales.
+const GROUPS: Group[] = [
+  {
+    title: null,
+    items: [{ href: '/dashboard', label: 'Panel', icon: IconPanel }],
+  },
+  {
+    title: 'Cumplimiento',
+    items: [
+      { href: '/dashboard/diagnostics', label: 'Diagnósticos', icon: IconDiagnostic },
+      { href: '/dashboard/audits', label: 'Auditorías', icon: IconAudit },
+      { href: '/dashboard/documents', label: 'Documentos', icon: IconDoc },
+    ],
+  },
+  {
+    title: 'Mejora',
+    items: [
+      { href: '/dashboard/capa', label: 'Acciones correctivas', icon: IconCapa },
+      { href: '/dashboard/capa/analysis', label: 'Análisis', icon: IconAnalysis },
+    ],
+  },
+  {
+    title: 'Trabajo',
+    items: [
+      { href: '/dashboard/tasks', label: 'Tareas', icon: IconTasks },
+      { href: '/dashboard/projects', label: 'Proyectos', icon: IconProjects },
+    ],
+  },
+  {
+    title: 'Desempeño',
+    items: [
+      { href: '/dashboard/kpis', label: 'Indicadores', icon: IconReport },
+      { href: '/dashboard/analytics', label: 'Analítica', icon: IconChart },
+    ],
+  },
 ];
 
-// Módulos previstos; aún sin ruta funcional → se muestran deshabilitados.
-const MODULES: { label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { label: 'Riesgos', icon: IconRisk },
-  { label: 'Proveedores', icon: IconSupplier },
-  { label: 'Capacitación', icon: IconTraining },
-  { label: 'Reportes', icon: IconReport },
-];
+const ALL_ITEMS = GROUPS.flatMap((g) => g.items);
 
 function activeHref(pathname: string): string {
-  const matches = MAIN.filter((i) => pathname === i.href || pathname.startsWith(`${i.href}/`)).sort(
-    (a, b) => b.href.length - a.href.length,
-  );
+  const matches = ALL_ITEMS.filter(
+    (i) => pathname === i.href || pathname.startsWith(`${i.href}/`),
+  ).sort((a, b) => b.href.length - a.href.length);
   return matches[0]?.href ?? '';
 }
 
@@ -64,53 +79,33 @@ export function AppSidebar() {
         <span className="sidebar__brandtext">GAPSI Sentinel</span>
       </div>
 
-      <ul className="sidebar__nav">
-        {MAIN.map((it) => {
-          const Icon = it.icon;
-          const isActive = active === it.href;
-          return (
-            <li key={it.href}>
-              <Link
-                href={it.href}
-                className={`sidebar__link${isActive ? ' is-active' : ''}`}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                <Icon className="sidebar__icon" />
-                <span>{it.label}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-
-      <p className="sidebar__group">Módulos</p>
-      <ul className="sidebar__nav">
-        {MODULES.map((m) => {
-          const Icon = m.icon;
-          return (
-            <li key={m.label}>
-              <span
-                className="sidebar__link sidebar__link--disabled"
-                aria-disabled="true"
-                title="Próximamente"
-              >
-                <Icon className="sidebar__icon" />
-                <span>{m.label}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="sidebar__scroll">
+        {GROUPS.map((group, gi) => (
+          <div key={group.title ?? `g${gi}`} className="sidebar__section">
+            {group.title && <p className="sidebar__group">{group.title}</p>}
+            <ul className="sidebar__nav">
+              {group.items.map((it) => {
+                const Icon = it.icon;
+                const isActive = active === it.href;
+                return (
+                  <li key={it.href}>
+                    <Link
+                      href={it.href}
+                      className={`sidebar__link${isActive ? ' is-active' : ''}`}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <Icon className="sidebar__icon" />
+                      <span>{it.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
 
       <div className="sidebar__foot">
-        <span
-          className="sidebar__link sidebar__link--disabled"
-          aria-disabled="true"
-          title="Próximamente"
-        >
-          <IconSettings className="sidebar__icon" />
-          <span>Configuración</span>
-        </span>
         <form action={devSignOut}>
           <button type="submit" className="sidebar__link sidebar__signout">
             <IconLogout className="sidebar__icon" />
