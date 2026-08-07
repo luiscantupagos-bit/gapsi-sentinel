@@ -2284,3 +2284,324 @@ model OrganizationCertification {
   @@index([organizationId, status])
   @@map("organization_certifications")
 }
+
+// =====================================================================
+// TASK-011 — Modelo común de eventos de calidad, KPI y análisis
+// Híbrido A-céntrico: `quality_events` es fuente de verdad de eventos NATIVOS
+// (manuales/convertidos); los eventos de otros módulos se AGREGAN en vivo (no se
+// copian). KPI/Pareto/tendencias/estadística consumen un dataset unificado
+// (nativos + agregados) en servidor. Dimensiones categoría/subcategoría con FK;
+// área/proceso/producto/máquina/turno/proveedor/lote son campos textuales
+// PROVISIONALES (admiten entidades futuras sin inventarlas ahora). Punteros a
+// otros módulos son genéricos (source_type/source_id, relation_type/target_id)
+// validados en servidor + RLS. CHECK/RLS/append-only/no-borrado por SQL
+// complementario. Filtros/dimensiones/metas de KPI en JSONB estructurado.
+// =====================================================================
+
+/// Evento de calidad nativo (o referencia a un módulo). Hecho registrado.
+model QualityEvent {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  folio             String
+  eventDate         DateTime  @map("event_date") @db.Date
+  eventAt           DateTime? @map("event_at") @db.Timestamptz(6)
+  /// event_type: capa|audit_finding|deviation|failure|complaint|nonconforming|incident|noncompliance|observation|improvement|other
+  eventType         String    @map("event_type")
+  categoryId        String?   @map("category_id") @db.Uuid
+  subcategoryId     String?   @map("subcategory_id") @db.Uuid
+  title             String
+  description       String?
+  /// severity: low|medium|high|critical
+  severity          String    @default("medium")
+  /// status: open|in_progress|closed|cancelled
+  status            String    @default("open")
+  // Dimensiones textuales PROVISIONALES (entidades formales aún no existen).
+  area              String?
+  process           String?
+  productText       String?   @map("product_text")
+  machineText       String?   @map("machine_text")
+  shiftText         String?   @map("shift_text")
+  supplierText      String?   @map("supplier_text")
+  lotText           String?   @map("lot_text")
+  // Métricas.
+  quantityAffected  Decimal?  @map("quantity_affected") @db.Decimal(16, 4)
+  unitsProduced     Decimal?  @map("units_produced") @db.Decimal(16, 4)
+  cost              Decimal?  @db.Decimal(16, 2)
+  durationHours     Decimal?  @map("duration_hours") @db.Decimal(12, 2)
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  createdBy         String?   @map("created_by") @db.Uuid
+  /// source_type: capa_action|audit_finding|task|project|document|analysis|manual (para convertidos/enlazados)
+  sourceType        String?   @map("source_type")
+  sourceId          String?   @map("source_id") @db.Uuid
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category    QualityEventCategory?    @relation(fields: [categoryId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  subcategory QualityEventSubcategory? @relation(fields: [subcategoryId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  relations   QualityEventRelation[]
+
+  @@unique([organizationId, folio])
+  @@unique([id, organizationId])
+  @@unique([organizationId, sourceType, sourceId])
+  @@index([organizationId, eventType])
+  @@index([organizationId, eventDate])
+  @@map("quality_events")
+}
+
+model QualityEventFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("quality_event_folio_counters")
+}
+
+/// Categoría configurable de evento (dimensión de clasificación).
+model QualityEventCategory {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  /// event_type opcional al que aplica la categoría (null = general)
+  eventType      String?  @map("event_type")
+  code           String
+  name           String
+  description    String?
+  sortOrder      Int      @default(0) @map("sort_order")
+  color          String?
+  active         Boolean  @default(true)
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  subcategories QualityEventSubcategory[]
+  events        QualityEvent[]
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@index([organizationId, active])
+  @@map("quality_event_categories")
+}
+
+/// Subcategoría de una categoría.
+model QualityEventSubcategory {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  categoryId     String   @map("category_id") @db.Uuid
+  code           String
+  name           String
+  sortOrder      Int      @default(0) @map("sort_order")
+  active         Boolean  @default(true)
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  category QualityEventCategory @relation(fields: [categoryId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  events   QualityEvent[]
+
+  @@unique([categoryId, code])
+  @@unique([id, organizationId])
+  @@map("quality_event_subcategories")
+}
+
+/// Catálogo ligero configurable (áreas/procesos/turnos/máquinas/productos/proveedores/unidades).
+model QualityCatalogValue {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  /// kind: area|process|shift|machine|product|supplier|unit
+  kind           String
+  code           String?
+  name           String
+  aliases        String?
+  color          String?
+  sortOrder      Int      @default(0) @map("sort_order")
+  active         Boolean  @default(true)
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, kind, name])
+  @@unique([id, organizationId])
+  @@index([organizationId, kind, active])
+  @@map("quality_catalog_values")
+}
+
+/// Relación/trazabilidad de un evento con su origen (puntero genérico).
+model QualityEventRelation {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  eventId        String   @map("event_id") @db.Uuid
+  /// relation_type: capa|audit|audit_finding|task|project|document|analysis|external
+  relationType   String   @map("relation_type")
+  targetId       String?  @map("target_id") @db.Uuid
+  externalRef    String?  @map("external_ref")
+  note           String?
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  event QualityEvent @relation(fields: [eventId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([eventId])
+  @@map("quality_event_relations")
+}
+
+/// Historial append-only de un evento.
+model QualityEventHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  eventId        String   @map("event_id") @db.Uuid
+  event          String
+  fromStatus     String?  @map("from_status")
+  toStatus       String?  @map("to_status")
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  detail         String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([eventId, createdAt])
+  @@map("quality_event_history")
+}
+
+/// Definición de KPI (configuración estructurada, sin código ejecutable).
+model KpiDefinition {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  code              String
+  name              String
+  description       String?
+  category          String?
+  /// source: quality_events|capa|audits|findings|tasks|projects|documents
+  source            String
+  /// measure: count|sum|average|median|percentage|rate|proportion|avg_duration|compliance|recurrence
+  measure           String
+  measureField      String?   @map("measure_field")
+  rateMultiplier    Decimal?  @map("rate_multiplier") @db.Decimal(16, 4)
+  filters           Json?
+  numeratorFilter   Json?     @map("numerator_filter")
+  denominatorFilter Json?     @map("denominator_filter")
+  dimensions        Json?
+  /// period: daily|weekly|monthly|quarterly|yearly
+  period            String    @default("monthly")
+  unit              String?
+  target            Decimal?  @db.Decimal(16, 4)
+  warningThreshold  Decimal?  @map("warning_threshold") @db.Decimal(16, 4)
+  criticalThreshold Decimal?  @map("critical_threshold") @db.Decimal(16, 4)
+  /// desired_direction: higher|lower|target
+  desiredDirection  String    @default("lower") @map("desired_direction")
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  /// status: active|inactive|draft
+  status            String    @default("active")
+  calcFrequency     String?   @map("calc_frequency")
+  startDate         DateTime? @map("start_date") @db.Date
+  definitionVersion Int       @default(1) @map("definition_version")
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  results KpiResult[]
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("kpi_definitions")
+}
+
+model KpiFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId])
+  @@map("kpi_folio_counters")
+}
+
+/// Resultado calculado de un KPI para un periodo (cache recalculable).
+model KpiResult {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  kpiId             String   @map("kpi_id") @db.Uuid
+  periodLabel       String   @map("period_label")
+  periodStart       DateTime @map("period_start") @db.Date
+  periodEnd         DateTime @map("period_end") @db.Date
+  value             Decimal? @db.Decimal(18, 4)
+  numerator         Decimal? @db.Decimal(18, 4)
+  denominator       Decimal? @db.Decimal(18, 4)
+  target            Decimal? @db.Decimal(18, 4)
+  /// status: on_target|warning|off_target|no_data
+  status            String   @default("no_data")
+  computation       Json?
+  definitionVersion Int      @default(1) @map("definition_version")
+  computedAt        DateTime @default(now()) @map("computed_at") @db.Timestamptz(6)
+
+  kpi KpiDefinition @relation(fields: [kpiId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([kpiId, periodLabel])
+  @@unique([id, organizationId])
+  @@index([organizationId, kpiId])
+  @@map("kpi_results")
+}
+
+/// Regla de alerta interna (determinista, sin IA).
+model QualityAlertRule {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  description    String?
+  /// rule_type: kpi_off_target|kpi_increase|category_threshold|recurrence|missing_data|negative_trend
+  ruleType       String    @map("rule_type")
+  kpiId          String?   @map("kpi_id") @db.Uuid
+  config         Json
+  /// severity: info|warning|critical
+  severity       String    @default("warning")
+  active         Boolean   @default(true)
+  createdBy      String?   @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  alerts QualityAlert[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, active])
+  @@map("quality_alert_rules")
+}
+
+/// Alerta interna generada (deduplicada).
+model QualityAlert {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  ruleId         String?   @map("rule_id") @db.Uuid
+  title          String
+  message        String
+  /// severity: info|warning|critical
+  severity       String    @default("warning")
+  /// status: open|acknowledged|resolved
+  status         String    @default("open")
+  kpiId          String?   @map("kpi_id") @db.Uuid
+  entityRef      String?   @map("entity_ref")
+  href           String?
+  dedupeKey      String    @map("dedupe_key")
+  detectedAt     DateTime  @default(now()) @map("detected_at") @db.Timestamptz(6)
+  resolvedBy     String?   @map("resolved_by") @db.Uuid
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  rule QualityAlertRule? @relation(fields: [ruleId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, dedupeKey])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("quality_alerts")
+}
+
+/// Vista analítica guardada (configuración de Pareto/tendencia/estadística).
+model AnalyticsSavedView {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  /// view_type: pareto|trend|relations|statistics|events
+  viewType       String   @map("view_type")
+  config         Json
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([id, organizationId])
+  @@index([organizationId, viewType])
+  @@map("analytics_saved_views")
+}
