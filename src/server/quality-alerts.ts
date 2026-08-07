@@ -59,7 +59,7 @@ function toAlertRuleFromRow(
 /** Evalúa reglas (derivadas + persistidas) y guarda las alertas deduplicadas. */
 export async function evaluateAndPersistAlerts(organizationId: string): Promise<number> {
   return withOrgContext(organizationId, async (tx) => {
-    const events = await loadUnifiedEventsTx(tx);
+    const events = await loadUnifiedEventsTx(tx, organizationId);
     const [kpiDefs, ruleRows] = await Promise.all([
       tx.kpiDefinition.findMany({ where: { organizationId, status: 'active' } }),
       tx.qualityAlertRule.findMany({ where: { organizationId, active: true } }),

@@ -22,11 +22,18 @@ import {
 
 /** Consulta todas las fuentes bajo una transacción RLS y devuelve el dataset. */
 export async function loadUnifiedEvents(organizationId: string): Promise<UnifiedEvent[]> {
-  return withOrgContext(organizationId, (tx) => loadUnifiedEventsTx(tx));
+  return withOrgContext(organizationId, (tx) => loadUnifiedEventsTx(tx, organizationId));
 }
 
-/** Variante para reutilizar una transacción existente (p. ej. en pruebas). */
-export async function loadUnifiedEventsTx(tx: Prisma.TransactionClient): Promise<UnifiedEvent[]> {
+/**
+ * Variante para reutilizar una transacción existente (p. ej. en pruebas). Filtra
+ * por `organizationId` de forma EXPLÍCITA además de la RLS (defensa en
+ * profundidad: correcto aun si la conexión omite RLS, como el rol propietario).
+ */
+export async function loadUnifiedEventsTx(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+): Promise<UnifiedEvent[]> {
   const [
     nativeRows,
     capaRows,
@@ -38,18 +45,19 @@ export async function loadUnifiedEventsTx(tx: Prisma.TransactionClient): Promise
     analysisRows,
   ] = await Promise.all([
     tx.qualityEvent.findMany({
+      where: { organizationId },
       include: {
         category: { select: { name: true } },
         subcategory: { select: { name: true } },
       },
     }),
-    tx.capa.findMany({ where: { deletedAt: null } }),
-    tx.capaAction.findMany(),
-    tx.auditFinding.findMany(),
-    tx.task.findMany(),
-    tx.project.findMany(),
-    tx.fmeaRow.findMany(),
-    tx.qualityAnalysis.findMany({ where: { deletedAt: null } }),
+    tx.capa.findMany({ where: { organizationId, deletedAt: null } }),
+    tx.capaAction.findMany({ where: { organizationId } }),
+    tx.auditFinding.findMany({ where: { organizationId } }),
+    tx.task.findMany({ where: { organizationId } }),
+    tx.project.findMany({ where: { organizationId } }),
+    tx.fmeaRow.findMany({ where: { organizationId } }),
+    tx.qualityAnalysis.findMany({ where: { organizationId, deletedAt: null } }),
   ]);
 
   // Mapa analysisId -> capaId para localizar el CAPA de cada renglón AMEF.

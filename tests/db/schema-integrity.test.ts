@@ -143,3 +143,61 @@ describe.skipIf(!hasDb)('Integridad del esquema — auditorías (TASK-010)', () 
     }
   });
 });
+
+describe.skipIf(!hasDb)('Integridad del esquema — eventos/KPI (TASK-011)', () => {
+  it('FK compuesta anti-cruce de sitio y categoría en eventos', async () => {
+    expect(
+      await count(`
+      SELECT count(*) n FROM pg_constraint
+      WHERE conname='qev_site_fkey' AND contype='f'
+        AND confrelid='sites'::regclass AND cardinality(conkey)=2`),
+    ).toBe(1);
+    expect(
+      await count(`
+      SELECT count(*) n FROM pg_constraint
+      WHERE conrelid='quality_events'::regclass AND contype='f'
+        AND confrelid='quality_event_categories'::regclass AND cardinality(conkey)=2`),
+    ).toBe(1);
+  });
+
+  it('CHECK de enums en eventos y KPI', async () => {
+    for (const c of ['qev_type_check', 'qev_status_check', 'kpd_measure_check', 'qer_type_check']) {
+      expect(await count(`SELECT count(*) n FROM pg_constraint WHERE conname='${c}'`)).toBe(1);
+    }
+  });
+
+  it('historial de eventos es append-only', async () => {
+    expect(await count(`SELECT count(*) n FROM pg_trigger WHERE tgname='trg_qeh_append'`)).toBe(1);
+  });
+
+  it('no-borrado físico en eventos y KPI', async () => {
+    for (const tg of ['trg_qev_nodel', 'trg_kpd_nodel', 'trg_qalert_nodel']) {
+      expect(await count(`SELECT count(*) n FROM pg_trigger WHERE tgname='${tg}'`)).toBe(1);
+    }
+  });
+
+  it('RLS, políticas y grants en tablas de analítica', async () => {
+    for (const t of [
+      'quality_events',
+      'quality_event_categories',
+      'kpi_definitions',
+      'kpi_results',
+      'quality_alerts',
+      'analytics_saved_views',
+    ]) {
+      expect(await bool(`SELECT relrowsecurity b FROM pg_class WHERE relname='${t}'`)).toBe(true);
+      expect(
+        await count(`SELECT count(*) n FROM pg_policies WHERE tablename='${t}'`),
+      ).toBeGreaterThan(0);
+      expect(await bool(`SELECT has_table_privilege('gapsi_app','${t}','INSERT') b`)).toBe(true);
+    }
+  });
+
+  it('grant de secuencia BIGSERIAL del historial de eventos', async () => {
+    expect(
+      await bool(
+        `SELECT has_sequence_privilege('gapsi_app','quality_event_history_id_seq','USAGE') b`,
+      ),
+    ).toBe(true);
+  });
+});

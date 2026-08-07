@@ -414,7 +414,7 @@ CREATE TRIGGER trg_qcv_nodel  BEFORE DELETE ON "quality_catalog_values"      FOR
 CREATE TRIGGER trg_qer_nodel  BEFORE DELETE ON "quality_event_relations"     FOR EACH ROW EXECUTE FUNCTION fn_block_delete();
 CREATE TRIGGER trg_kpd_nodel  BEFORE DELETE ON "kpi_definitions"             FOR EACH ROW EXECUTE FUNCTION fn_block_delete();
 CREATE TRIGGER trg_qar_nodel  BEFORE DELETE ON "quality_alert_rules"         FOR EACH ROW EXECUTE FUNCTION fn_block_delete();
-CREATE TRIGGER trg_qal_nodel  BEFORE DELETE ON "quality_alerts"              FOR EACH ROW EXECUTE FUNCTION fn_block_delete();
+CREATE TRIGGER trg_qalert_nodel BEFORE DELETE ON "quality_alerts"            FOR EACH ROW EXECUTE FUNCTION fn_block_delete();
 
 -- RLS por organización + permisos a gapsi_app.
 DO $$

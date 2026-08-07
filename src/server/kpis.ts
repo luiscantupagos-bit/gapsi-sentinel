@@ -228,7 +228,7 @@ export async function listKpisWithComputation(
  */
 export async function recomputeKpiResults(organizationId: string, kpiId?: string): Promise<number> {
   return withOrgContext(organizationId, async (tx) => {
-    const events = await loadUnifiedEventsTx(tx);
+    const events = await loadUnifiedEventsTx(tx, organizationId);
     const defs = await tx.kpiDefinition.findMany({
       where: { organizationId, status: 'active', ...(kpiId ? { id: kpiId } : {}) },
     });

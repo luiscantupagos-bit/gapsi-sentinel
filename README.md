@@ -23,9 +23,15 @@ La primera versión NO intenta construir toda la plataforma. Su objetivo es perm
 
 Sobre el diagnóstico se han incorporado, por tareas aprobadas: gestión documental
 y control documental (TASK-004/005/006), CAPA y análisis de calidad
-(TASK-007/008), y el **gestor global de tareas y proyectos** (TASK-009) con
-hitos, dependencias y vistas Lista/Kanban/Calendario/Gantt/Carga de trabajo. Ver
-`docs/tasks/TASK-009-IMPLEMENTATION-NOTES.md`.
+(TASK-007/008), el **gestor global de tareas y proyectos** (TASK-009) con
+hitos, dependencias y vistas Lista/Kanban/Calendario/Gantt/Carga de trabajo, las
+**auditorías y preparación** (TASK-010) y el **modelo común de eventos, KPI y
+análisis estadístico** (TASK-011): captura única del dato reutilizada en KPI,
+Pareto, tendencias, estadística interpretable y calidad de datos, con eventos
+nativos + agregación en vivo de los demás módulos (sin IA). Ver
+`docs/tasks/TASK-009-IMPLEMENTATION-NOTES.md`,
+`docs/tasks/TASK-011-IMPLEMENTATION-NOTES.md` y
+`docs/analytics/ANALYTICS-ARCHITECTURE.md`.
 
 ## Principio rector
 
@@ -330,3 +336,9 @@ Fuera de alcance: IA, análisis semántico, búsqueda web, auditorías, proyecto
 Gantt y HACCP.
 
 - Auditorías (TASK-010): ver docs/tasks/TASK-010-IMPLEMENTATION-NOTES.md
+- Eventos, KPI y análisis estadístico (TASK-011): eventos de calidad
+  (`/dashboard/quality-events`), indicadores (`/dashboard/kpis`) y analítica
+  (`/dashboard/analytics`: Resumen/Pareto/Tendencias/Relaciones/Estadística/
+  Calidad de datos). Determinista y sin IA. Ver
+  docs/tasks/TASK-011-IMPLEMENTATION-NOTES.md y
+  docs/analytics/ANALYTICS-ARCHITECTURE.md

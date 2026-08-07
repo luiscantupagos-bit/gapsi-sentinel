@@ -2396,6 +2396,417 @@ async function seedAudits(): Promise<void> {
   });
 }
 
+// UUID determinista para eventos de calidad / KPI (familia 'b', hex válido).
+function qeUuid(kind: '1' | '2' | '3' | '4' | '5', n: number): string {
+  return `00000000-0000-4000-8000-0000000b${kind}${n.toString(16).padStart(3, '0')}`;
+}
+
+/**
+ * TASK-011 — Siembra eventos de calidad NATIVOS, catálogos, KPI y una regla de
+ * alerta, para demostrar KPI/Pareto/tendencias/estadística/calidad sobre datos
+ * capturados una sola vez. Idempotente. Los datos de otros módulos NO se copian:
+ * la analítica los agrega en vivo.
+ */
+async function seedEventsAndKpis(): Promise<void> {
+  if (await prisma.qualityEvent.findUnique({ where: { id: qeUuid('1', 1) } })) return;
+
+  // Categorías de clasificación.
+  await prisma.qualityEventCategory.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: qeUuid('2', 1),
+        organizationId: ORG_A,
+        code: 'CONTAM',
+        name: 'Contaminación',
+        sortOrder: 1,
+        createdBy: USER_A,
+      },
+      {
+        id: qeUuid('2', 2),
+        organizationId: ORG_A,
+        code: 'EMPAQUE',
+        name: 'Empaque',
+        sortOrder: 2,
+        createdBy: USER_A,
+      },
+      {
+        id: qeUuid('2', 3),
+        organizationId: ORG_A,
+        code: 'ETIQ',
+        name: 'Etiquetado',
+        sortOrder: 3,
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  // Catálogos ligeros (para dropdowns).
+  await prisma.qualityCatalogValue.createMany({
+    skipDuplicates: true,
+    data: [
+      { id: qeUuid('3', 1), organizationId: ORG_A, kind: 'area', name: 'Producción', sortOrder: 1 },
+      { id: qeUuid('3', 2), organizationId: ORG_A, kind: 'area', name: 'Almacén', sortOrder: 2 },
+      { id: qeUuid('3', 3), organizationId: ORG_A, kind: 'process', name: 'Llenado', sortOrder: 1 },
+      {
+        id: qeUuid('3', 4),
+        organizationId: ORG_A,
+        kind: 'process',
+        name: 'Etiquetado',
+        sortOrder: 2,
+      },
+      { id: qeUuid('3', 5), organizationId: ORG_A, kind: 'process', name: 'Sellado', sortOrder: 3 },
+      { id: qeUuid('3', 6), organizationId: ORG_A, kind: 'shift', name: 'Matutino', sortOrder: 1 },
+      {
+        id: qeUuid('3', 7),
+        organizationId: ORG_A,
+        kind: 'shift',
+        name: 'Vespertino',
+        sortOrder: 2,
+      },
+    ],
+  });
+
+  // Eventos nativos: distribuidos en el año, con dimensiones y métricas. Uno de
+  // ellos referencia una acción CAPA para demostrar la deduplicación en vivo.
+  const D = (s: string) => new Date(`${s}T00:00:00.000Z`);
+  type EvSeed = {
+    n: number;
+    title: string;
+    type: string;
+    date: string;
+    sev: string;
+    status: string;
+    cat?: number;
+    area: string;
+    process: string;
+    machine?: string;
+    shift: string;
+    qty?: number;
+    cost?: number;
+    dur?: number;
+    units?: number;
+    sourceType?: string;
+    sourceId?: string;
+  };
+  const evs: EvSeed[] = [
+    {
+      n: 1,
+      title: 'Material extraño en línea',
+      type: 'nonconforming',
+      date: '2026-01-12',
+      sev: 'high',
+      status: 'closed',
+      cat: 1,
+      area: 'Producción',
+      process: 'Llenado',
+      machine: 'Llenadora 1',
+      shift: 'Matutino',
+      qty: 120,
+      cost: 4200,
+      dur: 3,
+      units: 5000,
+    },
+    {
+      n: 2,
+      title: 'Sello deficiente',
+      type: 'deviation',
+      date: '2026-01-20',
+      sev: 'medium',
+      status: 'closed',
+      cat: 2,
+      area: 'Producción',
+      process: 'Sellado',
+      machine: 'Selladora 2',
+      shift: 'Vespertino',
+      qty: 60,
+      cost: 900,
+      dur: 1.5,
+      units: 5200,
+    },
+    {
+      n: 3,
+      title: 'Etiqueta ilegible',
+      type: 'nonconforming',
+      date: '2026-02-05',
+      sev: 'low',
+      status: 'in_progress',
+      cat: 3,
+      area: 'Producción',
+      process: 'Etiquetado',
+      machine: 'Etiquetadora 1',
+      shift: 'Matutino',
+      qty: 30,
+      cost: 300,
+      dur: 1,
+      units: 4800,
+    },
+    {
+      n: 4,
+      title: 'Contaminación por condensado',
+      type: 'incident',
+      date: '2026-02-18',
+      sev: 'critical',
+      status: 'closed',
+      cat: 1,
+      area: 'Producción',
+      process: 'Llenado',
+      machine: 'Llenadora 1',
+      shift: 'Matutino',
+      qty: 200,
+      cost: 8100,
+      dur: 6,
+      units: 5100,
+    },
+    {
+      n: 5,
+      title: 'Queja por empaque dañado',
+      type: 'complaint',
+      date: '2026-03-03',
+      sev: 'medium',
+      status: 'open',
+      cat: 2,
+      area: 'Almacén',
+      process: 'Sellado',
+      shift: 'Vespertino',
+      qty: 45,
+      cost: 1200,
+      dur: 2,
+      units: 5300,
+    },
+    {
+      n: 6,
+      title: 'Peso fuera de especificación',
+      type: 'deviation',
+      date: '2026-03-14',
+      sev: 'high',
+      status: 'in_progress',
+      cat: 1,
+      area: 'Producción',
+      process: 'Llenado',
+      machine: 'Llenadora 2',
+      shift: 'Vespertino',
+      qty: 90,
+      cost: 2600,
+      dur: 2.5,
+      units: 4900,
+    },
+    {
+      n: 7,
+      title: 'Etiqueta con lote incorrecto',
+      type: 'noncompliance',
+      date: '2026-03-27',
+      sev: 'high',
+      status: 'closed',
+      cat: 3,
+      area: 'Producción',
+      process: 'Etiquetado',
+      machine: 'Etiquetadora 1',
+      shift: 'Matutino',
+      qty: 75,
+      cost: 1500,
+      dur: 2,
+      units: 5000,
+    },
+    {
+      n: 8,
+      title: 'Fuga en llenadora',
+      type: 'failure',
+      date: '2026-04-08',
+      sev: 'high',
+      status: 'open',
+      cat: 1,
+      area: 'Producción',
+      process: 'Llenado',
+      machine: 'Llenadora 1',
+      shift: 'Matutino',
+      qty: 110,
+      cost: 3400,
+      dur: 4,
+      units: 4700,
+    },
+    {
+      n: 9,
+      title: 'Sellado intermitente',
+      type: 'deviation',
+      date: '2026-04-22',
+      sev: 'medium',
+      status: 'in_progress',
+      cat: 2,
+      area: 'Producción',
+      process: 'Sellado',
+      machine: 'Selladora 2',
+      shift: 'Vespertino',
+      qty: 50,
+      cost: 800,
+      dur: 1.5,
+      units: 5100,
+    },
+    {
+      n: 10,
+      title: 'Observación de mejora en etiquetado',
+      type: 'improvement',
+      date: '2026-05-06',
+      sev: 'low',
+      status: 'open',
+      cat: 3,
+      area: 'Producción',
+      process: 'Etiquetado',
+      shift: 'Matutino',
+      qty: 0,
+      cost: 0,
+      dur: 0.5,
+      units: 5000,
+    },
+    {
+      n: 11,
+      title: 'Contaminación cruzada sospechada',
+      type: 'incident',
+      date: '2026-05-19',
+      sev: 'critical',
+      status: 'in_progress',
+      cat: 1,
+      area: 'Producción',
+      process: 'Llenado',
+      machine: 'Llenadora 2',
+      shift: 'Vespertino',
+      qty: 160,
+      cost: 6200,
+      dur: 5,
+      units: 4800,
+    },
+    {
+      n: 12,
+      title: 'Empaque con folio duplicado (enlazado a CAPA)',
+      type: 'nonconforming',
+      date: '2026-06-02',
+      sev: 'medium',
+      status: 'open',
+      cat: 2,
+      area: 'Almacén',
+      process: 'Sellado',
+      shift: 'Vespertino',
+      qty: 40,
+      cost: 700,
+      dur: 1,
+      units: 5200,
+      sourceType: 'capa_action',
+      sourceId: capaUuid('1', 3),
+    },
+  ];
+
+  await prisma.qualityEvent.createMany({
+    skipDuplicates: true,
+    data: evs.map((e) => ({
+      id: qeUuid('1', e.n),
+      organizationId: ORG_A,
+      siteId: SITE_A,
+      folio: `EVT-2026-${String(e.n).padStart(4, '0')}`,
+      title: e.title,
+      eventType: e.type,
+      eventDate: D(e.date),
+      severity: e.sev,
+      status: e.status,
+      categoryId: e.cat ? qeUuid('2', e.cat) : null,
+      area: e.area,
+      process: e.process,
+      machineText: e.machine ?? null,
+      shiftText: e.shift,
+      quantityAffected: e.qty ?? null,
+      cost: e.cost ?? null,
+      durationHours: e.dur ?? null,
+      unitsProduced: e.units ?? null,
+      responsibleUserId: e.n % 2 === 0 ? USER_C : USER_A,
+      sourceType: e.sourceType ?? null,
+      sourceId: e.sourceId ?? null,
+      createdBy: USER_A,
+    })),
+  });
+
+  await prisma.qualityEventFolioCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: 2026 } },
+    create: { organizationId: ORG_A, year: 2026, lastSeq: evs.length },
+    update: { lastSeq: evs.length },
+  });
+
+  // Definiciones de KPI (códigos KPI-000n) + contador.
+  await prisma.kpiDefinition.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: qeUuid('4', 1),
+        organizationId: ORG_A,
+        code: 'KPI-0001',
+        name: 'No conformidades por mes',
+        source: 'quality_events',
+        measure: 'count',
+        period: 'monthly',
+        target: 3,
+        warningThreshold: 4,
+        criticalThreshold: 6,
+        desiredDirection: 'lower',
+        status: 'active',
+        createdBy: USER_A,
+      },
+      {
+        id: qeUuid('4', 2),
+        organizationId: ORG_A,
+        code: 'KPI-0002',
+        name: 'Costo de calidad mensual',
+        source: 'quality_events',
+        measure: 'sum',
+        measureField: 'cost',
+        period: 'monthly',
+        unit: 'MXN',
+        target: 3000,
+        warningThreshold: 5000,
+        criticalThreshold: 8000,
+        desiredDirection: 'lower',
+        status: 'active',
+        createdBy: USER_A,
+      },
+      {
+        id: qeUuid('4', 3),
+        organizationId: ORG_A,
+        code: 'KPI-0003',
+        name: '% de eventos cerrados',
+        source: 'quality_events',
+        measure: 'compliance',
+        period: 'monthly',
+        unit: '%',
+        target: 80,
+        warningThreshold: 70,
+        criticalThreshold: 50,
+        desiredDirection: 'higher',
+        status: 'active',
+        createdBy: USER_A,
+      },
+    ],
+  });
+  await prisma.kpiFolioCounter.upsert({
+    where: { organizationId: ORG_A },
+    create: { organizationId: ORG_A, lastSeq: 3 },
+    update: { lastSeq: 3 },
+  });
+
+  // Regla de alerta interna: procesos con recurrencia alta.
+  await prisma.qualityAlertRule.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: qeUuid('5', 1),
+        organizationId: ORG_A,
+        name: 'Recurrencia por proceso',
+        ruleType: 'recurrence',
+        severity: 'warning',
+        config: { dimension: 'process', minOccurrences: 4 },
+        active: true,
+        createdBy: USER_A,
+      },
+    ],
+  });
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -2454,9 +2865,10 @@ async function main(): Promise<void> {
   await seedQualityAnalysis();
   await seedProjectsAndTasks();
   await seedAudits();
+  await seedEventsAndKpis();
 
   console.log(
-    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos y tareas.',
+    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos, tareas, auditorías y eventos/KPI de calidad.',
   );
 }
 
