@@ -101,3 +101,45 @@ describe.skipIf(!hasDb)('Integridad del esquema (reconstrucción reproducible)',
     }
   });
 });
+
+describe.skipIf(!hasDb)('Integridad del esquema — auditorías (TASK-010)', () => {
+  it('FK compuesta anti-cruce de sitio en auditorías', async () => {
+    expect(
+      await count(`
+      SELECT count(*) n FROM pg_constraint
+      WHERE conname='aud_site_fkey' AND contype='f'
+        AND confrelid='sites'::regclass AND cardinality(conkey)=2`),
+    ).toBe(1);
+  });
+
+  it('triggers append-only de historiales de auditoría', async () => {
+    for (const tg of ['trg_ash_append', 'trg_arh_append', 'trg_apsh_append']) {
+      expect(await count(`SELECT count(*) n FROM pg_trigger WHERE tgname='${tg}'`)).toBe(1);
+    }
+  });
+
+  it('RLS, políticas y grants en tablas de auditoría', async () => {
+    for (const t of [
+      'audits',
+      'audit_findings',
+      'audit_checklist_items',
+      'audit_requirement_snapshots',
+    ]) {
+      expect(await bool(`SELECT relrowsecurity b FROM pg_class WHERE relname='${t}'`)).toBe(true);
+      expect(
+        await count(`SELECT count(*) n FROM pg_policies WHERE tablename='${t}'`),
+      ).toBeGreaterThan(0);
+      expect(await bool(`SELECT has_table_privilege('gapsi_app','${t}','INSERT') b`)).toBe(true);
+    }
+  });
+
+  it('las tablas de auditoría conservan FK', async () => {
+    for (const t of ['audits', 'audit_findings', 'audit_program_items', 'audit_checklist_items']) {
+      expect(
+        await count(
+          `SELECT count(*) n FROM pg_constraint WHERE conrelid='${t}'::regclass AND contype='f'`,
+        ),
+      ).toBeGreaterThan(0);
+    }
+  });
+});
