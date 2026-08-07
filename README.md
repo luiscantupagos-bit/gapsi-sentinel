@@ -328,3 +328,5 @@ lectura) → **nueva versión**. Listado global en `/dashboard/capa/analysis`.
 
 Fuera de alcance: IA, análisis semántico, búsqueda web, auditorías, proyectos,
 Gantt y HACCP.
+
+- Auditorías (TASK-010): ver docs/tasks/TASK-010-IMPLEMENTATION-NOTES.md

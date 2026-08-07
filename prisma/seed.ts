@@ -2062,6 +2062,340 @@ async function seedProjectsAndTasks(): Promise<void> {
   });
 }
 
+/** UUID determinista para la demo de auditorías (TASK-010). */
+function auUuid(kind: '0' | '1' | '2' | '3' | '4' | '5', n: number): string {
+  return `00000000-0000-4000-8000-00000a0${kind}${n.toString(16).padStart(4, '0')}`;
+}
+
+/**
+ * Datos demo de auditorías (TASK-010). Idempotente (early-return por el primer
+ * programa). Cubre programas, auditorías en varios estados, checklist con
+ * snapshot inmutable desde la versión publicada, hallazgos y certificaciones.
+ */
+async function seedAudits(): Promise<void> {
+  if (await prisma.auditProgram.findUnique({ where: { id: auUuid('0', 1) } })) return;
+
+  const past = new Date('2026-07-01T00:00:00.000Z');
+  const soon = new Date('2026-08-25T00:00:00.000Z');
+  const future = new Date('2026-11-30T00:00:00.000Z');
+
+  await prisma.auditProgram.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: auUuid('0', 1),
+        organizationId: ORG_A,
+        siteId: SITE_A,
+        folio: 'PA-2026-0001',
+        name: 'Programa anual de auditorías internas 2026',
+        objective: 'Verificar el sistema de gestión de inocuidad.',
+        year: 2026,
+        frequency: 'annual',
+        status: 'active',
+        responsibleUserId: USER_C,
+        createdBy: USER_A,
+      },
+      {
+        id: auUuid('0', 2),
+        organizationId: ORG_A,
+        folio: 'PA-2026-0002',
+        name: 'Programa de preparación FSSC 22000',
+        year: 2026,
+        frequency: 'custom',
+        status: 'completed',
+        responsibleUserId: USER_A,
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  // Auditorías en varios estados.
+  await prisma.audit.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: auUuid('1', 1),
+        organizationId: ORG_A,
+        folio: 'AUD-2026-0001',
+        title: 'Auditoría interna HACCP — Planta Norte',
+        auditType: 'internal',
+        programId: auUuid('0', 1),
+        siteId: SITE_A,
+        objective: 'Evaluar controles HACCP.',
+        scope: 'Recepción, proceso y almacenamiento.',
+        criteria: 'Diagnóstico interno HACCP v1',
+        status: 'in_progress',
+        priority: 'high',
+        plannedDate: soon,
+        startedAt: past,
+        leadAuditorUserId: USER_A,
+        createdBy: USER_A,
+      },
+      {
+        id: auUuid('1', 2),
+        organizationId: ORG_A,
+        folio: 'AUD-2026-0002',
+        title: 'Auditoría de preparación FSSC 22000',
+        auditType: 'readiness',
+        programId: auUuid('0', 2),
+        siteId: SITE_A,
+        scope: 'Sistema completo.',
+        criteria: 'FSSC 22000 v6',
+        status: 'planned',
+        priority: 'normal',
+        plannedDate: future,
+        leadAuditorUserId: USER_C,
+        createdBy: USER_A,
+      },
+      {
+        id: auUuid('1', 3),
+        organizationId: ORG_A,
+        folio: 'AUD-2026-0003',
+        title: 'Auditoría de proveedor — Empaques',
+        auditType: 'supplier',
+        siteId: SITE_A,
+        status: 'follow_up',
+        priority: 'normal',
+        plannedDate: past,
+        leadAuditorUserId: USER_A,
+        followUpRequired: true,
+        createdBy: USER_A,
+      },
+      {
+        id: auUuid('1', 4),
+        organizationId: ORG_A,
+        folio: 'AUD-2026-0004',
+        title: 'Auditoría de proceso — Pasteurización (cerrada)',
+        auditType: 'process',
+        siteId: SITE_A,
+        status: 'closed',
+        priority: 'normal',
+        plannedDate: new Date('2026-05-01T00:00:00.000Z'),
+        endedAt: new Date('2026-05-05T00:00:00.000Z'),
+        closedAt: new Date('2026-05-10T00:00:00.000Z'),
+        leadAuditorUserId: USER_C,
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  await prisma.auditTeamMember.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: auUuid('2', 900),
+        organizationId: ORG_A,
+        auditId: auUuid('1', 1),
+        userId: USER_A,
+        role: 'lead',
+        addedBy: USER_A,
+      },
+      {
+        id: auUuid('2', 901),
+        organizationId: ORG_A,
+        auditId: auUuid('1', 1),
+        userId: USER_C,
+        role: 'auditor',
+        addedBy: USER_A,
+      },
+    ],
+  });
+
+  // Checklist con snapshot inmutable para AUD-2026-0001, desde la versión publicada.
+  const version = await prisma.templateVersion.findFirst({
+    where: { id: PRIV_VER_A },
+    select: {
+      id: true,
+      versionNumber: true,
+      frameworkId: true,
+      framework: { select: { code: true, name: true } },
+    },
+  });
+  if (version) {
+    const requirements = await prisma.templateRequirement.findMany({
+      where: { templateVersionId: version.id },
+      orderBy: { position: 'asc' },
+      include: { section: { select: { code: true, title: true } } },
+    });
+    const results = ['conforme', 'parcial', 'no_conforme', 'no_evaluado'];
+    let i = 0;
+    for (const r of requirements) {
+      const snapId = auUuid('2', i + 1);
+      await prisma.auditRequirementSnapshot.upsert({
+        where: { id: snapId },
+        create: {
+          id: snapId,
+          organizationId: ORG_A,
+          auditId: auUuid('1', 1),
+          frameworkId: version.frameworkId,
+          frameworkCode: version.framework.code,
+          frameworkName: version.framework.name,
+          templateVersionId: version.id,
+          versionNumber: version.versionNumber,
+          sectionId: r.sectionId,
+          sectionCode: r.section.code,
+          sectionTitle: r.section.title,
+          requirementId: r.id,
+          requirementCode: r.code,
+          requirementTitle: r.title,
+          requirementText: r.description ?? null,
+          isCritical: r.isCritical,
+          sequence: i + 1,
+          capturedBy: USER_A,
+        },
+        update: {},
+      });
+      await prisma.auditChecklistItem.upsert({
+        where: { auditId_snapshotId: { auditId: auUuid('1', 1), snapshotId: snapId } },
+        create: {
+          id: auUuid('3', i + 1),
+          organizationId: ORG_A,
+          auditId: auUuid('1', 1),
+          snapshotId: snapId,
+          result: results[i % results.length]!,
+          foundEvidence: i === 0 ? 'Registro de monitoreo de PCC del turno matutino.' : null,
+          updatedBy: USER_A,
+        },
+        update: {},
+      });
+      i += 1;
+    }
+    await prisma.audit.update({
+      where: { id: auUuid('1', 1) },
+      data: {
+        frameworkId: version.frameworkId,
+        templateVersionId: version.id,
+        normVersionLabel: `${version.framework.code} v${version.versionNumber}`,
+      },
+    });
+  }
+
+  // Hallazgos.
+  await prisma.auditFinding.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: auUuid('4', 1),
+        organizationId: ORG_A,
+        folio: 'HAL-2026-0001',
+        auditId: auUuid('1', 1),
+        siteId: SITE_A,
+        title: 'Límites críticos sin evidencia de validación',
+        description: 'No se encontró registro de validación de límites críticos del PCC.',
+        objectiveEvidence: 'Ausencia de registro en el expediente del PCC-1.',
+        requirementBreached: 'R2 · Control de peligros',
+        classification: 'major_nc',
+        severity: 'high',
+        responsibleUserId: USER_A,
+        committedDate: future,
+        status: 'open',
+        detectedAt: past,
+        createdBy: USER_A,
+      },
+      {
+        id: auUuid('4', 2),
+        organizationId: ORG_A,
+        folio: 'HAL-2026-0002',
+        auditId: auUuid('1', 1),
+        siteId: SITE_A,
+        title: 'Higiene del personal: capacitación incompleta',
+        classification: 'minor_nc',
+        severity: 'medium',
+        responsibleUserId: USER_C,
+        committedDate: soon,
+        status: 'capa_open',
+        capaId: capaUuid('0', 2),
+        detectedAt: past,
+        createdBy: USER_A,
+      },
+      {
+        id: auUuid('4', 3),
+        organizationId: ORG_A,
+        folio: 'HAL-2026-0003',
+        auditId: auUuid('1', 3),
+        title: 'Oportunidad de mejora en trazabilidad',
+        classification: 'observation',
+        severity: 'low',
+        status: 'closed',
+        closedAt: past,
+        createdBy: USER_A,
+      },
+    ],
+  });
+  await prisma.auditFindingRelation.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: auUuid('5', 800),
+        organizationId: ORG_A,
+        findingId: auUuid('4', 2),
+        relationType: 'capa',
+        targetId: capaUuid('0', 2),
+        createdBy: USER_A,
+      },
+    ],
+  });
+  await prisma.auditFollowUp.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: auUuid('5', 810),
+        organizationId: ORG_A,
+        findingId: auUuid('4', 2),
+        status: 'capa_open',
+        capaId: capaUuid('0', 2),
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  // Certificaciones (datos demo ficticios).
+  await prisma.organizationCertification.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        id: auUuid('5', 1),
+        organizationId: ORG_A,
+        siteId: SITE_A,
+        schemeName: 'FSSC 22000',
+        version: '6',
+        certifierName: 'Organismo demo',
+        status: 'active',
+        lastAuditDate: new Date('2026-02-01T00:00:00.000Z'),
+        nextAuditDate: future,
+        expiryDate: new Date('2027-02-01T00:00:00.000Z'),
+        createdBy: USER_A,
+      },
+      {
+        id: auUuid('5', 2),
+        organizationId: ORG_A,
+        schemeName: 'ISO 9001',
+        version: '2015',
+        status: 'next_audit',
+        nextAuditDate: soon,
+        createdBy: USER_A,
+      },
+    ],
+  });
+
+  // Contadores de folio para que la creación por UI continúe.
+  await prisma.auditProgramFolioCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: 2026 } },
+    create: { organizationId: ORG_A, year: 2026, lastSeq: 2 },
+    update: { lastSeq: 2 },
+  });
+  await prisma.auditFolioCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: 2026 } },
+    create: { organizationId: ORG_A, year: 2026, lastSeq: 4 },
+    update: { lastSeq: 4 },
+  });
+  await prisma.auditFindingFolioCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: 2026 } },
+    create: { organizationId: ORG_A, year: 2026, lastSeq: 3 },
+    update: { lastSeq: 3 },
+  });
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -2119,6 +2453,7 @@ async function main(): Promise<void> {
   await seedCapa();
   await seedQualityAnalysis();
   await seedProjectsAndTasks();
+  await seedAudits();
 
   console.log(
     'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos y tareas.',

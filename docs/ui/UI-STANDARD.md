@@ -172,3 +172,18 @@ Se reafirma la **regla global de elementos clickeables** (ver sección anterior)
 tarjetas, códigos, folios y títulos navegan a su detalle real cuando existe, con
 hover/focus visibles, navegación por teclado y sin enlaces falsos; los botones
 internos no disparan la navegación del contenedor.
+
+## Auditorías (TASK-010)
+
+- Detalle de auditoría con **encabezado + siguiente acción + barra de progreso**
+  (`.progressbar`, 6 etapas) + **pestañas** (Resumen/Plan/Checklist/Evidencia/
+  Hallazgos/Informe/Seguimiento/Archivos/Historial), evitando la pantalla vertical
+  interminable.
+- **Modo ejecución** (`.exec-*`) enfocado: tarjetas por requisito, filtros
+  pendiente/evaluado, progreso `N/M`, sin ruido administrativo.
+- Badges en español: `badge--aud-*` (auditoría), `badge--prog-*` (programa),
+  `badge--fcl-*`/`badge--fst-*` (hallazgo), `badge--res-*` (resultado),
+  `badge--prep-*` (preparación), `badge--cert-*` (certificación). Sin UUID ni
+  estados internos en inglés.
+- Regla global de clickeables aplicada: folios (`PA/AUD/HAL`), títulos, códigos de
+  requisito y tarjetas navegan a su detalle real; hover/focus visibles.
