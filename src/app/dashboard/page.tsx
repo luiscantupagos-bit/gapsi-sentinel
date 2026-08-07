@@ -7,6 +7,8 @@ import { getWorkflowAlerts } from '@/server/document-workflow';
 import { getCapaAlerts, getCapaDashboard } from '@/server/capa';
 import { getTaskSummary, listGlobalTasks } from '@/server/tasks';
 import { getProjectSummary, listMilestones } from '@/server/projects';
+import { getAuditSummary } from '@/server/audits';
+import { listFindings } from '@/server/audit-findings';
 import {
   CAPA_PRIORITY_LABEL,
   CAPA_STATUS_LABEL,
@@ -68,6 +70,13 @@ export default async function DashboardPage() {
     listGlobalTasks(org, session.userId, { quick: 'overdue' }),
     listMilestones(org, { from: todayStr, to: soon30 }),
   ]);
+  const [auditSummary, openFindings] = await Promise.all([
+    getAuditSummary(org),
+    listFindings(org, {}),
+  ]);
+  const openFindingsList = openFindings.filter(
+    (f) => f.status !== 'closed' && f.status !== 'effective',
+  );
 
   const orgName = data?.organization.name ?? 'Organización';
   const totalActions = capaBoard.actionsCompleted + capa.pendingActions;
@@ -219,6 +228,70 @@ export default async function DashboardPage() {
               </ul>
             )}
           </div>
+        </div>
+      </SectionCard>
+
+      {/* Auditorías (datos reales) */}
+      <SectionCard
+        title="Auditorías"
+        action={
+          <Link className="button button--ghost" href="/dashboard/audits">
+            Ver auditorías
+          </Link>
+        }
+      >
+        <div className="statcard-row">
+          <StatCard
+            label="Programadas"
+            value={auditSummary.planned}
+            href="/dashboard/audits?status=planned"
+          />
+          <StatCard
+            label="En seguimiento"
+            value={auditSummary.followUp}
+            href="/dashboard/audits?status=follow_up"
+          />
+          <StatCard
+            label="Vencidas"
+            value={auditSummary.overdue}
+            tone={auditSummary.overdue > 0 ? 'danger' : 'default'}
+            href="/dashboard/audits"
+          />
+          <StatCard
+            label="Hallazgos abiertos"
+            value={auditSummary.openFindings}
+            tone={auditSummary.openFindings > 0 ? 'warning' : 'default'}
+          />
+          <StatCard
+            label="Hallazgos mayores"
+            value={auditSummary.majorOpen}
+            tone={auditSummary.majorOpen > 0 ? 'danger' : 'default'}
+          />
+          <StatCard label="Próxima auditoría" value={auditSummary.nextAuditDate ?? '—'} />
+        </div>
+        <div>
+          <p className="alerts__head alerts__head--crit">Hallazgos abiertos</p>
+          {openFindingsList.length === 0 ? (
+            <p className="empty-state">Sin hallazgos abiertos.</p>
+          ) : (
+            <ul className="alerts">
+              {openFindingsList.slice(0, 6).map((f) => (
+                <li key={f.id}>
+                  <span
+                    className={`alerts__dot ${f.overdue ? 'alerts__dot--crit' : 'alerts__dot--prev'}`}
+                    aria-hidden
+                  />
+                  <Link href={`/dashboard/audits/findings/${f.id}`}>
+                    {f.folio} · {f.title}
+                  </Link>
+                  <span className="alerts__meta">
+                    {f.auditFolio ? `${f.auditFolio} · ` : ''}
+                    {f.responsibleName ?? 'sin asignar'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </SectionCard>
 
