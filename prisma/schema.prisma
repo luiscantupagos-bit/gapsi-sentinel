@@ -1739,3 +1739,548 @@ model TaskStatusHistory {
   @@index([taskId, createdAt])
   @@map("task_status_history")
 }
+
+// =====================================================================
+// TASK-010 — Auditorías, programas de auditoría y preparación
+// El contenido normativo sigue siendo `template_versions` (fuente de verdad);
+// cada auditoría CONGELA los requisitos seleccionados en snapshots inmutables.
+// Punteros a otros módulos (framework/versión/requisito/documento/CAPA/tarea)
+// son genéricos, validados por alcance en servidor + RLS. FK compuestas
+// anti-cruce para relaciones intra-módulo y sitio. CHECK/RLS/append-only/
+// no-borrado por SQL complementario.
+// =====================================================================
+
+/// Programa (plan) de auditorías por organización y año.
+model AuditProgram {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  folio             String
+  name              String
+  description       String?
+  objective         String?
+  scope             String?
+  criteria          String?
+  year              Int
+  /// frequency: annual|semiannual|quarterly|custom
+  frequency         String    @default("annual")
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  /// status: draft|approved|active|completed|cancelled
+  status            String    @default("draft")
+  startDate         DateTime? @map("start_date") @db.Date
+  endDate           DateTime? @map("end_date") @db.Date
+  tags              Json?
+  metadata          Json?
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items  AuditProgramItem[]
+  files  AuditProgramFile[]
+  audits Audit[]
+
+  @@unique([organizationId, folio])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("audit_programs")
+}
+
+model AuditProgramFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("audit_program_folio_counters")
+}
+
+/// Auditoría planeada dentro de un programa.
+model AuditProgramItem {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  programId      String    @map("program_id") @db.Uuid
+  title          String
+  plannedDate    DateTime? @map("planned_date") @db.Date
+  siteId         String?   @map("site_id") @db.Uuid
+  frameworkId    String?   @map("framework_id") @db.Uuid
+  /// audit_type: internal|process|system|product|supplier|readiness|follow_up|extraordinary|second_party|certification_drill|other
+  auditType      String    @default("internal") @map("audit_type")
+  /// status: planned|scheduled|executed|overdue|rescheduled|cancelled
+  status         String    @default("planned")
+  sequence       Int       @default(1)
+  auditId        String?   @map("audit_id") @db.Uuid
+  notes          String?
+  createdBy      String?   @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  program AuditProgram @relation(fields: [programId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([programId])
+  @@map("audit_program_items")
+}
+
+model AuditProgramFile {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  programId      String   @map("program_id") @db.Uuid
+  originalName   String   @map("original_name")
+  storedName     String   @map("stored_name")
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int      @map("size_bytes")
+  extension      String
+  storageKey     String   @map("storage_key")
+  checksum       String?
+  uploadedBy     String?  @map("uploaded_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  program AuditProgram @relation(fields: [programId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([programId])
+  @@map("audit_program_files")
+}
+
+model AuditProgramStatusHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  programId      String   @map("program_id") @db.Uuid
+  event          String
+  fromStatus     String?  @map("from_status")
+  toStatus       String?  @map("to_status")
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  detail         String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([programId, createdAt])
+  @@map("audit_program_status_history")
+}
+
+/// Auditoría individual (evento).
+model Audit {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  folio             String
+  title             String
+  /// audit_type (ver AuditProgramItem.audit_type)
+  auditType         String    @default("internal") @map("audit_type")
+  programId         String?   @map("program_id") @db.Uuid
+  programItemId     String?   @map("program_item_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  area              String?
+  process           String?
+  objective         String?
+  scope             String?
+  criteria          String?
+  frameworkId       String?   @map("framework_id") @db.Uuid
+  templateVersionId String?   @map("template_version_id") @db.Uuid
+  normVersionLabel  String?   @map("norm_version_label")
+  /// status: draft|planned|ready|in_progress|report_drafting|under_review|completed|follow_up|closed|cancelled
+  status            String    @default("draft")
+  /// priority: low|normal|high|urgent
+  priority          String    @default("normal")
+  plannedDate       DateTime? @map("planned_date") @db.Date
+  startedAt         DateTime? @map("started_at") @db.Date
+  endedAt           DateTime? @map("ended_at") @db.Date
+  leadAuditorUserId String?   @map("lead_auditor_user_id") @db.Uuid
+  executiveSummary  String?   @map("executive_summary")
+  conclusion        String?
+  followUpRequired  Boolean   @default(false) @map("follow_up_required")
+  projectId         String?   @map("project_id") @db.Uuid
+  notes             String?
+  tags              Json?
+  metadata          Json?
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz(6)
+
+  program AuditProgram? @relation(fields: [programId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  team       AuditTeamMember[]
+  agenda     AuditAgendaItem[]
+  scopeItems AuditScopeItem[]
+  snapshots  AuditRequirementSnapshot[]
+  checklist  AuditChecklistItem[]
+  evidences  AuditEvidence[]
+  interviews AuditInterview[]
+  findings   AuditFinding[]
+  comments   AuditComment[]
+  files      AuditFile[]
+
+  @@unique([organizationId, folio])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, programId])
+  @@map("audits")
+}
+
+model AuditFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("audit_folio_counters")
+}
+
+model AuditTeamMember {
+  id                    String   @id @default(uuid()) @db.Uuid
+  organizationId        String   @map("organization_id") @db.Uuid
+  auditId               String   @map("audit_id") @db.Uuid
+  userId                String   @map("user_id") @db.Uuid
+  /// role: lead|auditor|technical_expert|observer|auditee
+  role                  String   @default("auditor")
+  area                  String?
+  potentialConflict     Boolean  @default(false) @map("potential_conflict")
+  conflictJustification String?  @map("conflict_justification")
+  addedBy               String?  @map("added_by") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  audit Audit @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([auditId, userId])
+  @@unique([id, organizationId])
+  @@index([userId])
+  @@map("audit_team_members")
+}
+
+model AuditAgendaItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  auditId        String   @map("audit_id") @db.Uuid
+  startTime      String?  @map("start_time")
+  endTime        String?  @map("end_time")
+  processArea    String?  @map("process_area")
+  requirementRef String?  @map("requirement_ref")
+  auditorUserId  String?  @map("auditor_user_id") @db.Uuid
+  auditeeUserId  String?  @map("auditee_user_id") @db.Uuid
+  location       String?
+  notes          String?
+  sequence       Int      @default(1)
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  audit Audit @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([auditId, sequence])
+  @@map("audit_agenda_items")
+}
+
+model AuditScopeItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  auditId        String   @map("audit_id") @db.Uuid
+  /// kind: site|process|framework
+  kind           String
+  siteId         String?  @map("site_id") @db.Uuid
+  frameworkId    String?  @map("framework_id") @db.Uuid
+  label          String?
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  audit Audit @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([auditId])
+  @@map("audit_scope_items")
+}
+
+/// Copia INMUTABLE del requisito evaluado (snapshot normativo). Puntero de
+/// trazabilidad al requisito original (sin FK dura para sobrevivir a su borrado).
+model AuditRequirementSnapshot {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  auditId           String   @map("audit_id") @db.Uuid
+  frameworkId       String?  @map("framework_id") @db.Uuid
+  frameworkCode     String?  @map("framework_code")
+  frameworkName     String?  @map("framework_name")
+  templateVersionId String?  @map("template_version_id") @db.Uuid
+  versionNumber     Int?     @map("version_number")
+  sectionId         String?  @map("section_id") @db.Uuid
+  sectionCode       String?  @map("section_code")
+  sectionTitle      String?  @map("section_title")
+  requirementId     String?  @map("requirement_id") @db.Uuid
+  requirementCode   String   @map("requirement_code")
+  requirementTitle  String   @map("requirement_title")
+  requirementText   String?  @map("requirement_text")
+  isCritical        Boolean  @default(false) @map("is_critical")
+  criteria          String?
+  questions         Json?
+  config            Json?
+  sequence          Int      @default(1)
+  capturedBy        String?  @map("captured_by") @db.Uuid
+  capturedAt        DateTime @default(now()) @map("captured_at") @db.Timestamptz(6)
+
+  audit         Audit               @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  checklistItem AuditChecklistItem?
+
+  @@unique([id, organizationId])
+  @@index([auditId, sequence])
+  @@map("audit_requirement_snapshots")
+}
+
+/// Evaluación HUMANA de un requisito (resultado, evidencia esperada/encontrada).
+model AuditChecklistItem {
+  id                        String    @id @default(uuid()) @db.Uuid
+  organizationId            String    @map("organization_id") @db.Uuid
+  auditId                   String    @map("audit_id") @db.Uuid
+  snapshotId                String    @map("snapshot_id") @db.Uuid
+  assignedAuditorUserId     String?   @map("assigned_auditor_user_id") @db.Uuid
+  expectedEvidence          String?   @map("expected_evidence")
+  foundEvidence             String?   @map("found_evidence")
+  /// result: conforme|parcial|no_conforme|no_aplica|no_evaluado|evidencia_insuficiente|verificacion_campo
+  result                    String    @default("no_evaluado")
+  comment                   String?
+  fieldVerificationRequired Boolean   @default(false) @map("field_verification_required")
+  privateNotes              String?   @map("private_notes")
+  updatedBy                 String?   @map("updated_by") @db.Uuid
+  updatedAt                 DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  audit    Audit                    @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  snapshot AuditRequirementSnapshot @relation(fields: [snapshotId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([auditId, snapshotId])
+  @@unique([snapshotId, organizationId])
+  @@unique([id, organizationId])
+  @@index([auditId, result])
+  @@map("audit_checklist_items")
+}
+
+model AuditEvidence {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  auditId           String    @map("audit_id") @db.Uuid
+  checklistItemId   String?   @map("checklist_item_id") @db.Uuid
+  snapshotId        String?   @map("snapshot_id") @db.Uuid
+  /// evidence_type: document|record|interview|observation|photo|measurement|system|sample|other
+  evidenceType      String    @map("evidence_type")
+  description       String
+  source            String?
+  evidenceDate      DateTime? @map("evidence_date") @db.Date
+  documentId        String?   @map("document_id") @db.Uuid
+  documentVersionId String?   @map("document_version_id") @db.Uuid
+  interviewId       String?   @map("interview_id") @db.Uuid
+  fileId            String?   @map("file_id") @db.Uuid
+  externalRef       String?   @map("external_ref")
+  reliability       String?
+  comment           String?
+  capturedBy        String?   @map("captured_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  audit Audit @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([auditId])
+  @@index([checklistItemId])
+  @@map("audit_evidences")
+}
+
+model AuditInterview {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  auditId         String    @map("audit_id") @db.Uuid
+  checklistItemId String?   @map("checklist_item_id") @db.Uuid
+  personRole      String?   @map("person_role")
+  area            String?
+  topic           String?
+  questions       String?
+  answers         String?
+  auditorNotes    String?   @map("auditor_notes")
+  interviewDate   DateTime? @map("interview_date") @db.Date
+  auditorUserId   String?   @map("auditor_user_id") @db.Uuid
+  createdBy       String?   @map("created_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  audit Audit @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([auditId])
+  @@map("audit_interviews")
+}
+
+model AuditFile {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  auditId        String   @map("audit_id") @db.Uuid
+  /// kind: attachment|evidence|report|photo|certificate
+  kind           String   @default("attachment")
+  originalName   String   @map("original_name")
+  storedName     String   @map("stored_name")
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int      @map("size_bytes")
+  extension      String
+  storageKey     String   @map("storage_key")
+  checksum       String?
+  uploadedBy     String?  @map("uploaded_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  audit Audit @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([auditId])
+  @@map("audit_files")
+}
+
+model AuditComment {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  auditId        String   @map("audit_id") @db.Uuid
+  author         String?  @db.Uuid
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  audit Audit @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([auditId, createdAt])
+  @@map("audit_comments")
+}
+
+model AuditStatusHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  auditId        String   @map("audit_id") @db.Uuid
+  event          String
+  fromStatus     String?  @map("from_status")
+  toStatus       String?  @map("to_status")
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  detail         String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([auditId, createdAt])
+  @@map("audit_status_history")
+}
+
+/// Historial append-only de cambios de resultado por requisito.
+model AuditRequirementHistory {
+  id              BigInt   @id @default(autoincrement())
+  organizationId  String   @map("organization_id") @db.Uuid
+  auditId         String   @map("audit_id") @db.Uuid
+  checklistItemId String?  @map("checklist_item_id") @db.Uuid
+  snapshotId      String?  @map("snapshot_id") @db.Uuid
+  event           String
+  fromResult      String?  @map("from_result")
+  toResult        String?  @map("to_result")
+  actorUserId     String?  @map("actor_user_id") @db.Uuid
+  detail          String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([auditId, createdAt])
+  @@map("audit_requirement_history")
+}
+
+/// Hallazgo de auditoría (folio propio; enlaza a CAPA/tarea).
+model AuditFinding {
+  id                  String    @id @default(uuid()) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  folio               String
+  auditId             String    @map("audit_id") @db.Uuid
+  snapshotId          String?   @map("snapshot_id") @db.Uuid
+  siteId              String?   @map("site_id") @db.Uuid
+  process             String?
+  title               String
+  description         String?
+  objectiveEvidence   String?   @map("objective_evidence")
+  requirementBreached String?   @map("requirement_breached")
+  /// classification: major_nc|minor_nc|observation|improvement|strength|insufficient_evidence
+  classification      String    @default("observation")
+  /// severity: low|medium|high|critical
+  severity            String    @default("medium")
+  responsibleUserId   String?   @map("responsible_user_id") @db.Uuid
+  detectedAt          DateTime? @map("detected_at") @db.Date
+  committedDate       DateTime? @map("committed_date") @db.Date
+  /// status: open|correction_in_progress|capa_open|pending_verification|effective|not_effective|closed
+  status              String    @default("open")
+  immediateCorrection String?   @map("immediate_correction")
+  capaId              String?   @map("capa_id") @db.Uuid
+  createdBy           String?   @map("created_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  closedAt            DateTime? @map("closed_at") @db.Timestamptz(6)
+
+  audit     Audit                  @relation(fields: [auditId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  relations AuditFindingRelation[]
+  followUps AuditFollowUp[]
+
+  @@unique([organizationId, folio])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([auditId])
+  @@map("audit_findings")
+}
+
+model AuditFindingFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("audit_finding_folio_counters")
+}
+
+model AuditFindingRelation {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  findingId      String   @map("finding_id") @db.Uuid
+  /// relation_type: requirement|document|document_version|capa|task|external
+  relationType   String   @map("relation_type")
+  targetId       String?  @map("target_id") @db.Uuid
+  externalRef    String?  @map("external_ref")
+  note           String?
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  finding AuditFinding @relation(fields: [findingId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([findingId])
+  @@map("audit_finding_relations")
+}
+
+model AuditFollowUp {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  findingId         String    @map("finding_id") @db.Uuid
+  correction        String?
+  capaId            String?   @map("capa_id") @db.Uuid
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  targetDate        DateTime? @map("target_date") @db.Date
+  evidence          String?
+  /// status: open|correction_in_progress|capa_open|pending_verification|effective|not_effective|closed
+  status            String    @default("open")
+  verifierUserId    String?   @map("verifier_user_id") @db.Uuid
+  verifiedAt        DateTime? @map("verified_at") @db.Timestamptz(6)
+  result            String?
+  comment           String?
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  finding AuditFinding @relation(fields: [findingId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([findingId])
+  @@map("audit_follow_ups")
+}
+
+/// Registro básico de esquemas/certificaciones aplicables (seguimiento).
+model OrganizationCertification {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  frameworkId       String?   @map("framework_id") @db.Uuid
+  schemeName        String    @map("scheme_name")
+  version           String?
+  scope             String?
+  certifierName     String?   @map("certifier_name")
+  lastAuditDate     DateTime? @map("last_audit_date") @db.Date
+  nextAuditDate     DateTime? @map("next_audit_date") @db.Date
+  expiryDate        DateTime? @map("expiry_date") @db.Date
+  /// status: preparation|active|next_audit|follow_up|suspended|expired
+  status            String    @default("preparation")
+  certificateFileId String?   @map("certificate_file_id") @db.Uuid
+  comment           String?
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("organization_certifications")
+}
