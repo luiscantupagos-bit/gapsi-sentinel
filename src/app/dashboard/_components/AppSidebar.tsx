@@ -30,11 +30,11 @@ const MAIN: Item[] = [
   { href: '/dashboard/capa', label: 'Acciones correctivas', icon: IconCapa },
   { href: '/dashboard/capa/tasks', label: 'Bandeja CAPA', icon: IconInbox },
   { href: '/dashboard/capa/analysis', label: 'Análisis', icon: IconAnalysis },
+  { href: '/dashboard/audits', label: 'Auditorías', icon: IconAudit },
 ];
 
 // Módulos previstos; aún sin ruta funcional → se muestran deshabilitados.
 const MODULES: { label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { label: 'Auditorías', icon: IconAudit },
   { label: 'Riesgos', icon: IconRisk },
   { label: 'Proveedores', icon: IconSupplier },
   { label: 'Capacitación', icon: IconTraining },

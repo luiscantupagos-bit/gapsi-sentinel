@@ -191,7 +191,6 @@ export async function transitionFinding(
   actorId: string,
   findingId: string,
   to: FindingStatus,
-  opts: { comment?: string | null } = {},
 ): Promise<void> {
   const f = await loadScoped(organizationId, findingId);
   const role = await memberRole(organizationId, actorId);

@@ -940,6 +940,18 @@ export async function addAuditComment(
 
 // --- Detalle / ejecución / contexto -----------------------------------------
 
+/** Permisos generales del usuario en auditorías (sin auditoría concreta). */
+export async function getAuditPerms(organizationId: string, userId: string) {
+  const role =
+    (
+      await getPrisma().membership.findFirst({
+        where: { organizationId, userId },
+        select: { role: true },
+      })
+    )?.role ?? 'viewer';
+  return { role, isAdmin: isAdmin(role), canCreate: canCreate(role) };
+}
+
 export async function getUserAuditContext(organizationId: string, userId: string, auditId: string) {
   const role =
     (
