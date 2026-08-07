@@ -31,6 +31,9 @@ const MAIN: Item[] = [
   { href: '/dashboard/capa/tasks', label: 'Bandeja CAPA', icon: IconInbox },
   { href: '/dashboard/capa/analysis', label: 'Análisis', icon: IconAnalysis },
   { href: '/dashboard/audits', label: 'Auditorías', icon: IconAudit },
+  { href: '/dashboard/quality-events', label: 'Eventos de calidad', icon: IconInbox },
+  { href: '/dashboard/kpis', label: 'Indicadores (KPI)', icon: IconReport },
+  { href: '/dashboard/analytics', label: 'Analítica', icon: IconRisk },
 ];
 
 // Módulos previstos; aún sin ruta funcional → se muestran deshabilitados.
