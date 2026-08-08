@@ -215,10 +215,10 @@ npm run dev            # http://localhost:3000
 ```
 
 1. En `/login`, pulsa **Entrar como usuario de demostración** (sesión dev → ORG_A).
-2. En el panel, **Abrir** el diagnóstico de ejemplo.
+2. En **Diagnósticos** (`/dashboard/diagnostics`), abre un diagnóstico del listado.
 3. Responde preguntas y **Guardar avance** (el progreso de captura cambia).
 4. **Enviar diagnóstico** (queda en solo lectura).
-5. **Ver resultado preliminar** (cálculo provisional, no el motor definitivo).
+5. **Ver resultado de evaluación** (cumplimiento, riesgo y brechas; no es una certificación).
 
 ## Módulo documental (TASK-004)
 
@@ -332,9 +332,13 @@ herramienta; capturar datos (causas/nodos/ítems/filas AMEF); crear acción CAPA
 desde un elemento; escribir conclusión; **enviar a revisión** → **aprobar** (solo
 lectura) → **nueva versión**. Listado global en `/dashboard/capa/analysis`.
 
-Fuera de alcance: IA, análisis semántico, búsqueda web, auditorías, proyectos,
-Gantt y HACCP.
+Roadmap (aún no implementado): IA, análisis semántico, búsqueda web, HACCP,
+riesgos, proveedores y capacitación. Ver `docs/product/CURRENT-CAPABILITY-MAP.md`.
 
+- Consolidación funcional y visual (CORE-ALIGN-001): navegación agrupada,
+  patrón de detalle compartido (encabezado → siguiente acción → progreso →
+  pestañas), panel solo con datos reales y lenguaje de usuario. Ver
+  docs/product/CURRENT-CAPABILITY-MAP.md y docs/ui/UI-STANDARD.md.
 - Auditorías (TASK-010): ver docs/tasks/TASK-010-IMPLEMENTATION-NOTES.md
 - Eventos, KPI y análisis estadístico (TASK-011): eventos de calidad
   (`/dashboard/quality-events`), indicadores (`/dashboard/kpis`) y analítica

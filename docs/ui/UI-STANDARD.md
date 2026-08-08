@@ -46,13 +46,17 @@ texto (badges con etiqueta, leyendas de gráficos con valor).
 
 ## Layout (chrome)
 
-- **Sidebar** (`AppSidebar`): azul marino, logo arriba, navegación con iconos y
-  estado activo (`is-active`), sección "Módulos" con ítems futuros deshabilitados
-  (no enlaces), cerrar sesión al pie. Fijo en escritorio; franja horizontal
-  desplazable en móvil (≤720px).
-- **Topbar** (`AppTopbar`): selector de organización y sitio (valor real de la
-  sesión), campana decorativa (sin backend de notificaciones aún), avatar con
-  iniciales, nombre y rol. Sticky.
+- **Sidebar** (`AppSidebar`): azul marino, logo arriba, navegación **agrupada**
+  (CORE-ALIGN-001) por secciones con títulos discretos: **Panel · Cumplimiento**
+  (Diagnósticos, Auditorías, Documentos) **· Mejora** (Acciones correctivas,
+  Análisis) **· Trabajo** (Tareas, Proyectos) **· Desempeño** (Indicadores,
+  Analítica). Solo se listan **rutas reales**: no hay módulos futuros
+  deshabilitados ni "Configuración" sin ruta. Estado activo (`is-active`), cerrar
+  sesión al pie. Fijo en escritorio; en móvil (≤720px) franja horizontal con la
+  etiqueta del ítem activo visible.
+- **Topbar** (`AppTopbar`): organización y sitio como **contexto** (texto, no
+  selectores interactivos mientras no exista cambio real), avatar con iniciales,
+  nombre y rol. Sin campana decorativa. Sticky.
 - **Contenido**: fondo gris; cada página usa `<main className="container">`
   (ancho amplio hasta `--max-width-wide`, padding equilibrado). El editor
   documental conserva su hoja tipo carta (816px).
@@ -90,24 +94,29 @@ a ancho completo.
 5. Reutilizar tokens (nada de colores/espaciados fijos ad-hoc).
 6. Badges con etiqueta de texto (no solo color).
 
-## Dashboard Ejecutivo
+## Patrón de detalle (CORE-ALIGN-001)
 
-Componentes en `src/app/dashboard/_components/exec.tsx` (tema claro):
+Adoptado de Auditorías y disponible como componentes compartidos en
+`src/app/dashboard/_components/detail.tsx`:
 
-- `KpiCard` — tarjeta KPI con anillo indicador (`ring` 0–100) y `tone`
-  (green/amber/red/blue). Si el dato aún no existe, se pasa `placeholder`
-  ("En configuración" / "Próximamente") en lugar de un valor.
-- `SemiGauge` — medidor semicircular (0–100) con zonas de color; con `value={null}`
-  muestra "En configuración" (componente preparado, sin cálculo aún).
-- `Placeholder` — estado vacío para módulos sin datos ("Próximamente" /
-  "En configuración").
-- `.exec-strip` — tira de contexto (normas activas · última actualización ·
-  próxima auditoría). `.kpi-row` — fila de KPIs (6→3→2→1 según viewport).
+- `DetailHeader` — volver + título + estado (badge) + meta + una acción dominante.
+- `NextActionCard` — "siguiente acción": qué falta y el botón para avanzar.
+- `StageProgress` — progreso por etapas (stepper) según el ciclo de la entidad.
+- `DetailTabs` — pestañas del detalle por `?tab=` para evitar el scroll infinito.
 
-**Regla honesta:** el dashboard **no inventa métricas**. Solo se conectan datos
-reales existentes (CAPA, documentos, marcos, diagnósticos); los módulos sin datos
-(Sentinel Score, cumplimiento por norma, auditoría, Gantt, tendencia, IA,
-certificación) se muestran como "En configuración" o "Próximamente".
+Orden: **encabezado → estado/responsable/contexto → siguiente acción → progreso →
+pestañas → contenido**. Una sola acción primaria; secundarias como ghost;
+administrativas/destructivas en "Más acciones". Aplicado en Diagnósticos,
+Documentos y CAPA (Auditorías ya lo usaba).
+
+## Panel (dashboard)
+
+`src/app/dashboard/page.tsx`. **Solo datos reales; sin placeholders.** No se
+inventan métricas (Sentinel Score, IA, certificación, tendencia sin históricos se
+omiten hasta ser reales). Estructura: fila de 6 indicadores reales clickeables →
+alertas prioritarias y próximas acciones → auditorías → trabajo y documentos →
+CAPA por estado/prioridad. Cada tarjeta enlaza a su destino real. Los módulos que
+no existen todavía **no** aparecen como "Próximamente".
 
 ## Pantalla de resultado analítico (patrón Pareto)
 

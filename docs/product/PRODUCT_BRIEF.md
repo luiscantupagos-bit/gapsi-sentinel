@@ -1,16 +1,45 @@
-# Product Brief — Diagnóstico Digital GAPSI Sentinel
+# Product Brief — GAPSI Sentinel
 
 ## Problema
 
 Muchas empresas de alimentos administran calidad e inocuidad con hojas de cálculo, carpetas, correos y mensajes dispersos. Esto dificulta conocer su cumplimiento real, priorizar brechas y prepararse para auditorías.
 
-## Usuario inicial
+## Usuario principal
 
 Responsable, coordinador, gerente o consultor de calidad e inocuidad de una empresa de alimentos.
 
 ## Propuesta de valor
 
-Convertir un cuestionario estructurado y sus evidencias en una evaluación clara de cumplimiento, riesgo y prioridades de acción.
+Sistema **SaaS B2B** para gestionar, evaluar y mejorar sistemas de calidad,
+inocuidad y cumplimiento en empresas de alimentos: **conocer el estado del
+sistema de gestión, identificar brechas, decidir qué hacer y dar seguimiento
+hasta el cierre**, con datos reales y trazabilidad.
+
+## Sentinel hoy (capacidades actuales)
+
+- **Diagnósticos** — evaluación de cumplimiento por esquema, resultado y brechas.
+- **Documentos** — control documental con versionado automático, flujo,
+  distribución y copias controladas.
+- **CAPA** — acciones correctivas guiadas por etapas hasta el cierre.
+- **Análisis** — herramientas de causa (5 porqués, Ishikawa, Pareto, AMEF,
+  recurrencia, comparativo).
+- **Tareas y Proyectos** — gestión transversal del trabajo.
+- **Auditorías** — del programa al seguimiento, con preparación.
+- **Indicadores y Analítica** — KPI, Pareto, tendencias, estadística y calidad de
+  datos sobre el dato capturado una sola vez.
+
+Ver `docs/product/CURRENT-CAPABILITY-MAP.md` para el mapa detallado.
+
+## Roadmap (no implementado aún)
+
+Autenticación productiva, notificaciones, Sentinel Score, Riesgos, Proveedores,
+Capacitación, HACCP, Fraude alimentario, Food Defense, Recall/Trazabilidad, IA.
+No se muestran en la interfaz hasta ser reales.
+
+---
+
+_El resto de este documento conserva el alcance original del MVP de diagnóstico
+(historia del producto)._
 
 ## Alcance del MVP
 
