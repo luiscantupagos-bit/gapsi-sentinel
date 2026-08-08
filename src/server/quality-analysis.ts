@@ -86,6 +86,16 @@ async function loadAnalysis(organizationId: string, analysisId: string): Promise
   return a;
 }
 
+/** Exige que el análisis esté vinculado a una CAPA (acciones que la requieren). */
+function requireCapaId(analysis: Analysis): string {
+  if (!analysis.capaId) {
+    throw new AnalysisValidationError([
+      'Esta acción requiere que el análisis esté vinculado a una CAPA.',
+    ]);
+  }
+  return analysis.capaId;
+}
+
 async function isParticipant(
   organizationId: string,
   analysis: Analysis,
@@ -890,7 +900,7 @@ export async function updateFmeaRow(
 export async function findRecurrenceCandidates(organizationId: string, analysisId: string) {
   const analysis = await loadAnalysis(organizationId, analysisId);
   const base = await getPrisma().capa.findFirstOrThrow({
-    where: { id: analysis.capaId, organizationId },
+    where: { id: requireCapaId(analysis), organizationId },
   });
   const candidates = await getPrisma().capa.findMany({
     where: {
@@ -1110,7 +1120,7 @@ export async function sendRootCauseToCapa(
 
   await withOrgContext(organizationId, async (tx) => {
     const existing = await tx.capaRootCauseAnalysis.findFirst({
-      where: { capaId: analysis.capaId, organizationId },
+      where: { capaId: requireCapaId(analysis), organizationId },
     });
     if (existing) {
       await tx.capaRootCauseAnalysis.update({
@@ -1121,7 +1131,7 @@ export async function sendRootCauseToCapa(
       await tx.capaRootCauseAnalysis.create({
         data: {
           organizationId,
-          capaId: analysis.capaId,
+          capaId: requireCapaId(analysis),
           method: 'free_analysis',
           rootCause,
           investigatorUserId: actorId,
@@ -1134,7 +1144,7 @@ export async function sendRootCauseToCapa(
     await tx.capaStatusHistory.create({
       data: {
         organizationId,
-        capaId: analysis.capaId,
+        capaId: requireCapaId(analysis),
         event: 'root_cause_concluded',
         actorUserId: actorId,
         detail: `Desde análisis ${analysis.title}`,
@@ -1175,7 +1185,7 @@ export async function createCapaActionFromAnalysis(
       throw new AnalysisValidationError(['Ya existe una acción creada desde este elemento.']);
   }
   // `addAction` valida rol/edición y que la CAPA esté abierta.
-  const actionId = await addAction(organizationId, actorId, analysis.capaId, {
+  const actionId = await addAction(organizationId, actorId, requireCapaId(analysis), {
     actionType: inSet(ACTION_TYPES, input.actionType, 'corrective'),
     description: input.description.trim(),
     responsibleUserId: input.responsibleUserId || null,
@@ -1229,7 +1239,7 @@ export async function createNewVersion(
     const copy = await tx.qualityAnalysis.create({
       data: {
         organizationId,
-        capaId: analysis.capaId,
+        capaId: requireCapaId(analysis),
         type: analysis.type,
         title: analysis.title,
         objective: analysis.objective,
@@ -1401,7 +1411,7 @@ export async function addAnalysisEvidence(
       data: {
         organizationId,
         analysisId: analysis.id,
-        capaId: analysis.capaId,
+        capaId: requireCapaId(analysis),
         entityType: input.entityType,
         entityId: input.entityId || null,
         evidenceType: input.evidenceType || null,
@@ -1443,7 +1453,10 @@ export async function listAnalyses(
   const [members, capas] = await Promise.all([
     memberDirectory(organizationId),
     getPrisma().capa.findMany({
-      where: { organizationId, id: { in: [...new Set(rows.map((r) => r.capaId))] } },
+      where: {
+        organizationId,
+        id: { in: [...new Set(rows.map((r) => r.capaId).filter((v): v is string => v !== null))] },
+      },
       select: { id: true, folio: true },
     }),
   ]);
@@ -1451,7 +1464,7 @@ export async function listAnalyses(
   return rows.map((a) => ({
     id: a.id,
     capaId: a.capaId,
-    capaFolio: folioByCapa.get(a.capaId) ?? '—',
+    capaFolio: a.capaId ? (folioByCapa.get(a.capaId) ?? '—') : '—',
     type: a.type,
     title: a.title,
     status: a.status,

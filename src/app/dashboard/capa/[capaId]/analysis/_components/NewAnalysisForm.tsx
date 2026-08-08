@@ -10,7 +10,7 @@ import {
 } from '@/features/capa/analysis-state';
 import { createAnalysisAction, type FormState } from '../analysis-actions';
 
-const ICON: Record<AnalysisType, string> = {
+const ICON: Partial<Record<AnalysisType, string>> = {
   ishikawa: '🐟',
   cause_tree: '🌳',
   pareto: '📊',
@@ -49,7 +49,7 @@ export function NewAnalysisForm({
               aria-pressed={type === t}
             >
               <span className="tool-card__icon" aria-hidden>
-                {ICON[t]}
+                {ICON[t] ?? '•'}
               </span>
               <span className="tool-card__title">{ANALYSIS_TYPE_LABEL[t]}</span>
               <span className="tool-card__help">{ANALYSIS_TYPE_HELP[t]}</span>

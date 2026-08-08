@@ -1027,8 +1027,10 @@ model CapaComment {
 model QualityAnalysis {
   id                String    @id @default(uuid()) @db.Uuid
   organizationId    String    @map("organization_id") @db.Uuid
-  capaId            String    @map("capa_id") @db.Uuid
-  /// type: ishikawa|cause_tree|pareto|fmea|recurrence|comparative|freeform
+  /// capaId opcional: un análisis puede ser independiente o vincularse a varios
+  /// orígenes vía analysis_relations (CAPA/proyecto/hallazgo/evento/estudio).
+  capaId            String?   @map("capa_id") @db.Uuid
+  /// type: ishikawa|cause_tree|pareto|fmea|recurrence|comparative|freeform|5whys|fta
   type              String
   title             String
   objective         String?
@@ -1049,6 +1051,9 @@ model QualityAnalysis {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  analysisRelations AnalysisRelation[]
+  ftaNodes          FtaNode[]
 
   @@unique([id, organizationId])
   @@index([organizationId, capaId])
@@ -2604,4 +2609,202 @@ model AnalyticsSavedView {
   @@unique([id, organizationId])
   @@index([organizationId, viewType])
   @@map("analytics_saved_views")
+}
+
+// =====================================================================
+// CORE-ALIGN-003 — Análisis transversal + Estudios de Datos
+// analysis_relations vincula un análisis (quality_analyses) a múltiples
+// orígenes. fta_nodes modela el Árbol de Fallas. data_studies permite
+// análisis estadístico sobre datos ad hoc (CSV/XLSX/pegado) reutilizando
+// los motores puros de TASK-011. study_rows: una fila por observación.
+// study_analyses es REPRODUCIBLE: congela dataset/variables/filtros/
+// parámetros/resultado/interpretación; reimportar el dataset no muta el
+// pasado. Punteros a otros módulos validados en servidor + RLS.
+// =====================================================================
+
+/// Relación de un análisis con su(s) origen(es) (puntero genérico controlado).
+model AnalysisRelation {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  analysisId     String   @map("analysis_id") @db.Uuid
+  /// relation_type: capa|project|audit_finding|audit|quality_event|data_study
+  relationType   String   @map("relation_type")
+  targetId       String?  @map("target_id") @db.Uuid
+  externalRef    String?  @map("external_ref")
+  note           String?
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  analysis QualityAnalysis @relation(fields: [analysisId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([analysisId, relationType, targetId])
+  @@index([organizationId, relationType, targetId])
+  @@map("analysis_relations")
+}
+
+/// Nodo del Árbol de Fallas (FTA): evento superior/intermedio/básico o compuerta.
+model FtaNode {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  analysisId     String    @map("analysis_id") @db.Uuid
+  parentId       String?   @map("parent_id") @db.Uuid
+  /// node_type: top|intermediate|basic|gate
+  nodeType       String    @map("node_type")
+  /// gate_type: and|or (solo cuando node_type = gate)
+  gateType       String?   @map("gate_type")
+  label          String
+  description    String?
+  notes          String?
+  position       Int       @default(0)
+  createdBy      String?   @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  analysis QualityAnalysis @relation(fields: [analysisId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  parent   FtaNode?        @relation("FtaTree", fields: [parentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  children FtaNode[]       @relation("FtaTree")
+
+  @@unique([id, organizationId])
+  @@index([analysisId, position])
+  @@map("fta_nodes")
+}
+
+/// Estudio de datos: análisis estadístico sobre información ad hoc.
+model DataStudy {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  folio             String
+  title             String
+  objective         String?
+  question          String?
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  /// source_type: capa|project|audit_finding|quality_event|independent
+  sourceType        String?   @map("source_type")
+  sourceId          String?   @map("source_id") @db.Uuid
+  /// status: draft|data_loaded|analyzing|review|concluded|archived
+  status            String    @default("draft")
+  conclusion        String?
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  datasets StudyDataset[]
+  analyses StudyAnalysis[]
+
+  @@unique([organizationId, folio])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("data_studies")
+}
+
+model DataStudyFolioCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("data_study_folio_counters")
+}
+
+/// Versión de datos importada de un estudio (reimportar = nueva versión).
+model StudyDataset {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  studyId        String   @map("study_id") @db.Uuid
+  version        Int      @default(1)
+  name           String
+  /// source_kind: csv|xlsx|paste
+  sourceKind     String   @map("source_kind")
+  fileName       String?  @map("file_name")
+  fileChecksum   String?  @map("file_checksum")
+  fileSize       Int?     @map("file_size")
+  storageKey     String?  @map("storage_key")
+  rowCount       Int      @default(0) @map("row_count")
+  columnCount    Int      @default(0) @map("column_count")
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  study     DataStudy       @relation(fields: [studyId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  variables StudyVariable[]
+
+  @@unique([id, organizationId])
+  @@unique([studyId, version])
+  @@index([studyId])
+  @@map("study_datasets")
+}
+
+/// Variable (columna) de un dataset, con tipo y fórmula si es calculada.
+model StudyVariable {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  datasetId      String   @map("dataset_id") @db.Uuid
+  columnKey      String   @map("column_key")
+  label          String
+  /// var_type: numeric|categorical|temporal|text
+  varType        String   @map("var_type")
+  position       Int      @default(0)
+  calculated     Boolean  @default(false)
+  formula        Json?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  dataset StudyDataset @relation(fields: [datasetId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([datasetId, columnKey])
+  @@unique([id, organizationId])
+  @@index([datasetId, position])
+  @@map("study_variables")
+}
+
+/// Una fila (observación) del dataset. Valores estructurados en JSONB.
+model StudyRow {
+  id             BigInt        @id @default(autoincrement())
+  organizationId String        @map("organization_id") @db.Uuid
+  datasetId      String        @map("dataset_id") @db.Uuid
+  rowIndex       Int     @map("row_index")
+  values         Json
+  excluded       Boolean @default(false)
+
+  @@index([datasetId, rowIndex])
+  @@map("study_rows")
+}
+
+/// Ejecución de un análisis sobre un dataset. Inmutable/reproducible.
+model StudyAnalysis {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  studyId        String   @map("study_id") @db.Uuid
+  datasetId      String   @map("dataset_id") @db.Uuid
+  /// method: descriptive|pareto|trend|correlation|regression|group_compare|anova|chi_square
+  method         String
+  title          String?
+  config         Json
+  result         Json?
+  interpretation Json?
+  /// status: draft|done
+  status         String   @default("done")
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  study DataStudy @relation(fields: [studyId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([studyId])
+  @@index([datasetId])
+  @@map("study_analyses")
+}
+
+/// Historial append-only de un estudio.
+model DataStudyHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @map("organization_id") @db.Uuid
+  studyId        String   @map("study_id") @db.Uuid
+  event          String
+  detail         String?
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([studyId, createdAt])
+  @@map("data_study_history")
 }

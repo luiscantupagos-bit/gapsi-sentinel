@@ -15,6 +15,8 @@ export const ANALYSIS_TYPES = [
   'recurrence',
   'comparative',
   'freeform',
+  '5whys',
+  'fta',
 ] as const;
 export type AnalysisType = (typeof ANALYSIS_TYPES)[number];
 
@@ -26,6 +28,8 @@ export const ANALYSIS_TYPE_LABEL: Record<AnalysisType, string> = {
   recurrence: 'Análisis de recurrencia',
   comparative: 'Comparación de casos',
   freeform: 'Análisis libre',
+  '5whys': '5 Porqués',
+  fta: 'Árbol de Fallas (FTA)',
 };
 
 /** Ayuda breve por herramienta (se muestra en la interfaz). */
@@ -39,6 +43,9 @@ export const ANALYSIS_TYPE_HELP: Record<AnalysisType, string> = {
   recurrence: 'Revisa si el problema o sus causas ya se habían presentado.',
   comparative: 'Compara varias CAPA para identificar patrones y causas sistémicas.',
   freeform: 'Análisis personalizado con hipótesis y evidencia estructuradas.',
+  '5whys':
+    'Encadena preguntas "¿por qué?" para profundizar de los síntomas hacia una causa raíz propuesta.',
+  fta: 'Descompone un evento no deseado en eventos intermedios y básicos mediante compuertas AND/OR.',
 };
 
 export function isAnalysisType(value: unknown): value is AnalysisType {
