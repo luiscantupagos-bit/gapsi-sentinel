@@ -14,7 +14,10 @@ function nextAction(status: DiagnosticStatus, pending: number, resultHref: strin
   );
   switch (status) {
     case 'draft':
-      return { text: 'Comienza la evaluación respondiendo los requisitos.', tone: 'default' as const };
+      return {
+        text: 'Comienza la evaluación respondiendo los requisitos.',
+        tone: 'default' as const,
+      };
     case 'in_progress':
       return {
         text:
@@ -63,7 +66,9 @@ export default async function DiagnosticDetailPage({
         backHref="/dashboard/diagnostics"
         backLabel="Volver a diagnósticos"
         title={detail.name}
-        badge={<span className={`badge badge--diag-${status}`}>{DIAGNOSTIC_STATUS_LABEL[status]}</span>}
+        badge={
+          <span className={`badge badge--diag-${status}`}>{DIAGNOSTIC_STATUS_LABEL[status]}</span>
+        }
         meta={[
           { label: 'Sitio', value: detail.siteName },
           { label: 'Esquema', value: detail.templateLabel },

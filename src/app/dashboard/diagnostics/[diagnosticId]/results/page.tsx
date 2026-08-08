@@ -34,14 +34,15 @@ export default async function DiagnosticResultsPage({
         <Link href={`/dashboard/diagnostics/${diagnosticId}`}>← Volver al diagnóstico</Link>
       </p>
 
-      <PageHeader
-        title="Resultado de evaluación"
-        subtitle={result.diagnosticName}
-      />
+      <PageHeader title="Resultado de evaluación" subtitle={result.diagnosticName} />
 
       <div className="statcard-row">
         <StatCard label="Cumplimiento" value={`${result.percentage}%`} />
-        <StatCard label="Nivel de riesgo" value={DIAGNOSTIC_RISK_LABEL[result.riskLevel] ?? result.riskLevel} tone={riskTone} />
+        <StatCard
+          label="Nivel de riesgo"
+          value={DIAGNOSTIC_RISK_LABEL[result.riskLevel] ?? result.riskLevel}
+          tone={riskTone}
+        />
         <StatCard
           label="Críticos incumplidos"
           value={result.criticalUnmet}
@@ -51,7 +52,11 @@ export default async function DiagnosticResultsPage({
 
       <div className="statcard-row">
         <StatCard label="Conformes" value={result.conforming} tone="success" />
-        <StatCard label="No conformes" value={result.nonConforming} tone={result.nonConforming > 0 ? 'danger' : 'default'} />
+        <StatCard
+          label="No conformes"
+          value={result.nonConforming}
+          tone={result.nonConforming > 0 ? 'danger' : 'default'}
+        />
         <StatCard label="No aplica" value={result.notApplicable} />
       </div>
 

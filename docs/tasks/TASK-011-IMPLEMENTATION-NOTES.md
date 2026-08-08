@@ -26,9 +26,9 @@ común.
 
 **Clasificación de fuentes** (documentada en `SOURCE_CLASSIFICATION`):
 
-| Fuente             | Tipo       |
-| ------------------ | ---------- |
-| `quality_event`    | nativa     |
+| Fuente                                                              | Tipo     |
+| ------------------------------------------------------------------- | -------- |
+| `quality_event`                                                     | nativa   |
 | capa, capa_action, audit_finding, task, project, fmea_row, analysis | agregada |
 
 **Deduplicación:** un evento nativo con `source_type`/`source_id` **suprime** el
@@ -60,7 +60,7 @@ historial **append-only**, **no-borrado físico**, RLS por organización y grant
 ## Motores (puros, en `src/features/analytics/`)
 
 - **kpi-engine.ts** — medidas `count/sum/average/median/percentage/rate/
-  proportion/avg_duration/compliance/recurrence`; filtrado estructurado;
+proportion/avg_duration/compliance/recurrence`; filtrado estructurado;
   agrupación por periodo `diario/semanal(ISO)/mensual/trimestral/anual`;
   evaluación de estado `on_target/warning/off_target/no_data` según meta,
   umbrales y dirección deseada.
@@ -89,10 +89,11 @@ Pearson/Spearman informan `r`, fuerza por bandas y notabilidad **α=0.05** (t
 tabulada); regresión reporta pendiente/intercepto/R²/n + recta + dispersión;
 contingencia reporta χ², gl, esperadas y advierte cuando alguna esperada < 5;
 ANOVA reporta F y gl solo cuando las condiciones son válidas (si no, descriptiva
-+ advertencia). **No se inventan valores-p**: se usan valores críticos α=0.05
-tabulados. Cada resultado incluye una interpretación prudente que **jamás afirma
-causa** ("los defectos presentan mayor frecuencia en registros asociados a X; se
-requiere investigación adicional antes de establecer causalidad").
+
+- advertencia). **No se inventan valores-p**: se usan valores críticos α=0.05
+  tabulados. Cada resultado incluye una interpretación prudente que **jamás afirma
+  causa** ("los defectos presentan mayor frecuencia en registros asociados a X; se
+  requiere investigación adicional antes de establecer causalidad").
 
 ## Privacidad
 
@@ -107,8 +108,8 @@ queda disponible pero no se promueve por defecto.
   `recomputeKpiResults` (upsert de la **caché** `kpi_results` por kpi+periodo; no
   es una segunda fuente de verdad).
 - `src/server/quality-alerts.ts` — deriva reglas de los KPI activos (fuera de meta
-  + tendencia desfavorable), evalúa reglas persistidas y guarda alertas
-  **deduplicadas** por organización+`dedupe_key` sin reabrir lo resuelto.
+  - tendencia desfavorable), evalúa reglas persistidas y guarda alertas
+    **deduplicadas** por organización+`dedupe_key` sin reabrir lo resuelto.
 
 ## UI
 

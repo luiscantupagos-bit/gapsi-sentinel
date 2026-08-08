@@ -75,7 +75,11 @@ export function StageProgress({ stages, current }: { stages: string[]; current: 
       {stages.map((s, i) => {
         const state = i < current ? 'done' : i === current ? 'current' : 'todo';
         return (
-          <li key={s} className={`stageprogress__step is-${state}`} aria-current={i === current ? 'step' : undefined}>
+          <li
+            key={s}
+            className={`stageprogress__step is-${state}`}
+            aria-current={i === current ? 'step' : undefined}
+          >
             <span className="stageprogress__dot" aria-hidden>
               {i < current ? '✓' : i + 1}
             </span>

@@ -158,7 +158,9 @@ export default async function DashboardPage() {
                       <li>
                         <span className="alerts__dot alerts__dot--crit" aria-hidden />
                         <Link href="/dashboard/documents">Revisión documental vencida</Link>
-                        <span className="alerts__meta alerts__meta--crit">{alerts.reviewOverdue}</span>
+                        <span className="alerts__meta alerts__meta--crit">
+                          {alerts.reviewOverdue}
+                        </span>
                       </li>
                     )}
                   </ul>
@@ -181,7 +183,9 @@ export default async function DashboardPage() {
                       <li>
                         <span className="alerts__dot alerts__dot--prev" aria-hidden />
                         <Link href="/dashboard/documents">Documentos próximos a revisión</Link>
-                        <span className="alerts__meta alerts__meta--prev">{alerts.reviewDueSoon}</span>
+                        <span className="alerts__meta alerts__meta--prev">
+                          {alerts.reviewDueSoon}
+                        </span>
                       </li>
                     )}
                   </ul>
@@ -250,8 +254,16 @@ export default async function DashboardPage() {
         }
       >
         <div className="statcard-row">
-          <StatCard label="Programadas" value={auditSummary.planned} href="/dashboard/audits?status=planned" />
-          <StatCard label="En seguimiento" value={auditSummary.followUp} href="/dashboard/audits?status=follow_up" />
+          <StatCard
+            label="Programadas"
+            value={auditSummary.planned}
+            href="/dashboard/audits?status=planned"
+          />
+          <StatCard
+            label="En seguimiento"
+            value={auditSummary.followUp}
+            href="/dashboard/audits?status=follow_up"
+          />
           <StatCard
             label="Vencidas"
             value={auditSummary.overdue}
@@ -300,9 +312,23 @@ export default async function DashboardPage() {
           }
         >
           <div className="statcard-row">
-            <StatCard label="Tareas abiertas" value={taskSummary.open} href="/dashboard/tasks?tab=all" />
-            <StatCard label="Próximas (7d)" value={taskSummary.dueSoon} tone="warning" href="/dashboard/tasks?tab=due_soon" />
-            <StatCard label="Proyectos activos" value={projectSummary.active} tone="success" href="/dashboard/projects?status=active" />
+            <StatCard
+              label="Tareas abiertas"
+              value={taskSummary.open}
+              href="/dashboard/tasks?tab=all"
+            />
+            <StatCard
+              label="Próximas (7d)"
+              value={taskSummary.dueSoon}
+              tone="warning"
+              href="/dashboard/tasks?tab=due_soon"
+            />
+            <StatCard
+              label="Proyectos activos"
+              value={projectSummary.active}
+              tone="success"
+              href="/dashboard/projects?status=active"
+            />
             <StatCard
               label="Proyectos en riesgo"
               value={projectSummary.atRisk}
@@ -322,9 +348,23 @@ export default async function DashboardPage() {
         >
           <div className="statcard-row">
             <StatCard label="Total" value={docSummary.total} href="/dashboard/documents" />
-            <StatCard label="Vigentes" value={docSummary.effective} tone="success" href="/dashboard/documents?status=effective" />
-            <StatCard label="Próx. revisión" value={docSummary.dueSoon} tone="warning" href="/dashboard/documents" />
-            <StatCard label="Lecturas pend." value={alerts.pendingReads} href="/dashboard/documents/tasks" />
+            <StatCard
+              label="Vigentes"
+              value={docSummary.effective}
+              tone="success"
+              href="/dashboard/documents?status=effective"
+            />
+            <StatCard
+              label="Próx. revisión"
+              value={docSummary.dueSoon}
+              tone="warning"
+              href="/dashboard/documents"
+            />
+            <StatCard
+              label="Lecturas pend."
+              value={alerts.pendingReads}
+              href="/dashboard/documents/tasks"
+            />
           </div>
         </SectionCard>
       </div>

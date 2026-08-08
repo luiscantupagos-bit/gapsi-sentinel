@@ -35,11 +35,11 @@ clave `${fuente}:${id}` y suprime el agregado equivalente.
 
 ## Deduplicación (para no contar dos veces)
 
-| Situación                                   | Resultado                              |
-| ------------------------------------------- | -------------------------------------- |
-| Evento nativo manual                        | cuenta como `native`                   |
+| Situación                                   | Resultado                                                    |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| Evento nativo manual                        | cuenta como `native`                                         |
 | Evento nativo con `source_type`/`source_id` | cuenta como `converted`; **suprime** el agregado equivalente |
-| Registro de módulo sin evento nativo        | cuenta como `aggregated`               |
+| Registro de módulo sin evento nativo        | cuenta como `aggregated`                                     |
 
 ## Precisión
 
