@@ -182,7 +182,7 @@ async function ResumenTab({ events, organizationId }: { events: Ev; organization
           <DistTable rows={bySource} labels={UNIFIED_SOURCE_LABEL} />
         </SectionCard>
         <SectionCard title="Por estado">
-          <DistTable rows={byStatus} />
+          <DistTable rows={byStatus} labels={UNIFIED_STATUS_LABEL} />
         </SectionCard>
       </div>
     </>
