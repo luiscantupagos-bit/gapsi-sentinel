@@ -357,10 +357,10 @@ th {
   padding: 0.9rem 1.1rem;
   margin: 1rem 0 1.5rem;
 }
-.banner--provisional {
-  background: #fef7e0;
-  border: 1px solid #f2dca0;
-  color: #6b5200;
+.banner--info {
+  background: var(--color-primary-soft);
+  border: 1px solid #cfe0fb;
+  color: #1e40af;
 }
 
 .qsection {
@@ -3474,4 +3474,42 @@ a.tool-card:focus-visible {
 .stageprogress__step.is-current .stageprogress__dot {
   background: var(--color-primary);
   color: #fff;
+}
+
+/* ===================================================================== */
+/* CORE-ALIGN-001 — Documentos: copias, "más acciones", ayuda de campo.  */
+/* ===================================================================== */
+.badge--copy-active {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.badge--copy-pending_recovery {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--copy-recovered {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--copy-destroyed,
+.badge--copy-replaced {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.more-actions {
+  margin-top: var(--space-2);
+}
+.more-actions > summary {
+  cursor: pointer;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  padding: var(--space-1) 0;
+}
+.more-actions > summary:hover {
+  color: var(--color-text);
+}
+.field-hint {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--color-muted);
 }

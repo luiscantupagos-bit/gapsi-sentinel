@@ -34,6 +34,26 @@ import {
   type PageConfig,
 } from '@/features/documents/templates';
 import { isEditableStatus, type VersionStatus } from '@/features/documents/workflow-state';
+import { nextVersionLabel, type VersionBump } from '@/features/documents/versioning';
+
+/** Última etiqueta de versión conocida del documento (vigente o más reciente). */
+async function latestVersionLabel(
+  organizationId: string,
+  documentId: string,
+): Promise<string | null> {
+  const prisma = getPrisma();
+  const current = await prisma.documentVersion.findFirst({
+    where: { documentId, organizationId, isCurrent: true },
+    select: { label: true },
+  });
+  if (current) return current.label;
+  const latest = await prisma.documentVersion.findFirst({
+    where: { documentId, organizationId },
+    orderBy: { createdAt: 'desc' },
+    select: { label: true },
+  });
+  return latest?.label ?? null;
+}
 
 export class ContentTooLargeError extends Error {
   constructor() {
@@ -509,12 +529,19 @@ export async function createVersion(
   organizationId: string,
   userId: string,
   documentId: string,
-  input: { label: string; changeNotes?: string | null },
+  input: { label?: string; bump?: VersionBump; changeNotes?: string | null },
 ): Promise<void> {
   const doc = await loadScopedDocument(organizationId, documentId);
   if (doc.archivedAt) throw new DocumentNotEditableError();
-  if (!input.label?.trim())
-    throw new DocumentValidationError(['La etiqueta de versión es obligatoria.']);
+
+  // Versionado automático: si se indica `bump`, el servidor calcula la etiqueta a
+  // partir de la versión actual; si no, se usa la etiqueta explícita (compatible).
+  const label = input.bump
+    ? nextVersionLabel(await latestVersionLabel(organizationId, documentId), input.bump)
+    : input.label?.trim();
+  if (!label) throw new DocumentValidationError(['La etiqueta de versión es obligatoria.']);
+  if (input.bump && !input.changeNotes?.trim())
+    throw new DocumentValidationError(['El motivo del cambio es obligatorio.']);
 
   await saneCreate(() =>
     withOrgContext(organizationId, async (tx) => {
@@ -527,8 +554,8 @@ export async function createVersion(
         data: {
           organizationId,
           documentId,
-          label: input.label.trim(),
-          changeNotes: input.changeNotes ?? null,
+          label,
+          changeNotes: input.changeNotes?.trim() || null,
           status: 'draft',
           isCurrent: true,
           author: userId,
@@ -536,7 +563,7 @@ export async function createVersion(
       });
       await tx.document.update({
         where: { id: documentId },
-        data: { currentVersionLabel: input.label.trim() },
+        data: { currentVersionLabel: label },
       });
       await tx.documentHistory.create({
         data: { organizationId, documentId, action: 'version.created', actorUserId: userId },
@@ -549,6 +576,7 @@ export async function archiveDocument(
   organizationId: string,
   userId: string,
   documentId: string,
+  reason?: string | null,
 ): Promise<void> {
   const doc = await loadScopedDocument(organizationId, documentId);
   if (doc.archivedAt) return;
@@ -558,7 +586,13 @@ export async function archiveDocument(
       data: { status: 'archived', archivedAt: new Date() },
     });
     await tx.documentHistory.create({
-      data: { organizationId, documentId, action: 'document.archived', actorUserId: userId },
+      data: {
+        organizationId,
+        documentId,
+        action: 'document.archived',
+        actorUserId: userId,
+        metadata: reason?.trim() ? { reason: reason.trim() } : Prisma.JsonNull,
+      },
     });
   });
 }
@@ -776,12 +810,10 @@ export async function createEditorVersion(
   organizationId: string,
   userId: string,
   documentId: string,
-  input: { label: string; changeNotes?: string | null },
+  input: { label?: string; bump?: VersionBump; changeNotes?: string | null },
 ): Promise<string> {
   const doc = await loadScopedDocument(organizationId, documentId);
   if (doc.archivedAt) throw new DocumentNotEditableError();
-  if (!input.label?.trim())
-    throw new DocumentValidationError(['La etiqueta de versión es obligatoria.']);
 
   const prisma = getPrisma();
   const current =
@@ -793,6 +825,13 @@ export async function createEditorVersion(
       orderBy: { createdAt: 'desc' },
     }));
 
+  const label = input.bump
+    ? nextVersionLabel(current?.label ?? null, input.bump)
+    : input.label?.trim();
+  if (!label) throw new DocumentValidationError(['La etiqueta de versión es obligatoria.']);
+  if (input.bump && !input.changeNotes?.trim())
+    throw new DocumentValidationError(['El motivo del cambio es obligatorio.']);
+
   return saneCreate(() =>
     withOrgContext(organizationId, async (tx) => {
       await tx.documentVersion.updateMany({
@@ -803,8 +842,8 @@ export async function createEditorVersion(
         data: {
           organizationId,
           documentId,
-          label: input.label.trim(),
-          changeNotes: input.changeNotes ?? null,
+          label,
+          changeNotes: input.changeNotes?.trim() || null,
           status: 'draft',
           isCurrent: true,
           author: userId,
@@ -819,7 +858,7 @@ export async function createEditorVersion(
       });
       await tx.document.update({
         where: { id: documentId },
-        data: { currentVersionLabel: input.label.trim() },
+        data: { currentVersionLabel: label },
       });
       await tx.documentHistory.create({
         data: { organizationId, documentId, action: 'version.created', actorUserId: userId },

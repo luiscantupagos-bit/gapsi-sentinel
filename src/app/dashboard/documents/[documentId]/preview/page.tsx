@@ -93,9 +93,7 @@ export default async function DocumentPreviewPage({
         · <Link href={`/dashboard/documents/${documentId}`}>Documento</Link>
       </p>
       <h1>Vista previa</h1>
-      <p className="banner banner--provisional">
-        Vista previa de demostración (tamaño carta). No genera todavía un PDF real.
-      </p>
+      <p className="banner banner--info">Vista previa del documento en pantalla (tamaño carta).</p>
 
       {ctx?.hasPendingRead && editor.contentChecksum && (
         <form action={acknowledgeReadForm} className="wf-form banner">

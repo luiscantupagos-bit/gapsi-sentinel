@@ -8,7 +8,16 @@ import {
   listResponsibles,
 } from '@/server/documents';
 import { getDocumentControl, getUserVersionContext } from '@/server/document-workflow';
-import { VERSION_STATUS_LABEL, type VersionStatus } from '@/features/documents/workflow-state';
+import {
+  VERSION_STATUS_LABEL,
+  ASSIGNMENT_STATUS_LABEL,
+  ASSIGNMENT_ROLE_LABEL,
+  APPROVAL_DECISION_LABEL,
+  DISTRIBUTION_TARGET_LABEL,
+  DISTRIBUTION_STATUS_LABEL,
+  COPY_STATUS_LABEL,
+  type VersionStatus,
+} from '@/features/documents/workflow-state';
 import {
   CONFIDENTIALITY_LEVELS,
   DOCUMENT_ORIGINS,
@@ -182,10 +191,10 @@ export default async function DocumentDetailPage({
             <tbody>
               {control.steps.map((st) => (
                 <tr key={st.id}>
-                  <td>{st.role === 'reviewer' ? 'Revisor' : 'Aprobador'}</td>
+                  <td>{ASSIGNMENT_ROLE_LABEL[st.role] ?? st.role}</td>
                   <td>{control.uName.get(st.userId) ?? '—'}</td>
                   <td>{st.sequence}</td>
-                  <td>{st.status}</td>
+                  <td>{ASSIGNMENT_STATUS_LABEL[st.status] ?? st.status}</td>
                   <td>{st.dueAt ? new Date(st.dueAt).toLocaleDateString('es-MX') : '—'}</td>
                 </tr>
               ))}
@@ -202,7 +211,8 @@ export default async function DocumentDetailPage({
           {control.approvals.map((a) => (
             <li key={a.id}>
               <span className="muted">{new Date(a.createdAt).toLocaleString('es-MX')}</span> ·{' '}
-              {a.stage === 'review' ? 'Revisión' : 'Aprobación'} · {a.decision} ·{' '}
+              {a.stage === 'review' ? 'Revisión' : 'Aprobación'} ·{' '}
+              {APPROVAL_DECISION_LABEL[a.decision] ?? a.decision} ·{' '}
               {control.uName.get(a.actorUserId) ?? '—'}
               {a.comment ? ` — “${a.comment}”` : ''}
             </li>
@@ -217,9 +227,11 @@ export default async function DocumentDetailPage({
         <ul className="history">
           {control.distributions.map((d) => (
             <li key={d.id}>
-              {d.targetType} {d.userId ? `· ${control.uName.get(d.userId) ?? d.userId}` : ''}
+              {DISTRIBUTION_TARGET_LABEL[d.targetType] ?? d.targetType}{' '}
+              {d.userId ? `· ${control.uName.get(d.userId) ?? d.userId}` : ''}
               {d.role ? `· rol ${d.role}` : ''} ·{' '}
-              {d.readRequired ? 'lectura requerida' : 'informativa'} · {d.status} ·{' '}
+              {d.readRequired ? 'lectura requerida' : 'informativa'} ·{' '}
+              {DISTRIBUTION_STATUS_LABEL[d.status] ?? d.status} ·{' '}
               {new Date(d.distributedAt).toLocaleDateString('es-MX')}
             </li>
           ))}
@@ -261,7 +273,11 @@ export default async function DocumentDetailPage({
                   <td>{c.copyNumber}</td>
                   <td>{c.recipient}</td>
                   <td>{c.format === 'printed' ? 'Impresa' : 'Digital'}</td>
-                  <td>{c.status}</td>
+                  <td>
+                    <span className={`badge badge--copy-${c.status}`}>
+                      {COPY_STATUS_LABEL[c.status] ?? c.status}
+                    </span>
+                  </td>
                   <td>
                     {ctx?.isAdmin && (c.status === 'active' || c.status === 'pending_recovery') && (
                       <form action={recoverCopyForm} className="wf-form">
@@ -269,7 +285,7 @@ export default async function DocumentDetailPage({
                         <input type="hidden" name="copyId" value={c.id} />
                         <input type="hidden" name="status" value="recovered" />
                         <button className="button button--ghost" type="submit">
-                          Recuperar
+                          Registrar recuperación
                         </button>
                       </form>
                     )}

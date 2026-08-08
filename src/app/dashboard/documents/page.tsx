@@ -103,49 +103,45 @@ export default async function DocumentsListPage({
         </div>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="tbl-linkable">
             <thead>
               <tr>
                 <th>Código</th>
                 <th>Nombre</th>
                 <th>Tipo</th>
-                <th>Origen</th>
                 <th>Versión</th>
                 <th>Sitio</th>
                 <th>Responsable</th>
                 <th>Estado</th>
-                <th>Emisión</th>
                 <th>Próx. revisión</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {documents.map((d) => (
                 <tr key={d.id}>
-                  <td>{d.code}</td>
-                  <td>{d.title}</td>
+                  <td className="mono">
+                    <Link href={`/dashboard/documents/${d.id}`}>{d.code}</Link>
+                  </td>
+                  <td>
+                    <Link href={`/dashboard/documents/${d.id}`} className="tbl-title">
+                      {d.title}
+                    </Link>
+                  </td>
                   <td>{labelOf(DOCUMENT_TYPES, d.documentType)}</td>
-                  <td>{labelOf(DOCUMENT_ORIGINS, d.origin)}</td>
                   <td>{d.currentVersionLabel ?? '—'}</td>
-                  <td>{d.siteName ?? '—'}</td>
-                  <td>{d.responsibleName ?? '—'}</td>
+                  <td>{d.siteName ?? <span className="muted">—</span>}</td>
+                  <td>{d.responsibleName ?? <span className="muted">—</span>}</td>
                   <td>
                     <span className={`badge badge--doc-${d.status}`}>
                       {labelOf(DOCUMENT_STATUSES, d.status)}
                     </span>
                   </td>
-                  <td>{d.issuedAt ?? '—'}</td>
                   <td>
                     {d.nextReviewAt ?? '—'}{' '}
                     {d.overdue && <span className="badge badge--critical">Vencido</span>}
                     {!d.overdue && d.dueSoon && (
                       <span className="badge badge--risk-moderate">Próximo</span>
                     )}
-                  </td>
-                  <td>
-                    <Link className="button button--ghost" href={`/dashboard/documents/${d.id}`}>
-                      Ver
-                    </Link>
                   </td>
                 </tr>
               ))}

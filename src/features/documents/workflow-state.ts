@@ -77,3 +77,44 @@ export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 
 export const ASSIGNMENT_ROLES = ['reviewer', 'approver'] as const;
 export type AssignmentRole = (typeof ASSIGNMENT_ROLES)[number];
+
+/** Etiquetas humanas (es-MX) para presentar estados del control documental. */
+export const ASSIGNMENT_STATUS_LABEL: Record<string, string> = {
+  pending: 'Pendiente',
+  approved: 'Aprobada',
+  changes_requested: 'Cambios solicitados',
+  rejected: 'Rechazada',
+  cancelled: 'Cancelada',
+};
+
+export const APPROVAL_DECISION_LABEL: Record<string, string> = {
+  pending: 'Pendiente',
+  approved: 'Aprobada',
+  changes_requested: 'Cambios solicitados',
+  rejected: 'Rechazada',
+};
+
+export const ASSIGNMENT_ROLE_LABEL: Record<string, string> = {
+  reviewer: 'Revisor',
+  approver: 'Aprobador',
+};
+
+export const DISTRIBUTION_TARGET_LABEL: Record<string, string> = {
+  user: 'Usuario',
+  role: 'Rol',
+  organization: 'Organización',
+  site: 'Sitio',
+};
+
+export const DISTRIBUTION_STATUS_LABEL: Record<string, string> = {
+  active: 'Activa',
+  superseded: 'Reemplazada',
+};
+
+export const COPY_STATUS_LABEL: Record<string, string> = {
+  active: 'Activa',
+  pending_recovery: 'Pendiente de recuperación',
+  recovered: 'Recuperada',
+  destroyed: 'Destruida',
+  replaced: 'Reemplazada',
+};

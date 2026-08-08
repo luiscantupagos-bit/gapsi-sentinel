@@ -144,8 +144,9 @@ export async function createVersionAction(
   const session = await requireServerSession();
   const documentId = str(formData, 'documentId');
   try {
+    const bump = str(formData, 'bump') === 'major' ? 'major' : 'minor';
     await createVersion(session.organizationId, session.userId, documentId, {
-      label: str(formData, 'label'),
+      bump,
       changeNotes: optional(formData, 'changeNotes'),
     });
   } catch (error) {
@@ -162,7 +163,12 @@ export async function archiveDocumentAction(
   const session = await requireServerSession();
   const documentId = str(formData, 'documentId');
   try {
-    await archiveDocument(session.organizationId, session.userId, documentId);
+    await archiveDocument(
+      session.organizationId,
+      session.userId,
+      documentId,
+      optional(formData, 'reason'),
+    );
   } catch (error) {
     return toState(error);
   }

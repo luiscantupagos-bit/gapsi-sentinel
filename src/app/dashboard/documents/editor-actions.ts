@@ -107,7 +107,7 @@ export async function saveContentAction(input: {
 
 export async function createEditorVersionAction(input: {
   documentId: string;
-  label: string;
+  bump: 'minor' | 'major';
   changeNotes?: string;
 }): Promise<{ ok: boolean; message: string; versionId?: string }> {
   const session = await requireServerSession();
@@ -117,7 +117,7 @@ export async function createEditorVersionAction(input: {
       session.userId,
       input.documentId,
       {
-        label: input.label,
+        bump: input.bump,
         changeNotes: input.changeNotes ?? null,
       },
     );

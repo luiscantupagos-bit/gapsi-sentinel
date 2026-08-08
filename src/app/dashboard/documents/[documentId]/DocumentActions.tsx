@@ -64,26 +64,40 @@ export function DocumentActions({
       <form action={versionAction} className="doc-action">
         <input type="hidden" name="documentId" value={documentId} />
         <label>
-          Nueva versión (etiqueta)
-          <input name="label" placeholder="v2" required />
+          Tipo de cambio
+          <select name="bump" defaultValue="minor">
+            <option value="minor">Cambio menor (p. ej. 1.0 → 1.1)</option>
+            <option value="major">Cambio mayor (p. ej. 1.0 → 2.0)</option>
+          </select>
         </label>
         <label>
-          Notas de cambio
-          <input name="changeNotes" placeholder="Motivo del cambio" />
+          Motivo del cambio
+          <input name="changeNotes" placeholder="Describe el motivo del cambio" required />
         </label>
         <SubmitButton variant="ghost" pendingLabel="Creando…">
-          Crear versión
+          Crear nueva versión
         </SubmitButton>
+        <p className="field-hint">El número de versión se calcula automáticamente.</p>
         <Message state={versionState} />
       </form>
 
-      <form action={archiveAction} className="doc-action">
-        <input type="hidden" name="documentId" value={documentId} />
-        <SubmitButton variant="ghost" pendingLabel="Archivando…">
-          Archivar documento
-        </SubmitButton>
-        <Message state={archiveState} />
-      </form>
+      <details className="more-actions">
+        <summary>Más acciones</summary>
+        <form action={archiveAction} className="doc-action">
+          <input type="hidden" name="documentId" value={documentId} />
+          <label>
+            Motivo del archivado
+            <input name="reason" placeholder="Motivo por el que se archiva" required />
+          </label>
+          <p className="field-hint">
+            Archivar deja el documento en solo lectura; no elimina versiones ni historial.
+          </p>
+          <SubmitButton variant="ghost" pendingLabel="Archivando…">
+            Archivar este documento
+          </SubmitButton>
+          <Message state={archiveState} />
+        </form>
+      </details>
     </div>
   );
 }

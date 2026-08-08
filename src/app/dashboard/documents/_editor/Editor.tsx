@@ -103,10 +103,17 @@ export function DocumentEditor(props: EditorProps) {
   };
 
   const onCreateVersion = async () => {
-    const label = window.prompt('Etiqueta de la nueva versión (p. ej. v2):');
-    if (!label) return;
+    const major = window.confirm(
+      '¿Es un CAMBIO MAYOR? Aceptar = mayor (p. ej. 1.0 → 2.0). Cancelar = menor (1.0 → 1.1).',
+    );
+    const reason = window.prompt('Motivo del cambio:');
+    if (!reason) return;
     if (dirty) await doSave(true);
-    const result = await createEditorVersionAction({ documentId: props.documentId, label });
+    const result = await createEditorVersionAction({
+      documentId: props.documentId,
+      bump: major ? 'major' : 'minor',
+      changeNotes: reason,
+    });
     if (result.ok && result.versionId) {
       window.location.href = `/dashboard/documents/${props.documentId}/editor?version=${result.versionId}`;
     } else {
