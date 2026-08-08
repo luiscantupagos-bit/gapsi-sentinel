@@ -92,6 +92,9 @@ export async function createAnalysisAction(_p: FormState | null, fd: FormData): 
     return toState(e);
   }
   revalidate(capaId);
+  const type = s(fd, 'type');
+  // 5 Porqués y FTA se editan en el workspace transversal.
+  if (type === '5whys' || type === 'fta') redirect(`/dashboard/analysis/${id}`);
   redirect(`/dashboard/capa/${capaId}/analysis/${id}`);
 }
 

@@ -3943,3 +3943,119 @@ a.tool-card:focus-visible {
   align-items: center;
   gap: var(--space-2);
 }
+
+/* --- Fase 5: Árbol de Fallas (FTA) --- */
+.fta__diagram {
+  overflow-x: auto;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-surface, #fff);
+  padding: var(--space-2);
+}
+.fta__svg {
+  width: 100%;
+  min-width: 480px;
+  height: auto;
+}
+.fta__edge {
+  stroke: var(--color-border-strong, #94a3b8);
+  stroke-width: 1.5;
+}
+.fta__gate {
+  fill: var(--color-primary, #2563eb);
+  font-size: 13px;
+  font-weight: 700;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--color-surface, #fff);
+  stroke-width: 3;
+}
+.fta__box {
+  stroke: var(--color-border-strong, #94a3b8);
+  stroke-width: 1;
+}
+.fta__box-label {
+  text-anchor: middle;
+  font-size: 12px;
+  font-weight: 600;
+  fill: #0f172a;
+}
+.fta__box-type {
+  text-anchor: middle;
+  font-size: 10px;
+  fill: #475569;
+}
+.fta__outline {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-3);
+  list-style: none;
+}
+.fta__outline li {
+  padding: 2px 0;
+}
+.fta__errors {
+  margin-top: var(--space-2);
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.fta__editor h4,
+.fivewhys__add h4 {
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+/* --- Fase 5: 5 Porqués --- */
+.fivewhys__problem {
+  margin-bottom: var(--space-3);
+}
+.fivewhys__chain {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.fivewhys__step {
+  border-left: 3px solid var(--color-primary, #2563eb);
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--color-primary, #2563eb) 5%, transparent);
+  border-radius: var(--radius-sm, 6px);
+}
+.fivewhys__q {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary, #2563eb);
+}
+.fivewhys__a {
+  margin: 0.15rem 0;
+  font-weight: 600;
+}
+.fivewhys__ev,
+.fivewhys__note {
+  margin: 0.1rem 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted, #64748b);
+}
+.fivewhys__step-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+
+/* --- Relaciones transversales --- */
+.relations-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.relations-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+  flex-wrap: wrap;
+}

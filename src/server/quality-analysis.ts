@@ -2132,3 +2132,135 @@ export async function listAnalysisLibrary(
     };
   });
 }
+
+// --- Relaciones de un análisis (para el workspace) ---------------------------
+
+export interface AnalysisRelationRow {
+  id: string;
+  relationType: RelationType;
+  targetId: string | null;
+  label: string;
+  href: string | null;
+}
+
+/** Lista las relaciones de un análisis con etiqueta legible del origen. */
+export async function listRelationsOfAnalysis(
+  organizationId: string,
+  analysisId: string,
+): Promise<AnalysisRelationRow[]> {
+  const rels = await getPrisma().analysisRelation.findMany({
+    where: { organizationId, analysisId },
+    orderBy: { createdAt: 'asc' },
+  });
+  const p = getPrisma();
+  const idsBy = (t: RelationType) =>
+    rels.filter((r) => r.relationType === t && r.targetId).map((r) => r.targetId as string);
+  const [capas, projects, findings, events, studies] = await Promise.all([
+    p.capa.findMany({
+      where: { organizationId, id: { in: idsBy('capa') } },
+      select: { id: true, folio: true },
+    }),
+    p.project.findMany({
+      where: { organizationId, id: { in: idsBy('project') } },
+      select: { id: true, folio: true, name: true },
+    }),
+    p.auditFinding.findMany({
+      where: { organizationId, id: { in: idsBy('audit_finding') } },
+      select: { id: true, folio: true },
+    }),
+    p.qualityEvent.findMany({
+      where: { organizationId, id: { in: idsBy('quality_event') } },
+      select: { id: true, folio: true },
+    }),
+    p.dataStudy.findMany({
+      where: { organizationId, id: { in: idsBy('data_study') } },
+      select: { id: true, folio: true },
+    }),
+  ]);
+  const folio = {
+    capa: new Map(capas.map((c) => [c.id, c.folio])),
+    project: new Map(projects.map((c) => [c.id, c.folio])),
+    audit_finding: new Map(findings.map((c) => [c.id, c.folio])),
+    quality_event: new Map(events.map((c) => [c.id, c.folio])),
+    data_study: new Map(studies.map((c) => [c.id, c.folio])),
+  };
+  const hrefFor = (t: RelationType, id: string): string | null => {
+    switch (t) {
+      case 'capa':
+        return `/dashboard/capa/${id}`;
+      case 'project':
+        return `/dashboard/projects/${id}`;
+      case 'quality_event':
+        return `/dashboard/quality-events/${id}`;
+      case 'audit_finding':
+        return `/dashboard/audits/findings/${id}`;
+      case 'data_study':
+        return `/dashboard/analytics/studies/${id}`;
+    }
+  };
+  return rels.map((r) => {
+    const t = r.relationType as RelationType;
+    const f = r.targetId ? (folio[t]?.get(r.targetId) ?? null) : null;
+    return {
+      id: r.id,
+      relationType: t,
+      targetId: r.targetId,
+      label: `${RELATION_TYPE_LABEL[t] ?? t}${f ? ` · ${f}` : ''}`,
+      href: r.targetId ? hrefFor(t, r.targetId) : null,
+    };
+  });
+}
+
+/** Crea un análisis INDEPENDIENTE (sin origen). capaId nulo, sin relación. */
+export async function createIndependentAnalysis(
+  organizationId: string,
+  actorId: string,
+  input: {
+    type: AnalysisType;
+    title: string;
+    objective?: string | null;
+    responsibleUserId?: string | null;
+  },
+): Promise<string> {
+  const role = await memberRole(organizationId, actorId);
+  if (!canCreate(role)) throw new AnalysisPermissionError('Tu rol no permite crear análisis.');
+  if (!input.title?.trim()) throw new AnalysisValidationError(['Falta el título.']);
+  const type = input.type;
+  const config =
+    type === 'fmea'
+      ? { scale: FMEA_DEFAULT_SCALE }
+      : type === 'pareto'
+        ? { cutoff: 80, valueKey: 'count' }
+        : undefined;
+  return withOrgContext(organizationId, async (tx) => {
+    const a = await tx.qualityAnalysis.create({
+      data: {
+        organizationId,
+        capaId: null,
+        type,
+        title: input.title.trim(),
+        objective: input.objective?.trim() || null,
+        status: 'draft',
+        responsibleUserId: input.responsibleUserId || actorId,
+        config: config as Prisma.InputJsonValue | undefined,
+        createdBy: actorId,
+      },
+    });
+    if (type === 'ishikawa') {
+      let pos = 0;
+      for (const name of ISHIKAWA_DEFAULT_CATEGORIES) {
+        pos += 1;
+        await tx.ishikawaCategory.create({
+          data: { organizationId, analysisId: a.id, name, position: pos, createdBy: actorId },
+        });
+      }
+    }
+    if (type === 'fta') await seedFtaTop(tx, organizationId, a.id, input.title.trim(), actorId);
+    await recordHistory(tx, organizationId, a.id, 'analysis_created', actorId, {
+      toStatus: 'draft',
+      summary: input.title.trim(),
+    });
+    await recordHistory(tx, organizationId, a.id, 'type_selected', actorId, { entity: type });
+    return a.id;
+  });
+}
