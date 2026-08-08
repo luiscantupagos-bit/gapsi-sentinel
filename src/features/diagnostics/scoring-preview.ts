@@ -1,8 +1,7 @@
 /**
- * Cálculo de resultado PRELIMINAR de DEMOSTRACIÓN (TASK-003).
+ * Motor de resultado de evaluación del diagnóstico (dominio puro, determinista).
  *
- * ⚠️ PROVISIONAL. No es el motor de puntuación definitivo (D13). Implementa
- * reglas temporales, simples y explícitas para la demo vertical:
+ * Reglas explícitas y auditables:
  *
  * - yes/no y selección única: usan la fracción de la opción elegida (0..1).
  * - "No aplica": se excluye del denominador.
@@ -10,10 +9,10 @@
  * - conforme = fracción === 1; no conforme = fracción < 1 (entre las puntuables).
  * - cualquier pregunta crítica incumplida (fracción < 1) eleva el riesgo a
  *   `high` como mínimo.
- * - umbrales preliminares (§12 de TASK-002-DATA-MODEL-PROPOSAL):
- *   90–100 low · 75–89.99 moderate · 50–74.99 high · <50 critical.
+ * - escala de riesgo: 90–100 low · 75–89.99 moderate · 50–74.99 high · <50 critical.
  *
- * Módulo de dominio PURO: sin BD, sin UI. Determinista.
+ * Se calcula al consultar (no se persiste), para reflejar siempre el estado
+ * actual de las respuestas. Sin BD ni UI. No constituye certificación.
  */
 
 export type PreviewRiskLevel = 'low' | 'moderate' | 'high' | 'critical';
@@ -74,7 +73,7 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Umbrales preliminares + regla de crítico (provisional, no D13). */
+/** Umbrales de riesgo + regla de crítico incumplido. */
 export function previewRiskLevel(percentage: number, criticalUnmet: number): PreviewRiskLevel {
   let level: PreviewRiskLevel =
     percentage >= 90
@@ -136,7 +135,7 @@ export function computePreview(
     }
 
     // Sin responder o sin fracción: no suma al numerador pero sí al denominador
-    // (cuenta como no conforme para el avance de cumplimiento preliminar).
+    // (cuenta como no conforme para el cálculo de cumplimiento).
     const fraction =
       answer?.status === 'answered' && typeof answer.scoreFraction === 'number'
         ? answer.scoreFraction

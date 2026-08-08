@@ -2,13 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
 import { DiagnosticNotFoundError, getPreviewResult } from '@/server/diagnostics';
-
-const RISK_LABEL: Record<string, string> = {
-  low: 'Bajo',
-  moderate: 'Moderado',
-  high: 'Alto',
-  critical: 'Crítico',
-};
+import { DIAGNOSTIC_RISK_LABEL } from '@/features/diagnostics/state';
+import { PageHeader, StatCard } from '../../../_components/ui';
 
 export default async function DiagnosticResultsPage({
   params,
@@ -26,49 +21,45 @@ export default async function DiagnosticResultsPage({
     throw error;
   }
 
+  const riskTone =
+    result.riskLevel === 'low'
+      ? 'success'
+      : result.riskLevel === 'critical' || result.riskLevel === 'high'
+        ? 'danger'
+        : 'warning';
+
   return (
     <main className="container">
       <p>
         <Link href={`/dashboard/diagnostics/${diagnosticId}`}>← Volver al diagnóstico</Link>
       </p>
 
-      <h1>{result.diagnosticName}</h1>
-      <p className="banner banner--provisional" role="note">
-        <strong>Resultado preliminar de demostración.</strong> Reglas de cálculo provisionales; no
-        es el motor de puntuación definitivo.
+      <PageHeader
+        title="Resultado de evaluación"
+        subtitle={result.diagnosticName}
+      />
+
+      <div className="statcard-row">
+        <StatCard label="Cumplimiento" value={`${result.percentage}%`} />
+        <StatCard label="Nivel de riesgo" value={DIAGNOSTIC_RISK_LABEL[result.riskLevel] ?? result.riskLevel} tone={riskTone} />
+        <StatCard
+          label="Críticos incumplidos"
+          value={result.criticalUnmet}
+          tone={result.criticalUnmet > 0 ? 'danger' : 'success'}
+        />
+      </div>
+
+      <div className="statcard-row">
+        <StatCard label="Conformes" value={result.conforming} tone="success" />
+        <StatCard label="No conformes" value={result.nonConforming} tone={result.nonConforming > 0 ? 'danger' : 'default'} />
+        <StatCard label="No aplica" value={result.notApplicable} />
+      </div>
+
+      <p className="muted">
+        Escala de riesgo: Bajo 90–100% · Moderado 75–89.99% · Alto 50–74.99% · Crítico &lt;50%. Un
+        crítico incumplido sitúa el riesgo en Alto como mínimo. Este resultado orienta la mejora; no
+        constituye una certificación.
       </p>
-
-      <div className="stat-row">
-        <div className="stat">
-          <span className="stat__label">Cumplimiento preliminar</span>
-          <span className="stat__value">{result.percentage}%</span>
-        </div>
-        <div className="stat">
-          <span className="stat__label">Riesgo preliminar</span>
-          <span className={`stat__value badge badge--risk-${result.riskLevel}`}>
-            {RISK_LABEL[result.riskLevel] ?? result.riskLevel}
-          </span>
-        </div>
-        <div className="stat">
-          <span className="stat__label">Críticos incumplidos</span>
-          <span className="stat__value">{result.criticalUnmet}</span>
-        </div>
-      </div>
-
-      <div className="stat-row">
-        <div className="stat stat--sm">
-          <span className="stat__label">Conformes</span>
-          <span className="stat__value">{result.conforming}</span>
-        </div>
-        <div className="stat stat--sm">
-          <span className="stat__label">No conformes</span>
-          <span className="stat__value">{result.nonConforming}</span>
-        </div>
-        <div className="stat stat--sm">
-          <span className="stat__label">No aplica</span>
-          <span className="stat__value">{result.notApplicable}</span>
-        </div>
-      </div>
 
       <h2>Resumen por sección</h2>
       <div className="table-wrap">
@@ -96,9 +87,9 @@ export default async function DiagnosticResultsPage({
         </table>
       </div>
 
-      <h2>Brechas</h2>
+      <h2>Brechas priorizadas</h2>
       {result.gaps.length === 0 ? (
-        <p className="empty-state">Sin brechas registradas por las reglas preliminares.</p>
+        <p className="empty-state">Sin brechas registradas.</p>
       ) : (
         <ul className="gaps">
           {result.gaps.map((g) => (

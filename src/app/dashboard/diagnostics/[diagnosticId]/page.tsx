@@ -2,15 +2,39 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
 import { DiagnosticNotFoundError, getDiagnosticDetail } from '@/server/diagnostics';
+import { DIAGNOSTIC_STATUS_LABEL, type DiagnosticStatus } from '@/features/diagnostics/state';
+import { DetailHeader, NextActionCard } from '../../_components/detail';
 import { AnswerForm } from './AnswerForm';
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Borrador',
-  in_progress: 'En captura',
-  submitted: 'Enviado',
-  reviewed: 'Revisado',
-  archived: 'Archivado',
-};
+function nextAction(status: DiagnosticStatus, pending: number, resultHref: string) {
+  const seeResult = (
+    <Link className="button button--ghost" href={resultHref}>
+      Ver resultado de evaluación
+    </Link>
+  );
+  switch (status) {
+    case 'draft':
+      return { text: 'Comienza la evaluación respondiendo los requisitos.', tone: 'default' as const };
+    case 'in_progress':
+      return {
+        text:
+          pending > 0
+            ? `Continúa la captura: quedan ${pending} preguntas por responder. Al completar, envía la evaluación.`
+            : 'Todas las preguntas están respondidas. Envía la evaluación para registrar el resultado.',
+        tone: 'default' as const,
+      };
+    case 'submitted':
+      return {
+        text: 'La evaluación fue enviada. Revisa el resultado o márcala como revisada.',
+        action: seeResult,
+        tone: 'success' as const,
+      };
+    case 'reviewed':
+      return { text: 'La evaluación está revisada.', action: seeResult, tone: 'success' as const };
+    case 'archived':
+      return { text: 'Diagnóstico archivado (solo lectura).', tone: 'warning' as const };
+  }
+}
 
 export default async function DiagnosticDetailPage({
   params,
@@ -29,41 +53,34 @@ export default async function DiagnosticDetailPage({
   }
 
   const { progress } = detail;
+  const status = detail.status as DiagnosticStatus;
+  const resultHref = `/dashboard/diagnostics/${detail.id}/results`;
+  const na = nextAction(status, progress.total - progress.answered, resultHref);
 
   return (
     <main className="container">
-      <p>
-        <Link href="/dashboard">← Volver al panel</Link>
-      </p>
+      <DetailHeader
+        backHref="/dashboard/diagnostics"
+        backLabel="Volver a diagnósticos"
+        title={detail.name}
+        badge={<span className={`badge badge--diag-${status}`}>{DIAGNOSTIC_STATUS_LABEL[status]}</span>}
+        meta={[
+          { label: 'Sitio', value: detail.siteName },
+          { label: 'Esquema', value: detail.templateLabel },
+        ]}
+        actions={
+          <Link className="button button--ghost" href={resultHref}>
+            Ver resultado
+          </Link>
+        }
+      />
 
-      <h1>{detail.name}</h1>
-      <dl className="meta-grid">
-        <div>
-          <dt>Organización</dt>
-          <dd>{detail.organizationName}</dd>
-        </div>
-        <div>
-          <dt>Sitio</dt>
-          <dd>{detail.siteName}</dd>
-        </div>
-        <div>
-          <dt>Plantilla</dt>
-          <dd>{detail.templateLabel}</dd>
-        </div>
-        <div>
-          <dt>Estado</dt>
-          <dd>
-            <span className={`badge badge--status-${detail.status}`}>
-              {STATUS_LABEL[detail.status] ?? detail.status}
-            </span>
-          </dd>
-        </div>
-      </dl>
+      <NextActionCard text={na.text} action={na.action} tone={na.tone} />
 
       <section aria-label="Progreso de captura" className="progress">
         <div className="progress__head">
           <span>
-            Progreso de captura: {progress.answered}/{progress.total} preguntas
+            Captura de respuestas: {progress.answered}/{progress.total} preguntas
           </span>
           <strong>{progress.percentage}%</strong>
         </div>
@@ -76,16 +93,9 @@ export default async function DiagnosticDetailPage({
         >
           <div className="progress__fill" style={{ width: `${progress.percentage}%` }} />
         </div>
-        <p className="muted">Este porcentaje es de captura, no de cumplimiento.</p>
       </section>
 
       <AnswerForm detail={detail} />
-
-      <p style={{ marginTop: '1.5rem' }}>
-        <Link className="button button--ghost" href={`/dashboard/diagnostics/${detail.id}/results`}>
-          Ver resultado preliminar
-        </Link>
-      </p>
     </main>
   );
 }

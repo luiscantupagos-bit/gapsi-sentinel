@@ -178,6 +178,111 @@ export async function getDashboardData(organizationId: string): Promise<Dashboar
   };
 }
 
+export interface DiagnosticListItem {
+  id: string;
+  name: string;
+  status: DiagnosticStatus;
+  siteName: string;
+  frameworkName: string;
+  responsibleName: string | null;
+  targetDate: Date | null;
+  updatedAt: Date;
+  progress: { answered: number; total: number; percentage: number };
+}
+
+export interface DiagnosticFilters {
+  search?: string;
+  status?: string;
+  siteId?: string;
+}
+
+/** Listado (scoped) de diagnósticos con datos humanos para la vista de listado. */
+export async function listDiagnostics(
+  organizationId: string,
+  filters: DiagnosticFilters = {},
+): Promise<DiagnosticListItem[]> {
+  const prisma = getPrisma();
+  const where: Record<string, unknown> = { organizationId, deletedAt: null };
+  if (filters.status) where.status = filters.status;
+  if (filters.siteId) where.siteId = filters.siteId;
+  if (filters.search) where.name = { contains: filters.search, mode: 'insensitive' };
+
+  const diagnostics = await prisma.diagnostic.findMany({
+    where,
+    orderBy: { updatedAt: 'desc' },
+    take: 200,
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      updatedAt: true,
+      createdAt: true,
+      targetDate: true,
+      responsibleUserId: true,
+      templateVersionId: true,
+      site: { select: { name: true } },
+      templateVersion: {
+        select: { versionNumber: true, framework: { select: { name: true } } },
+      },
+    },
+  });
+
+  const responsibleIds = [
+    ...new Set(diagnostics.map((d) => d.responsibleUserId).filter((v): v is string => Boolean(v))),
+  ];
+  const users = responsibleIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: responsibleIds } },
+        select: { id: true, displayName: true },
+      })
+    : [];
+  const nameOf = new Map(users.map((u) => [u.id, u.displayName]));
+
+  return Promise.all(
+    diagnostics.map(async (d) => {
+      const [total, answered] = await Promise.all([
+        prisma.templateQuestion.count({ where: { templateVersionId: d.templateVersionId } }),
+        prisma.diagnosticAnswer.count({
+          where: { diagnosticId: d.id, organizationId, answerStatus: { not: 'pending' } },
+        }),
+      ]);
+      return {
+        id: d.id,
+        name: d.name,
+        status: d.status as DiagnosticStatus,
+        siteName: d.site.name,
+        frameworkName: d.templateVersion.framework.name.replace(/\s*\(.*\)$/, ''),
+        responsibleName: d.responsibleUserId ? (nameOf.get(d.responsibleUserId) ?? null) : null,
+        targetDate: d.targetDate,
+        updatedAt: d.updatedAt ?? d.createdAt,
+        progress: progressOf(total, answered),
+      };
+    }),
+  );
+}
+
+/** Resumen para las tarjetas del listado de diagnósticos. */
+export async function getDiagnosticSummary(organizationId: string): Promise<{
+  total: number;
+  inProgress: number;
+  pending: number;
+  completed: number;
+}> {
+  const prisma = getPrisma();
+  const rows = await prisma.diagnostic.groupBy({
+    by: ['status'],
+    where: { organizationId, deletedAt: null },
+    _count: { _all: true },
+  });
+  const by = (s: string) => rows.find((r) => r.status === s)?._count._all ?? 0;
+  return {
+    total: rows.reduce((acc, r) => acc + r._count._all, 0),
+    inProgress: by('in_progress'),
+    pending: by('draft'),
+    completed: by('submitted') + by('reviewed'),
+  };
+}
+
 export async function getDiagnosticDetail(
   organizationId: string,
   diagnosticId: string,
@@ -464,8 +569,8 @@ export interface PreviewResultWithMeta extends PreviewResult {
 }
 
 /**
- * Calcula el resultado PRELIMINAR de demostración al consultar (no se persiste).
- * Determinista; usa el módulo de dominio provisional `computePreview`.
+ * Calcula el resultado de evaluación al consultar (no se persiste, refleja el
+ * estado actual de las respuestas). Determinista; usa `computePreview`.
  */
 export async function getPreviewResult(
   organizationId: string,

@@ -3304,3 +3304,174 @@ a.tool-card:focus-visible {
 .data-table tr.is-hovered {
   background: var(--color-primary-soft, #e8f0fe);
 }
+
+/* ===================================================================== */
+/* CORE-ALIGN-001 — Diagnósticos: badges de estado.                      */
+/* ===================================================================== */
+.badge--diag-draft {
+  background: #e5e7eb;
+  color: #374151;
+}
+.badge--diag-in_progress {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.badge--diag-submitted {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--diag-reviewed {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--diag-archived {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* ===================================================================== */
+/* CORE-ALIGN-001 — Patrón de detalle compartido.                        */
+/* ===================================================================== */
+.detailhead {
+  margin-bottom: var(--space-4);
+}
+.detailhead__back {
+  display: inline-block;
+  margin-bottom: var(--space-3);
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+}
+.detailhead__back:hover {
+  color: var(--color-primary);
+}
+.detailhead__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.detailhead__titlewrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.detailhead__title {
+  margin: 0;
+  font-size: 1.35rem;
+}
+.detailhead__actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.detailhead__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+  margin: var(--space-3) 0 0;
+}
+.detailhead__meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detailhead__meta dt {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.detailhead__meta dd {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.nextaction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  margin-bottom: var(--space-4);
+}
+.nextaction--success {
+  border-left-color: var(--color-success);
+  background: #f0fdf4;
+}
+.nextaction--warning {
+  border-left-color: var(--color-warning);
+  background: #fffbeb;
+}
+.nextaction__label {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.nextaction__text {
+  margin: 2px 0 0;
+  font-weight: 500;
+}
+.nextaction__cta {
+  flex-shrink: 0;
+}
+
+.stageprogress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+}
+.stageprogress__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px 6px 6px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  background: var(--color-surface-2);
+}
+.stageprogress__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-border);
+  color: var(--color-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.stageprogress__step.is-done {
+  color: var(--color-success);
+  background: #f0fdf4;
+}
+.stageprogress__step.is-done .stageprogress__dot {
+  background: var(--color-success);
+  color: #fff;
+}
+.stageprogress__step.is-current {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-weight: 600;
+}
+.stageprogress__step.is-current .stageprogress__dot {
+  background: var(--color-primary);
+  color: #fff;
+}

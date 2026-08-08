@@ -15,6 +15,23 @@ export const DIAGNOSTIC_STATUSES = [
 
 export type DiagnosticStatus = (typeof DIAGNOSTIC_STATUSES)[number];
 
+/** Etiquetas humanas (es-MX) del estado del diagnóstico. */
+export const DIAGNOSTIC_STATUS_LABEL: Record<DiagnosticStatus, string> = {
+  draft: 'Borrador',
+  in_progress: 'En progreso',
+  submitted: 'Enviado',
+  reviewed: 'Revisado',
+  archived: 'Archivado',
+};
+
+/** Etiquetas humanas del nivel de riesgo del resultado de evaluación. */
+export const DIAGNOSTIC_RISK_LABEL: Record<string, string> = {
+  low: 'Bajo',
+  moderate: 'Moderado',
+  high: 'Alto',
+  critical: 'Crítico',
+};
+
 export function isDiagnosticStatus(value: unknown): value is DiagnosticStatus {
   return typeof value === 'string' && (DIAGNOSTIC_STATUSES as readonly string[]).includes(value);
 }
