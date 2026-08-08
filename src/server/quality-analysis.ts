@@ -36,6 +36,12 @@ import {
   type ActionType,
   type CapaPriority,
 } from '@/features/capa/capa-state';
+import {
+  validateFtaTree,
+  type FtaNodeType,
+  type GateType,
+  type FtaNodeInput,
+} from '@/features/analysis/fta';
 
 // --- Errores -----------------------------------------------------------------
 
@@ -1598,4 +1604,531 @@ export async function listAnalysisMembers(organizationId: string) {
     select: { id: true, displayName: true, email: true },
   });
   return users.map((u) => ({ id: u.id, name: u.displayName ?? u.email }));
+}
+
+// ============================================================================
+// Fase 5 — Árbol de Fallas (FTA) y relaciones transversales de análisis
+// ============================================================================
+
+export const RELATION_TYPES = [
+  'capa',
+  'project',
+  'audit_finding',
+  'quality_event',
+  'data_study',
+] as const;
+export type RelationType = (typeof RELATION_TYPES)[number];
+
+export const RELATION_TYPE_LABEL: Record<RelationType, string> = {
+  capa: 'CAPA',
+  project: 'Proyecto',
+  audit_finding: 'Hallazgo',
+  quality_event: 'Evento',
+  data_study: 'Estudio de datos',
+};
+
+/** Valida que el origen (target) exista en la organización. */
+async function assertRelationTarget(
+  organizationId: string,
+  relationType: RelationType,
+  targetId: string,
+): Promise<void> {
+  const p = getPrisma();
+  const w = { id: targetId, organizationId } as const;
+  let exists = false;
+  switch (relationType) {
+    case 'capa':
+      exists = Boolean(await p.capa.findFirst({ where: w, select: { id: true } }));
+      break;
+    case 'project':
+      exists = Boolean(await p.project.findFirst({ where: w, select: { id: true } }));
+      break;
+    case 'audit_finding':
+      exists = Boolean(await p.auditFinding.findFirst({ where: w, select: { id: true } }));
+      break;
+    case 'quality_event':
+      exists = Boolean(await p.qualityEvent.findFirst({ where: w, select: { id: true } }));
+      break;
+    case 'data_study':
+      exists = Boolean(await p.dataStudy.findFirst({ where: w, select: { id: true } }));
+      break;
+  }
+  if (!exists)
+    throw new AnalysisValidationError(['El origen del análisis no existe en la organización.']);
+}
+
+/** Siembra el evento superior de un FTA a partir del título del análisis. */
+async function seedFtaTop(
+  tx: Tx,
+  organizationId: string,
+  analysisId: string,
+  label: string,
+  actorId: string,
+) {
+  await tx.ftaNode.create({
+    data: {
+      organizationId,
+      analysisId,
+      parentId: null,
+      nodeType: 'top',
+      gateType: null,
+      label: label.slice(0, 200),
+      position: 0,
+      createdBy: actorId,
+    },
+  });
+}
+
+/**
+ * Crea un análisis vinculado a un origen (CAPA/proyecto/hallazgo/evento/estudio)
+ * mediante `analysis_relations`. No depende obligatoriamente de capaId: solo se
+ * fija capaId cuando el origen ES una CAPA (compatibilidad con el flujo previo).
+ */
+export async function createLinkedAnalysis(
+  organizationId: string,
+  actorId: string,
+  input: {
+    type: AnalysisType;
+    title: string;
+    objective?: string | null;
+    scope?: string | null;
+    responsibleUserId?: string | null;
+  },
+  relation: { relationType: RelationType; targetId: string; note?: string | null },
+): Promise<string> {
+  const role = await memberRole(organizationId, actorId);
+  if (!canCreate(role)) throw new AnalysisPermissionError('Tu rol no permite crear análisis.');
+  const relationType = inSet(RELATION_TYPES, relation.relationType, 'capa');
+  await assertRelationTarget(organizationId, relationType, relation.targetId);
+  if (!input.title?.trim()) throw new AnalysisValidationError(['Falta el título.']);
+  const type = input.type;
+  const capaId = relationType === 'capa' ? relation.targetId : null;
+  const config =
+    type === 'fmea'
+      ? { scale: FMEA_DEFAULT_SCALE }
+      : type === 'pareto'
+        ? { cutoff: 80, valueKey: 'count' }
+        : undefined;
+
+  return withOrgContext(organizationId, async (tx) => {
+    const a = await tx.qualityAnalysis.create({
+      data: {
+        organizationId,
+        capaId,
+        type,
+        title: input.title.trim(),
+        objective: input.objective?.trim() || null,
+        scope: input.scope?.trim() || null,
+        status: 'draft',
+        responsibleUserId: input.responsibleUserId || actorId,
+        config: config as Prisma.InputJsonValue | undefined,
+        createdBy: actorId,
+      },
+    });
+    if (type === 'ishikawa') {
+      let pos = 0;
+      for (const name of ISHIKAWA_DEFAULT_CATEGORIES) {
+        pos += 1;
+        await tx.ishikawaCategory.create({
+          data: { organizationId, analysisId: a.id, name, position: pos, createdBy: actorId },
+        });
+      }
+    }
+    if (type === 'fta') await seedFtaTop(tx, organizationId, a.id, input.title.trim(), actorId);
+    await tx.analysisRelation.create({
+      data: {
+        organizationId,
+        analysisId: a.id,
+        relationType,
+        targetId: relation.targetId,
+        note: relation.note?.trim() || null,
+        createdBy: actorId,
+      },
+    });
+    await recordHistory(tx, organizationId, a.id, 'analysis_created', actorId, {
+      toStatus: 'draft',
+      summary: input.title.trim(),
+    });
+    await recordHistory(tx, organizationId, a.id, 'type_selected', actorId, { entity: type });
+    await recordHistory(tx, organizationId, a.id, 'relation_added', actorId, {
+      entity: relationType,
+    });
+    return a.id;
+  });
+}
+
+/** Vincula un análisis EXISTENTE a otro origen (trazabilidad múltiple, sin sobrescribir). */
+export async function attachAnalysisRelation(
+  organizationId: string,
+  actorId: string,
+  analysisId: string,
+  relation: { relationType: RelationType; targetId: string; note?: string | null },
+): Promise<void> {
+  const role = await memberRole(organizationId, actorId);
+  if (!canCreate(role)) throw new AnalysisPermissionError('Tu rol no permite vincular análisis.');
+  const analysis = await loadAnalysis(organizationId, analysisId);
+  const relationType = inSet(RELATION_TYPES, relation.relationType, 'capa');
+  await assertRelationTarget(organizationId, relationType, relation.targetId);
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.analysisRelation.upsert({
+      where: {
+        analysisId_relationType_targetId: {
+          analysisId: analysis.id,
+          relationType,
+          targetId: relation.targetId,
+        },
+      },
+      create: {
+        organizationId,
+        analysisId: analysis.id,
+        relationType,
+        targetId: relation.targetId,
+        note: relation.note?.trim() || null,
+        createdBy: actorId,
+      },
+      update: { note: relation.note?.trim() || null },
+    });
+    // Conveniencia: si se vincula a una CAPA y aún no tenía, fija capaId.
+    if (relationType === 'capa' && !analysis.capaId)
+      await tx.qualityAnalysis.update({
+        where: { id: analysis.id },
+        data: { capaId: relation.targetId },
+      });
+    await recordHistory(tx, organizationId, analysis.id, 'relation_added', actorId, {
+      entity: relationType,
+    });
+  });
+}
+
+/** Quita una relación (no elimina el análisis ni otras relaciones). */
+export async function detachAnalysisRelation(
+  organizationId: string,
+  actorId: string,
+  relationId: string,
+): Promise<void> {
+  const role = await memberRole(organizationId, actorId);
+  if (!canCreate(role)) throw new AnalysisPermissionError();
+  await withOrgContext(organizationId, async (tx) => {
+    const rel = await tx.analysisRelation.findFirst({
+      where: { id: relationId, organizationId },
+    });
+    if (!rel) throw new AnalysisNotFoundError('Relación no encontrada.');
+    await tx.analysisRelation.deleteMany({ where: { id: relationId, organizationId } });
+    await recordHistory(tx, organizationId, rel.analysisId, 'relation_removed', actorId, {
+      entity: rel.relationType,
+    });
+  });
+}
+
+export interface RelatedAnalysisRow {
+  id: string;
+  relationId: string | null;
+  type: string;
+  title: string;
+  status: string;
+  version: number;
+  responsibleName: string | null;
+  updatedAt: string;
+}
+
+/** Lista los análisis vinculados a un origen (por relación; CAPA también por capaId). */
+export async function listAnalysesForTarget(
+  organizationId: string,
+  relationType: RelationType,
+  targetId: string,
+): Promise<RelatedAnalysisRow[]> {
+  const rels = await getPrisma().analysisRelation.findMany({
+    where: { organizationId, relationType, targetId },
+    select: { id: true, analysisId: true },
+  });
+  const relByAnalysis = new Map(rels.map((r) => [r.analysisId, r.id]));
+  const ids = new Set(rels.map((r) => r.analysisId));
+  if (relationType === 'capa') {
+    const legacy = await getPrisma().qualityAnalysis.findMany({
+      where: { organizationId, capaId: targetId, deletedAt: null },
+      select: { id: true },
+    });
+    legacy.forEach((a) => ids.add(a.id));
+  }
+  if (ids.size === 0) return [];
+  const [analyses, members] = await Promise.all([
+    getPrisma().qualityAnalysis.findMany({
+      where: { organizationId, id: { in: [...ids] }, deletedAt: null },
+      orderBy: { updatedAt: 'desc' },
+    }),
+    memberDirectory(organizationId),
+  ]);
+  return analyses.map((a) => ({
+    id: a.id,
+    relationId: relByAnalysis.get(a.id) ?? null,
+    type: a.type,
+    title: a.title,
+    status: a.status,
+    version: a.version,
+    responsibleName: a.responsibleUserId ? (members.get(a.responsibleUserId) ?? null) : null,
+    updatedAt: (a.updatedAt ?? a.createdAt).toISOString().slice(0, 10),
+  }));
+}
+
+// --- FTA: nodos --------------------------------------------------------------
+
+async function loadFtaNode(organizationId: string, nodeId: string) {
+  const node = await getPrisma().ftaNode.findFirst({ where: { id: nodeId, organizationId } });
+  if (!node) throw new AnalysisNotFoundError('Nodo del árbol no encontrado.');
+  return node;
+}
+
+export async function addFtaNode(
+  organizationId: string,
+  actorId: string,
+  analysisId: string,
+  input: {
+    parentId?: string | null;
+    nodeType: FtaNodeType;
+    gateType?: GateType | null;
+    label: string;
+    description?: string | null;
+    notes?: string | null;
+  },
+): Promise<string> {
+  const { analysis } = await assertEditor(organizationId, analysisId, actorId);
+  if (analysis.type !== 'fta')
+    throw new AnalysisValidationError(['El análisis no es un Árbol de Fallas.']);
+  if (!input.label?.trim()) throw new AnalysisValidationError(['El nodo requiere una etiqueta.']);
+  const nodeType = inSet(['top', 'intermediate', 'basic'] as const, input.nodeType, 'basic');
+  let parentId = input.parentId || null;
+
+  if (nodeType === 'top') {
+    const existingTop = await getPrisma().ftaNode.findFirst({
+      where: { analysisId, organizationId, nodeType: 'top' },
+      select: { id: true },
+    });
+    if (existingTop) throw new AnalysisValidationError(['Ya existe un evento superior.']);
+    parentId = null;
+  } else {
+    if (!parentId) throw new AnalysisValidationError(['Selecciona el evento padre.']);
+    const parent = await getPrisma().ftaNode.findFirst({
+      where: { id: parentId, analysisId, organizationId },
+    });
+    if (!parent) throw new AnalysisNotFoundError('Evento padre no encontrado.');
+    if (parent.nodeType === 'basic')
+      throw new AnalysisValidationError(['Un evento básico no puede tener hijos.']);
+  }
+  const gateType = input.gateType ? inSet(['and', 'or'] as const, input.gateType, 'and') : null;
+
+  return withOrgContext(organizationId, async (tx) => {
+    const position = await tx.ftaNode.count({ where: { analysisId, organizationId, parentId } });
+    const n = await tx.ftaNode.create({
+      data: {
+        organizationId,
+        analysisId,
+        parentId,
+        nodeType,
+        gateType,
+        label: input.label.trim(),
+        description: input.description?.trim() || null,
+        notes: input.notes?.trim() || null,
+        position,
+        createdBy: actorId,
+      },
+    });
+    await recordHistory(tx, organizationId, analysisId, 'fta_node_added', actorId, {
+      entity: nodeType,
+      summary: input.label.trim().slice(0, 120),
+    });
+    return n.id;
+  });
+}
+
+export async function updateFtaNode(
+  organizationId: string,
+  actorId: string,
+  nodeId: string,
+  input: {
+    label?: string;
+    description?: string | null;
+    notes?: string | null;
+    gateType?: GateType | null;
+    nodeType?: FtaNodeType;
+  },
+): Promise<void> {
+  const node = await loadFtaNode(organizationId, nodeId);
+  await assertEditor(organizationId, node.analysisId, actorId);
+  const data: Prisma.FtaNodeUpdateInput = {};
+  if (input.label !== undefined) {
+    if (!input.label.trim())
+      throw new AnalysisValidationError(['La etiqueta no puede estar vacía.']);
+    data.label = input.label.trim();
+  }
+  if (input.description !== undefined) data.description = input.description?.trim() || null;
+  if (input.notes !== undefined) data.notes = input.notes?.trim() || null;
+  if (input.gateType !== undefined)
+    data.gateType = input.gateType ? inSet(['and', 'or'] as const, input.gateType, 'and') : null;
+  if (input.nodeType !== undefined) {
+    const nt = inSet(
+      ['top', 'intermediate', 'basic'] as const,
+      input.nodeType,
+      node.nodeType as FtaNodeType,
+    );
+    if (nt === 'basic') {
+      const children = await getPrisma().ftaNode.count({
+        where: { parentId: nodeId, organizationId },
+      });
+      if (children > 0)
+        throw new AnalysisValidationError(['Un evento con hijos no puede volverse básico.']);
+    }
+    if (nt === 'top' && node.nodeType !== 'top')
+      throw new AnalysisValidationError(['No puedes convertir un nodo en evento superior.']);
+    data.nodeType = nt;
+  }
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.ftaNode.update({ where: { id: nodeId }, data });
+    await recordHistory(tx, organizationId, node.analysisId, 'fta_node_updated', actorId, {
+      entity: 'fta_node',
+    });
+  });
+}
+
+export async function deleteFtaNode(
+  organizationId: string,
+  actorId: string,
+  nodeId: string,
+): Promise<void> {
+  const node = await loadFtaNode(organizationId, nodeId);
+  await assertEditor(organizationId, node.analysisId, actorId);
+  const children = await getPrisma().ftaNode.count({ where: { parentId: nodeId, organizationId } });
+  if (children > 0) throw new AnalysisValidationError(['Elimina primero los eventos hijos.']);
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.ftaNode.deleteMany({ where: { id: nodeId, organizationId } });
+    await recordHistory(tx, organizationId, node.analysisId, 'fta_node_removed', actorId, {
+      entity: node.nodeType,
+    });
+  });
+}
+
+/** Nodos del árbol (para render y validación en UI). */
+export async function listFtaNodes(
+  organizationId: string,
+  analysisId: string,
+): Promise<FtaNodeInput[]> {
+  const nodes = await getPrisma().ftaNode.findMany({
+    where: { analysisId, organizationId },
+    orderBy: [{ position: 'asc' }],
+  });
+  return nodes.map((n) => ({
+    id: n.id,
+    parentId: n.parentId,
+    nodeType: n.nodeType as FtaNodeType,
+    gateType: (n.gateType as GateType | null) ?? null,
+    label: n.label,
+    description: n.description,
+    notes: n.notes,
+    position: n.position,
+  }));
+}
+
+/** Errores de validación del árbol (vacío = válido). Reutiliza el dominio puro. */
+export async function getFtaValidation(
+  organizationId: string,
+  analysisId: string,
+): Promise<string[]> {
+  return validateFtaTree(await listFtaNodes(organizationId, analysisId));
+}
+
+// --- Biblioteca global: origen + conclusión ----------------------------------
+
+export interface AnalysisLibraryRow {
+  id: string;
+  capaId: string | null;
+  type: string;
+  title: string;
+  status: string;
+  version: number;
+  responsibleName: string | null;
+  origin: string;
+  originHref: string | null;
+  conclusionSummary: string | null;
+  updatedAt: string;
+}
+
+/**
+ * Biblioteca GLOBAL de análisis, independientemente de su origen. Muestra
+ * herramienta, título, origen, estado, responsable, fecha y conclusión.
+ */
+export async function listAnalysisLibrary(
+  organizationId: string,
+  filters: { type?: string; status?: string; search?: string } = {},
+): Promise<AnalysisLibraryRow[]> {
+  const where: Prisma.QualityAnalysisWhereInput = { organizationId, deletedAt: null };
+  if (filters.type) where.type = filters.type;
+  if (filters.status) where.status = filters.status;
+  if (filters.search?.trim())
+    where.title = { contains: filters.search.trim(), mode: 'insensitive' };
+  const rows = await getPrisma().qualityAnalysis.findMany({
+    where,
+    orderBy: { updatedAt: 'desc' },
+    take: 500,
+  });
+  const ids = rows.map((r) => r.id);
+  const [members, capas, relations, conclusions] = await Promise.all([
+    memberDirectory(organizationId),
+    getPrisma().capa.findMany({
+      where: {
+        organizationId,
+        id: { in: [...new Set(rows.map((r) => r.capaId).filter((v): v is string => v !== null))] },
+      },
+      select: { id: true, folio: true },
+    }),
+    getPrisma().analysisRelation.findMany({
+      where: { organizationId, analysisId: { in: ids } },
+      select: { analysisId: true, relationType: true, targetId: true },
+    }),
+    getPrisma().qualityAnalysisConclusion.findMany({
+      where: { organizationId, analysisId: { in: ids } },
+      select: {
+        analysisId: true,
+        summary: true,
+        proposedRootCause: true,
+        confirmedRootCause: true,
+      },
+    }),
+  ]);
+  const folioByCapa = new Map(capas.map((c) => [c.id, c.folio]));
+  const relByAnalysis = new Map<string, { relationType: string; targetId: string | null }[]>();
+  for (const r of relations)
+    relByAnalysis.set(r.analysisId, [...(relByAnalysis.get(r.analysisId) ?? []), r]);
+  const conclByAnalysis = new Map(conclusions.map((c) => [c.analysisId, c]));
+
+  return rows.map((a) => {
+    const rels = relByAnalysis.get(a.id) ?? [];
+    let origin = 'Independiente';
+    let originHref: string | null = null;
+    if (a.capaId) {
+      origin = `CAPA ${folioByCapa.get(a.capaId) ?? ''}`.trim();
+      originHref = `/dashboard/capa/${a.capaId}`;
+    } else if (rels.length > 0) {
+      const labels = [
+        ...new Set(
+          rels.map((r) => RELATION_TYPE_LABEL[r.relationType as RelationType] ?? r.relationType),
+        ),
+      ];
+      origin = labels.join(', ');
+    }
+    const c = conclByAnalysis.get(a.id);
+    const conclusionSummary =
+      c?.confirmedRootCause?.trim() || c?.proposedRootCause?.trim() || c?.summary?.trim() || null;
+    return {
+      id: a.id,
+      capaId: a.capaId,
+      type: a.type,
+      title: a.title,
+      status: a.status,
+      version: a.version,
+      responsibleName: a.responsibleUserId ? (members.get(a.responsibleUserId) ?? null) : null,
+      origin,
+      originHref,
+      conclusionSummary,
+      updatedAt: (a.updatedAt ?? a.createdAt).toISOString().slice(0, 10),
+    };
+  });
 }
