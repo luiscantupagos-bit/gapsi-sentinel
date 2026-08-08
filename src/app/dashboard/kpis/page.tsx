@@ -23,7 +23,7 @@ export default async function KpisPage() {
     <main className="container">
       <PageHeader
         title="Indicadores (KPI)"
-        subtitle="Se calculan en servidor sobre el dato capturado una sola vez. Sin IA ni predicción."
+        subtitle="Supervisa el desempeño de tus procesos y el cumplimiento de tus metas."
         actions={
           <div className="page-head__actions">
             <AnalyticsActionForm

@@ -35,7 +35,7 @@ export default async function QualityEventsPage({
     <main className="container">
       <PageHeader
         title="Eventos de calidad"
-        subtitle="Registro nativo de eventos manuales. Los datos de otros módulos se agregan en vivo en Analítica."
+        subtitle="Registra eventos de calidad. Los demás módulos se consolidan automáticamente en Analítica."
         actions={
           <Link className="button button--primary" href="/dashboard/quality-events/new">
             Registrar evento

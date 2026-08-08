@@ -580,7 +580,11 @@ export default async function AnalysisDetailPage({
                     <tbody>
                       {detail.recurrence.map((r) => (
                         <tr key={r.id}>
-                          <td>{r.matchedCapaId.slice(0, 8)}</td>
+                          <td>
+                            <Link href={`/dashboard/capa/${r.matchedCapaId}`}>
+                              CAPA relacionada
+                            </Link>
+                          </td>
                           <td>
                             {RECURRENCE_CONFIRMATION_LABEL[
                               r.confirmation as RecurrenceConfirmation

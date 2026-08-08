@@ -88,45 +88,41 @@ export default async function AnalysisListPage({ searchParams }: { searchParams:
         <p className="empty-state">No hay análisis. Créalos desde una CAPA.</p>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="tbl-linkable">
             <thead>
               <tr>
-                <th>Análisis</th>
-                <th>CAPA</th>
                 <th>Tipo</th>
                 <th>Título</th>
+                <th>CAPA</th>
                 <th>Estado</th>
                 <th>Versión</th>
                 <th>Responsable</th>
                 <th>Actualizado</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((a) => (
                 <tr key={a.id}>
-                  <td>{a.id.slice(0, 8)}</td>
+                  <td>{ANALYSIS_TYPE_LABEL[a.type as AnalysisType] ?? a.type}</td>
+                  <td>
+                    <Link
+                      href={`/dashboard/capa/${a.capaId}/analysis/${a.id}`}
+                      className="tbl-title"
+                    >
+                      {a.title}
+                    </Link>
+                  </td>
                   <td>
                     <Link href={`/dashboard/capa/${a.capaId}`}>{a.capaFolio}</Link>
                   </td>
-                  <td>{ANALYSIS_TYPE_LABEL[a.type as AnalysisType] ?? a.type}</td>
-                  <td>{a.title}</td>
                   <td>
                     <span className={`badge badge--analysis-${a.status}`}>
                       {ANALYSIS_STATUS_LABEL[a.status as AnalysisStatus] ?? a.status}
                     </span>
                   </td>
                   <td>v{a.version}</td>
-                  <td>{a.responsibleName ?? '—'}</td>
+                  <td>{a.responsibleName ?? <span className="muted">—</span>}</td>
                   <td>{a.updatedAt}</td>
-                  <td>
-                    <Link
-                      className="button button--ghost"
-                      href={`/dashboard/capa/${a.capaId}/analysis/${a.id}`}
-                    >
-                      Abrir
-                    </Link>
-                  </td>
                 </tr>
               ))}
             </tbody>

@@ -15,7 +15,11 @@ import {
   CATEGORICAL_VARIABLES,
 } from '@/features/analytics/bivariate';
 import type { DimensionField, KpiPeriod } from '@/features/analytics/kpi-engine';
-import { PERIOD_LABEL, UNIFIED_SOURCE_LABEL } from '@/features/analytics/labels';
+import {
+  PERIOD_LABEL,
+  UNIFIED_SOURCE_LABEL,
+  UNIFIED_STATUS_LABEL,
+} from '@/features/analytics/labels';
 import { PageHeader, StatCard, SectionCard } from '../_components/ui';
 import { AnalyticsActionForm } from './_components/AnalyticsActionForm';
 import { evaluateAlertsAction, resolveAlertAction } from './actions';
@@ -82,11 +86,16 @@ export default async function AnalyticsPage({
     <main className="container">
       <PageHeader
         title="Analítica de calidad"
-        subtitle="Un solo dato, reutilizado: KPI, Pareto, tendencias, relaciones, estadística y calidad. Determinista, sin IA."
+        subtitle="Identifica patrones, tendencias y relaciones en los datos de calidad."
         actions={
-          <Link className="button button--ghost" href="/dashboard/kpis">
-            Ver KPI
-          </Link>
+          <>
+            <Link className="button button--ghost" href="/dashboard/quality-events">
+              Ver eventos
+            </Link>
+            <Link className="button button--ghost" href="/dashboard/kpis">
+              Ver indicadores
+            </Link>
+          </>
         }
       />
 
@@ -336,7 +345,7 @@ function RelacionesTab({ events }: { events: Ev }) {
                 <td>{UNIFIED_SOURCE_LABEL[e.source] ?? e.source}</td>
                 <td>{e.folio ?? '—'}</td>
                 <td>{e.title}</td>
-                <td>{e.status}</td>
+                <td>{UNIFIED_STATUS_LABEL[e.status] ?? e.status}</td>
                 <td>
                   <Link href={e.href}>Abrir →</Link>
                 </td>
@@ -370,8 +379,8 @@ function EstadisticaTab({ events, sp }: { events: Ev; sp: Record<string, string 
     <SectionCard title="Análisis estadístico interpretable">
       <p className="muted">
         Elige dos variables. Numérica↔numérica: Pearson, Spearman y regresión.
-        Categórica↔categórica: contingencia y chi². Categórica↔numérica: ANOVA. Todo es
-        determinista y auditable; la correlación no implica causalidad.
+        Categórica↔categórica: contingencia y chi². Categórica↔numérica: ANOVA. Recuerda: la
+        correlación no implica causalidad.
       </p>
       <form method="get" className="filter-bar">
         <input type="hidden" name="tab" value="estadistica" />

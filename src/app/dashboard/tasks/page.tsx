@@ -40,7 +40,7 @@ export default async function TasksPage({
     <main className="container">
       <PageHeader
         title="Tareas"
-        subtitle="Gestor global: tus tareas nativas y las de CAPA, documentos y análisis en un solo lugar."
+        subtitle="Consulta y da seguimiento a todas las tareas asignadas desde un solo lugar."
         actions={
           <Link className="button button--primary" href="/dashboard/tasks/new">
             Nueva tarea

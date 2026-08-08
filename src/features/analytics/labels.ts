@@ -58,6 +58,13 @@ export const TREND_LABEL: Record<string, string> = {
   insufficient: 'Datos insuficientes',
 };
 
+export const UNIFIED_STATUS_LABEL: Record<string, string> = {
+  open: 'Abierto',
+  in_progress: 'En progreso',
+  closed: 'Cerrado',
+  cancelled: 'Cancelado',
+};
+
 export const UNIFIED_SOURCE_LABEL: Record<string, string> = {
   quality_event: 'Evento nativo',
   capa: 'CAPA',
