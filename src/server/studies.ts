@@ -19,6 +19,13 @@ import {
 } from '@/features/studies/dataset';
 import { analyzeDatasetQuality, type DatasetQualityReport } from '@/features/studies/data-quality';
 import { evalFormula, type FormulaNode } from '@/features/studies/formula';
+import {
+  runAnalysis,
+  type AnalysisConfig,
+  type StudyMethod,
+  type StudyRowValues,
+} from '@/features/studies/analysis-adapter';
+import { interpret } from '@/features/studies/interpretation';
 
 type Tx = Prisma.TransactionClient;
 
@@ -414,29 +421,39 @@ export async function getDatasetPage(
     prisma.studyRow.count({ where: { datasetId, organizationId } }),
   ]);
 
-  const calc = variables.filter((v) => v.calculated && v.formula);
-  const resolved = rows.map((r) => {
-    const base = r.values as Record<string, string>;
-    const out: Record<string, string> = { ...base };
-    if (calc.length > 0) {
-      const nums: Record<string, number | null> = {};
-      for (const v of variables) {
-        if (!v.calculated) {
-          const raw = base[v.columnKey];
-          const n = raw === undefined || raw === '' ? null : Number(raw);
-          nums[v.columnKey] = Number.isFinite(n as number) ? (n as number) : null;
-        }
-      }
-      for (const v of calc) {
-        const res = evalFormula(v.formula as unknown as FormulaNode, nums);
-        out[v.columnKey] = res.value === null ? '' : String(res.value);
-        nums[v.columnKey] = res.value;
-      }
-    }
-    return { rowIndex: r.rowIndex, excluded: r.excluded, values: out };
-  });
+  const resolve = rowResolver(variables);
+  const resolved = rows.map((r) => ({
+    rowIndex: r.rowIndex,
+    excluded: r.excluded,
+    values: resolve(r.values as Record<string, string>),
+  }));
 
   return { variables, rows: resolved, total };
+}
+
+/** Devuelve una función que resuelve las columnas calculadas de una fila al vuelo. */
+function rowResolver(
+  variables: { columnKey: string; calculated: boolean; formula: unknown }[],
+): (base: Record<string, string>) => Record<string, string> {
+  const calc = variables.filter((v) => v.calculated && v.formula);
+  return (base) => {
+    const out: Record<string, string> = { ...base };
+    if (calc.length === 0) return out;
+    const nums: Record<string, number | null> = {};
+    for (const v of variables) {
+      if (!v.calculated) {
+        const raw = base[v.columnKey];
+        const n = raw === undefined || raw === '' ? null : Number(raw);
+        nums[v.columnKey] = Number.isFinite(n as number) ? (n as number) : null;
+      }
+    }
+    for (const v of calc) {
+      const res = evalFormula(v.formula as unknown as FormulaNode, nums);
+      out[v.columnKey] = res.value === null ? '' : String(res.value);
+      nums[v.columnKey] = res.value;
+    }
+    return out;
+  };
 }
 
 /** Reporte de calidad de datos del dataset (sobre las columnas base). */
@@ -466,5 +483,156 @@ export async function getDatasetQuality(
       type: v.varType as VariableType,
     })),
     rows: matrix,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Análisis estadístico reproducible (Fase 4)
+// ---------------------------------------------------------------------------
+
+/** Carga TODAS las filas del dataset con columnas calculadas resueltas al vuelo. */
+async function loadResolvedRows(
+  organizationId: string,
+  datasetId: string,
+): Promise<StudyRowValues[]> {
+  const prisma = getPrisma();
+  const [variables, rows] = await Promise.all([
+    prisma.studyVariable.findMany({
+      where: { datasetId, organizationId },
+      orderBy: { position: 'asc' },
+    }),
+    prisma.studyRow.findMany({
+      where: { datasetId, organizationId, excluded: false },
+      orderBy: { rowIndex: 'asc' },
+      select: { values: true },
+    }),
+  ]);
+  const resolve = rowResolver(variables);
+  return rows.map((r) => resolve(r.values as Record<string, string>));
+}
+
+export interface RunAnalysisInput {
+  datasetId: string;
+  method: StudyMethod;
+  config: AnalysisConfig;
+  title?: string | null;
+}
+
+/**
+ * Ejecuta un método sobre el dataset y persiste el resultado CONGELADO
+ * (dataset, configuración, resultado e interpretación). Reimportar el dataset o
+ * editar variables no altera análisis históricos: cada uno guarda su propia copia.
+ */
+export async function runStudyAnalysis(
+  organizationId: string,
+  actorId: string,
+  studyId: string,
+  input: RunAnalysisInput,
+): Promise<string> {
+  const role = await memberRole(organizationId, actorId);
+  if (!canWrite(role)) throw new StudyPermissionError('No tienes permiso para ejecutar análisis.');
+  const dataset = await getPrisma().studyDataset.findFirst({
+    where: { id: input.datasetId, studyId, organizationId },
+    select: { id: true, version: true },
+  });
+  if (!dataset) throw new StudyValidationError(['El dataset no pertenece al estudio.']);
+
+  const rows = await loadResolvedRows(organizationId, input.datasetId);
+  const result = runAnalysis(input.method, input.config, rows);
+  const interpretation = interpret(result);
+
+  return withOrgContext(organizationId, async (tx) => {
+    const analysis = await tx.studyAnalysis.create({
+      data: {
+        organizationId,
+        studyId,
+        datasetId: input.datasetId,
+        method: input.method,
+        title: input.title?.trim() || null,
+        config: { ...input.config, datasetVersion: dataset.version } as Prisma.InputJsonValue,
+        result: result as unknown as Prisma.InputJsonValue,
+        interpretation: (interpretation ?? undefined) as Prisma.InputJsonValue | undefined,
+        status: 'done',
+        createdBy: actorId,
+      },
+    });
+    await tx.dataStudy.update({
+      where: { id: studyId },
+      data: { status: 'analyzing' },
+    });
+    await tx.dataStudyHistory.create({
+      data: {
+        organizationId,
+        studyId,
+        event: 'analysis.run',
+        actorUserId: actorId,
+        detail: `${input.method}${input.title ? ` · ${input.title}` : ''}`,
+      },
+    });
+    return analysis.id;
+  });
+}
+
+export async function listStudyAnalyses(organizationId: string, studyId: string) {
+  return getPrisma().studyAnalysis.findMany({
+    where: { studyId, organizationId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      method: true,
+      title: true,
+      config: true,
+      result: true,
+      interpretation: true,
+      datasetId: true,
+      createdAt: true,
+    },
+  });
+}
+
+export async function getStudyAnalysis(organizationId: string, analysisId: string) {
+  return getPrisma().studyAnalysis.findFirst({
+    where: { id: analysisId, organizationId },
+  });
+}
+
+export async function deleteStudyAnalysis(
+  organizationId: string,
+  actorId: string,
+  analysisId: string,
+): Promise<void> {
+  const role = await memberRole(organizationId, actorId);
+  if (!canWrite(role)) throw new StudyPermissionError('Sin permiso.');
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.studyAnalysis.deleteMany({ where: { id: analysisId, organizationId } });
+  });
+}
+
+/** Conclusión del responsable (humana), separada de la interpretación automática. */
+export async function setStudyConclusion(
+  organizationId: string,
+  actorId: string,
+  studyId: string,
+  conclusion: string,
+  markConcluded: boolean,
+): Promise<void> {
+  const role = await memberRole(organizationId, actorId);
+  if (!canWrite(role)) throw new StudyPermissionError('Sin permiso.');
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.dataStudy.updateMany({
+      where: { id: studyId, organizationId },
+      data: {
+        conclusion: conclusion.trim() || null,
+        ...(markConcluded ? { status: 'concluded' } : {}),
+      },
+    });
+    await tx.dataStudyHistory.create({
+      data: {
+        organizationId,
+        studyId,
+        event: markConcluded ? 'study.concluded' : 'study.conclusion_saved',
+        actorUserId: actorId,
+      },
+    });
   });
 }

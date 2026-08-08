@@ -14,12 +14,16 @@ import {
   StudyValidationError,
   addCalculatedVariable,
   createStudy,
+  deleteStudyAnalysis,
   importDataset,
   parseUpload,
+  runStudyAnalysis,
+  setStudyConclusion,
   updateVariableType,
 } from '@/server/studies';
 import { deviationPercentFormula } from '@/features/studies/formula';
 import type { VariableType } from '@/features/studies/dataset';
+import type { AnalysisConfig, StudyMethod } from '@/features/studies/analysis-adapter';
 
 export interface FormState {
   ok: boolean;
@@ -143,4 +147,74 @@ export async function addDeviationVariableAction(
   }
   revalidatePath(`/dashboard/analytics/studies/${studyId}`);
   return { ok: true, message: 'Variable calculada creada.' };
+}
+
+const METHODS = new Set<StudyMethod>([
+  'descriptive',
+  'pareto',
+  'trend',
+  'correlation',
+  'regression',
+  'group_compare',
+  'anova',
+  'chi_square',
+]);
+
+export async function runAnalysisAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const studyId = s(fd, 'studyId');
+  const method = s(fd, 'method') as StudyMethod;
+  if (!METHODS.has(method)) return { ok: false, message: 'Selecciona un método válido.' };
+  const config: AnalysisConfig = {
+    variable: opt(fd, 'variable') ?? undefined,
+    category: opt(fd, 'category') ?? undefined,
+    weight: opt(fd, 'weight') ?? undefined,
+    value: opt(fd, 'value') ?? undefined,
+    date: opt(fd, 'date') ?? undefined,
+    period: (opt(fd, 'period') as AnalysisConfig['period']) ?? undefined,
+    x: opt(fd, 'x') ?? undefined,
+    y: opt(fd, 'y') ?? undefined,
+  };
+  try {
+    await runStudyAnalysis(session.organizationId, session.userId, studyId, {
+      datasetId: s(fd, 'datasetId'),
+      method,
+      config,
+      title: opt(fd, 'title'),
+    });
+  } catch (error) {
+    return toState(error);
+  }
+  revalidatePath(`/dashboard/analytics/studies/${studyId}`);
+  return { ok: true, message: 'Análisis ejecutado.' };
+}
+
+export async function deleteAnalysisAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const studyId = s(fd, 'studyId');
+  try {
+    await deleteStudyAnalysis(session.organizationId, session.userId, s(fd, 'analysisId'));
+  } catch (error) {
+    return toState(error);
+  }
+  revalidatePath(`/dashboard/analytics/studies/${studyId}`);
+  return { ok: true, message: 'Análisis eliminado.' };
+}
+
+export async function saveConclusionAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const studyId = s(fd, 'studyId');
+  try {
+    await setStudyConclusion(
+      session.organizationId,
+      session.userId,
+      studyId,
+      s(fd, 'conclusion'),
+      s(fd, 'markConcluded') === 'on',
+    );
+  } catch (error) {
+    return toState(error);
+  }
+  revalidatePath(`/dashboard/analytics/studies/${studyId}`);
+  return { ok: true, message: 'Conclusión guardada.' };
 }

@@ -6,16 +6,22 @@ import {
   getLatestDataset,
   getDatasetPage,
   getDatasetQuality,
+  listStudyAnalyses,
   STUDY_STATUS_LABEL,
 } from '@/server/studies';
 import { VARIABLE_TYPE_LABEL, DATASET_LIMITS, type VariableType } from '@/features/studies/dataset';
+import { STUDY_METHOD_LABEL, type StudyAnalysisResult } from '@/features/studies/analysis-adapter';
+import type { Interpretation } from '@/features/studies/interpretation';
 import { DetailHeader, DetailTabs } from '../../../_components/detail';
 import { StudyActionForm } from '../_components/StudyActionForm';
+import { NewAnalysisForm } from '../_components/NewAnalysisForm';
 import {
   importFileAction,
   importPasteAction,
   setVariableTypeAction,
   addDeviationVariableAction,
+  deleteAnalysisAction,
+  saveConclusionAction,
 } from '../actions';
 
 const TABS = [
@@ -23,6 +29,8 @@ const TABS = [
   { key: 'datos', label: 'Datos' },
   { key: 'variables', label: 'Variables' },
   { key: 'calidad', label: 'Calidad de datos' },
+  { key: 'analisis', label: 'Análisis' },
+  { key: 'conclusion', label: 'Conclusión' },
 ];
 
 const PAGE_SIZE = 50;
@@ -170,9 +178,342 @@ export default async function StudyWorkspace({
           {tab === 'calidad' && (
             <QualityTab organizationId={session.organizationId} datasetId={dataset.id} />
           )}
+
+          {tab === 'analisis' && (
+            <AnalysisTab
+              organizationId={session.organizationId}
+              studyId={studyId}
+              dataset={dataset}
+            />
+          )}
+
+          {tab === 'conclusion' && (
+            <ConclusionTab studyId={studyId} conclusion={study.conclusion} status={status} />
+          )}
         </>
       )}
     </main>
+  );
+}
+
+async function AnalysisTab({
+  organizationId,
+  studyId,
+  dataset,
+}: {
+  organizationId: string;
+  studyId: string;
+  dataset: NonNullable<Awaited<ReturnType<typeof getLatestDataset>>>;
+}) {
+  const analyses = await listStudyAnalyses(organizationId, studyId);
+  const variables = dataset.variables.map((v) => ({
+    columnKey: v.columnKey,
+    label: v.label,
+    varType: v.varType,
+  }));
+  return (
+    <>
+      <section className="sectioncard">
+        <div className="sectioncard__head">
+          <h2>Nuevo análisis</h2>
+        </div>
+        <div className="sectioncard__body">
+          <NewAnalysisForm studyId={studyId} datasetId={dataset.id} variables={variables} />
+          <p className="field-hint">
+            Cada análisis conserva el dataset, la configuración, el resultado y la interpretación;
+            reimportar datos o cambiar tipos no altera los análisis ya ejecutados.
+          </p>
+        </div>
+      </section>
+
+      {analyses.length === 0 ? (
+        <p className="empty-state">Aún no hay análisis. Ejecuta el primero arriba.</p>
+      ) : (
+        analyses.map((a) => {
+          const result = a.result as StudyAnalysisResult | null;
+          const interp = a.interpretation as Interpretation | null;
+          const version = (a.config as { datasetVersion?: number } | null)?.datasetVersion;
+          return (
+            <section key={a.id} className="sectioncard">
+              <div className="sectioncard__head">
+                <h2>
+                  {STUDY_METHOD_LABEL[a.method as keyof typeof STUDY_METHOD_LABEL] ?? a.method}
+                  {a.title ? ` · ${a.title}` : ''}
+                </h2>
+                <div className="page-head__actions">
+                  <span className="muted">{version ? `dataset v${version}` : ''}</span>
+                  <StudyActionForm
+                    action={deleteAnalysisAction}
+                    hidden={{ studyId, analysisId: a.id }}
+                    button="Eliminar"
+                    variant="ghost"
+                    className="inline-form"
+                  />
+                </div>
+              </div>
+              <div className="sectioncard__body">
+                {interp && (
+                  <div className="interpretation">
+                    <p className="interpretation__principal">{interp.principal}</p>
+                    <p className="interpretation__detail">{interp.detail}</p>
+                    <p className="interpretation__next">
+                      <strong>Siguiente paso:</strong> {interp.nextStep}
+                    </p>
+                  </div>
+                )}
+                {result && <ResultView result={result} />}
+                <details className="more-actions">
+                  <summary>Acciones desde el resultado</summary>
+                  <div className="page-head__actions">
+                    <Link
+                      className="button button--ghost"
+                      href={`/dashboard/capa/new?from=study&studyId=${studyId}`}
+                    >
+                      Crear CAPA
+                    </Link>
+                    <Link
+                      className="button button--ghost"
+                      href={`/dashboard/tasks/new?from=study&studyId=${studyId}`}
+                    >
+                      Crear tarea
+                    </Link>
+                    <Link
+                      className="button button--ghost"
+                      href={`/dashboard/projects/new?from=study&studyId=${studyId}`}
+                    >
+                      Crear proyecto
+                    </Link>
+                  </div>
+                  <p className="field-hint">
+                    Sentinel describe asociaciones, diferencias y tendencias; la decisión y la causa
+                    las determina el responsable.
+                  </p>
+                </details>
+              </div>
+            </section>
+          );
+        })
+      )}
+    </>
+  );
+}
+
+function num(v: number | null): string {
+  return v === null ? '—' : String(v);
+}
+
+function ResultView({ result }: { result: StudyAnalysisResult }) {
+  switch (result.kind) {
+    case 'insufficient':
+      return <p className="empty-state">{result.message}</p>;
+    case 'descriptive-numeric': {
+      const s = result.stats;
+      const items: [string, number | null][] = [
+        ['n', result.n],
+        ['Media', s.mean],
+        ['Mediana', s.median],
+        ['Mín', s.min],
+        ['Máx', s.max],
+        ['Desv. est.', s.stdDev],
+      ];
+      return (
+        <dl className="detailhead__meta">
+          {items.map(([k, v]) => (
+            <div key={k}>
+              <dt>{k}</dt>
+              <dd>{num(v)}</dd>
+            </div>
+          ))}
+        </dl>
+      );
+    }
+    case 'descriptive-categorical':
+      return (
+        <SimpleTable
+          head={['Categoría', 'Frecuencia', '%']}
+          rows={result.frequencies.slice(0, 15).map((f) => [f.label, String(f.count), `${f.pct}%`])}
+        />
+      );
+    case 'pareto':
+      return (
+        <SimpleTable
+          head={['Categoría', 'Valor', '%', '% acum.', 'Vital']}
+          rows={result.result.rows.map((r) => [
+            r.category,
+            String(r.value),
+            `${r.percentage}%`,
+            `${r.cumulativePercentage}%`,
+            r.vitalFew ? 'Sí' : '—',
+          ])}
+        />
+      );
+    case 'trend':
+      return (
+        <SimpleTable
+          head={['Periodo', 'Valor']}
+          rows={result.points.map((p) => [p.label, String(p.value)])}
+        />
+      );
+    case 'correlation':
+      return (
+        <dl className="detailhead__meta">
+          <div>
+            <dt>Pearson r (n={result.pearson.n})</dt>
+            <dd>{num(result.pearson.r)}</dd>
+          </div>
+          <div>
+            <dt>Spearman ρ</dt>
+            <dd>{num(result.spearman.r)}</dd>
+          </div>
+        </dl>
+      );
+    case 'regression': {
+      const r = result.regression;
+      return (
+        <dl className="detailhead__meta">
+          <div>
+            <dt>Pendiente</dt>
+            <dd>{num(r.slope)}</dd>
+          </div>
+          <div>
+            <dt>Intercepto</dt>
+            <dd>{num(r.intercept)}</dd>
+          </div>
+          <div>
+            <dt>R²</dt>
+            <dd>{num(r.r2)}</dd>
+          </div>
+        </dl>
+      );
+    }
+    case 'group_compare':
+      return (
+        <SimpleTable
+          head={['Grupo', 'n', 'Media', 'Mediana', 'Desv. est.']}
+          rows={result.groups.map((g) => [
+            g.label,
+            String(g.stats.count),
+            num(g.stats.mean),
+            num(g.stats.median),
+            num(g.stats.stdDev),
+          ])}
+        />
+      );
+    case 'anova':
+      return (
+        <dl className="detailhead__meta">
+          <div>
+            <dt>F</dt>
+            <dd>{num(result.anova.fStatistic)}</dd>
+          </div>
+          <div>
+            <dt>gl entre / dentro</dt>
+            <dd>
+              {num(result.anova.dfBetween)} / {num(result.anova.dfWithin)}
+            </dd>
+          </div>
+        </dl>
+      );
+    case 'chi_square': {
+      const c = result.contingency;
+      return (
+        <>
+          <dl className="detailhead__meta">
+            <div>
+              <dt>χ²</dt>
+              <dd>{num(c.chiSquare)}</dd>
+            </div>
+            <div>
+              <dt>gl</dt>
+              <dd>{num(c.degreesOfFreedom)}</dd>
+            </div>
+            <div>
+              <dt>n</dt>
+              <dd>{c.n}</dd>
+            </div>
+          </dl>
+          {c.observed.length > 0 && (
+            <SimpleTable
+              head={['', ...c.colLabels]}
+              rows={c.observed.map((row, i) => [
+                c.rowLabels[i] ?? '',
+                ...row.map((n) => String(n)),
+              ])}
+            />
+          )}
+        </>
+      );
+    }
+  }
+}
+
+function SimpleTable({ head, rows }: { head: string[]; rows: string[][] }) {
+  return (
+    <div className="table-wrap">
+      <table className="data-table">
+        <thead>
+          <tr>
+            {head.map((h, i) => (
+              <th key={i}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              {r.map((c, j) => (
+                <td key={j}>{c}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ConclusionTab({
+  studyId,
+  conclusion,
+  status,
+}: {
+  studyId: string;
+  conclusion: string | null;
+  status: string;
+}) {
+  return (
+    <section className="sectioncard">
+      <div className="sectioncard__head">
+        <h2>Conclusión del responsable</h2>
+      </div>
+      <div className="sectioncard__body">
+        <p className="muted">
+          Esta conclusión es humana y se guarda por separado de la interpretación automática de
+          Sentinel. Redáctala a partir de los análisis y del contexto del proceso.
+        </p>
+        <StudyActionForm
+          action={saveConclusionAction}
+          hidden={{ studyId }}
+          button="Guardar conclusión"
+          variant="primary"
+          className="doc-form"
+        >
+          <label className="field field--full">
+            <span className="field__label">Conclusión</span>
+            <textarea
+              name="conclusion"
+              rows={6}
+              defaultValue={conclusion ?? ''}
+              placeholder="Hallazgos, decisiones y acciones de seguimiento acordadas."
+            />
+          </label>
+          <label className="field field--full checkbox-field">
+            <input type="checkbox" name="markConcluded" defaultChecked={status === 'concluded'} />
+            <span>Marcar el estudio como concluido</span>
+          </label>
+        </StudyActionForm>
+      </div>
+    </section>
   );
 }
 
