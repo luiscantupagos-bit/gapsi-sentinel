@@ -3886,3 +3886,35 @@ a.tool-card:focus-visible {
     transition: none;
   }
 }
+
+/* CORE-ALIGN-003 — Estudios de datos: badges de estado + formularios en línea. */
+.badge--study-draft {
+  background: #e5e7eb;
+  color: #374151;
+}
+.badge--study-data_loaded {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.badge--study-analyzing,
+.badge--study-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--study-concluded {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--study-archived {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.inline-form .msg {
+  flex-basis: 100%;
+}
