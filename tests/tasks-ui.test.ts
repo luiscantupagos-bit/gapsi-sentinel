@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const sidebar = read('../src/app/dashboard/_components/AppSidebar.tsx');
+const sidebar = read('../src/app/dashboard/_components/nav-config.tsx');
 const taskBits = read('../src/app/dashboard/tasks/_components/TaskBits.tsx');
 const taskState = read('../src/features/tasks/task-state.ts');
 const listPage = read('../src/app/dashboard/tasks/page.tsx');

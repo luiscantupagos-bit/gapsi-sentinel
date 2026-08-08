@@ -48,7 +48,8 @@ describe('layout amplio (TASK-007)', () => {
     const mobile = css.slice(css.indexOf('@media (max-width: 720px)'));
     expect(mobile).toMatch(/\.shell\s*\{[^}]*flex-direction:\s*column/);
     expect(mobile).toMatch(/\.shell__content\s*\{[^}]*width:\s*100%/);
-    expect(mobile).toMatch(/\.sidebar\s*\{[^}]*overflow-x:\s*auto/);
+    // La navegación (franja horizontal) desplaza su contenido internamente.
+    expect(mobile).toMatch(/\.sidebar__scroll\s*\{[^}]*overflow-x:\s*auto/);
   });
 
   it('las rejillas de tarjetas son responsive (auto-fit)', () => {
