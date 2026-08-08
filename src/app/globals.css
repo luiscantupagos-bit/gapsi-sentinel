@@ -3865,3 +3865,24 @@ a.tool-card:focus-visible {
   font-weight: 400;
   font-size: 0.72rem;
 }
+
+/* CORE-ALIGN-003 — Interacción de gráficos ejecutivos. */
+.trend__pt {
+  cursor: pointer;
+  outline: none;
+  transition: stroke-width 120ms ease;
+}
+.trend__pt:hover,
+.trend__pt:focus-visible {
+  stroke: var(--color-surface);
+  stroke-width: 3;
+}
+.schemebars__row,
+.minigantt__bar {
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trend__pt {
+    transition: none;
+  }
+}
