@@ -54,15 +54,15 @@ ya existen. Riesgos, Proveedores, Capacitación y Notificaciones son Core futuro
 
 El modelo actual ya aporta la **columna vertebral del catálogo**:
 
-| Concepto de cumplimiento         | Tabla actual reutilizable                         |
-| -------------------------------- | ------------------------------------------------- |
-| Marco / esquema                  | `assessment_frameworks` (`scope` master/organization) |
-| Versión de marco (congelada)     | `template_versions` (`version_number`, `status`, `content_hash`, `source_master_version_id`) |
-| Capítulo / sección               | `template_sections`                               |
-| Requisito                        | `template_requirements` (`is_critical`)           |
-| Pregunta / criterio evaluable    | `template_questions` (+ `template_answer_options`) |
-| Evaluación histórica inmutable   | `diagnostics` + `diagnostic_answers` + snapshots de auditoría |
-| Certificación                    | `organization_certifications`                     |
+| Concepto de cumplimiento       | Tabla actual reutilizable                                                                    |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| Marco / esquema                | `assessment_frameworks` (`scope` master/organization)                                        |
+| Versión de marco (congelada)   | `template_versions` (`version_number`, `status`, `content_hash`, `source_master_version_id`) |
+| Capítulo / sección             | `template_sections`                                                                          |
+| Requisito                      | `template_requirements` (`is_critical`)                                                      |
+| Pregunta / criterio evaluable  | `template_questions` (+ `template_answer_options`)                                           |
+| Evaluación histórica inmutable | `diagnostics` + `diagnostic_answers` + snapshots de auditoría                                |
+| Certificación                  | `organization_certifications`                                                                |
 
 Ya está resuelto: **catálogo maestro vs copia de organización** (`scope`),
 **múltiples versiones**, **congelado inmutable** (`content_hash`, snapshots de
