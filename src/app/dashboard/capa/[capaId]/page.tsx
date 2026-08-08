@@ -32,6 +32,65 @@ import {
   type RcaMethod,
 } from '@/features/capa/capa-state';
 import { CapaWorkflowPanel } from './CapaWorkflowPanel';
+import { NextActionCard, StageProgress } from '../../_components/detail';
+
+const CAPA_STAGES = [
+  'Registro',
+  'Contención',
+  'Investigación',
+  'Plan',
+  'Implementación',
+  'Eficacia',
+  'Cierre',
+];
+function capaStageIndex(status: CapaStatus): number {
+  switch (status) {
+    case 'draft':
+    case 'reported':
+      return 0;
+    case 'containment':
+      return 1;
+    case 'under_investigation':
+      return 2;
+    case 'action_plan':
+      return 3;
+    case 'in_implementation':
+      return 4;
+    case 'effectiveness_review':
+      return 5;
+    case 'closed':
+      return 6;
+    default:
+      return 0;
+  }
+}
+function capaNextAction(status: CapaStatus): {
+  text: string;
+  tone: 'default' | 'success' | 'warning';
+} {
+  switch (status) {
+    case 'draft':
+      return { text: 'Reporta la CAPA para iniciar el flujo.', tone: 'default' };
+    case 'reported':
+      return { text: 'Registra la contención inmediata del problema.', tone: 'default' };
+    case 'containment':
+      return { text: 'Investiga y determina la causa raíz.', tone: 'default' };
+    case 'under_investigation':
+      return { text: 'Define el plan de acciones correctivas.', tone: 'default' };
+    case 'action_plan':
+      return { text: 'Implementa las acciones del plan.', tone: 'default' };
+    case 'in_implementation':
+      return { text: 'Verifica la eficacia de las acciones.', tone: 'default' };
+    case 'effectiveness_review':
+      return { text: 'Cierra la CAPA si la eficacia es satisfactoria.', tone: 'warning' };
+    case 'closed':
+      return { text: 'CAPA cerrada.', tone: 'success' };
+    case 'cancelled':
+      return { text: 'CAPA cancelada.', tone: 'warning' };
+    default:
+      return { text: '', tone: 'default' };
+  }
+}
 
 const dt = (d: Date | null | undefined) => (d ? new Date(d).toLocaleString('es-MX') : '—');
 const day = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : '—');
@@ -123,6 +182,14 @@ export default async function CapaDetailPage({ params }: { params: Promise<{ cap
           </p>
         ) : null}
 
+        {status !== 'cancelled' && (
+          <StageProgress stages={CAPA_STAGES} current={capaStageIndex(status)} />
+        )}
+        {(() => {
+          const na = capaNextAction(status);
+          return na.text ? <NextActionCard text={na.text} tone={na.tone} /> : null;
+        })()}
+
         <h2>Acciones</h2>
         <CapaWorkflowPanel
           capaId={capa.id}
@@ -187,7 +254,7 @@ export default async function CapaDetailPage({ params }: { params: Promise<{ cap
                       <td>{IMMEDIATE_ACTION_TYPE_LABEL[a.actionType as ImmediateActionType]}</td>
                       <td>{a.description}</td>
                       <td>{nameOf(a.responsibleUserId) ?? '—'}</td>
-                      <td>{a.status}</td>
+                      <td>{ACTION_STATUS_LABEL[a.status as ActionStatus] ?? a.status}</td>
                       <td>{day(a.executedAt)}</td>
                       <td>{a.result ?? '—'}</td>
                     </tr>
@@ -298,7 +365,6 @@ export default async function CapaDetailPage({ params }: { params: Promise<{ cap
               {dt(capa.closedAt)} · {nameOf(capa.closedBy) ?? '—'}
             </p>
             <p>{capa.closureSummary}</p>
-            <p className="muted">Checksum de cierre: {capa.closureChecksum?.slice(0, 24)}…</p>
           </section>
         )}
 
