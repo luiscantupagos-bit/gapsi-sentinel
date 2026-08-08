@@ -133,3 +133,27 @@ export const IconChart = (p: IconProps) => (
     <path d="M8 16v-4M12 16V8M16 16v-6" />
   </Svg>
 );
+
+export const IconClock = (p: IconProps) => (
+  <Svg className={p.className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </Svg>
+);
+export const IconCalendar = (p: IconProps) => (
+  <Svg className={p.className}>
+    <path d="M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+  </Svg>
+);
+export const IconAlert = (p: IconProps) => (
+  <Svg className={p.className}>
+    <path d="M12 3l9 16H3z" />
+    <path d="M12 10v4M12 17h.01" />
+  </Svg>
+);
+export const IconGauge = (p: IconProps) => (
+  <Svg className={p.className}>
+    <path d="M4 18a8 8 0 1 1 16 0" />
+    <path d="M12 18l4-5" />
+  </Svg>
+);
