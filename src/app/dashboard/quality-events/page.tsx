@@ -71,7 +71,9 @@ export default async function QualityEventsPage({
             <tbody>
               {events.map((e) => (
                 <tr key={e.id}>
-                  <td>{e.folio}</td>
+                  <td>
+                    <Link href={`/dashboard/quality-events/${e.id}`}>{e.folio}</Link>
+                  </td>
                   <td>{e.title}</td>
                   <td>{EVENT_TYPE_LABEL[e.eventType] ?? e.eventType}</td>
                   <td>{e.eventDate.toISOString().slice(0, 10)}</td>

@@ -7,6 +7,13 @@ import {
   getUserProjectContext,
   listOrgMembers,
 } from '@/server/projects';
+import { listAnalysesForTarget } from '@/server/quality-analysis';
+import {
+  ANALYSIS_STATUS_LABEL,
+  ANALYSIS_TYPE_LABEL,
+  type AnalysisStatus,
+  type AnalysisType,
+} from '@/features/capa/analysis-state';
 import { type ProjectStatus } from '@/features/projects/project-state';
 import { PageHeader, SectionCard } from '../../_components/ui';
 import {
@@ -16,6 +23,7 @@ import {
 } from '../_components/ProjectBits';
 import { TaskStatusBadge } from '../../tasks/_components/TaskBits';
 import { ProjectWorkflow } from './_components/ProjectWorkflow';
+import { AddAnalysisForm } from '../../analysis/_components/AddAnalysisForm';
 
 const dt = (d: Date) => new Date(d).toLocaleString('es-MX');
 
@@ -34,9 +42,10 @@ export default async function ProjectDetailPage({
     if (error instanceof ProjectNotFoundError) notFound();
     throw error;
   }
-  const [ctx, members] = await Promise.all([
+  const [ctx, members, analyses] = await Promise.all([
     getUserProjectContext(session.organizationId, session.userId, projectId),
     listOrgMembers(session.organizationId),
+    listAnalysesForTarget(session.organizationId, 'project', projectId),
   ]);
   const p = detail.project;
 
@@ -102,7 +111,12 @@ export default async function ProjectDetailPage({
         </div>
         <div>
           <dt>Avance</dt>
-          <dd>{p.progress}%</dd>
+          <dd>
+            {p.derivedProgress}%{' '}
+            {detail.tasks.length > 0 && (
+              <span className="muted small">(derivado de {detail.tasks.length} tareas)</span>
+            )}
+          </dd>
         </div>
         <div>
           <dt>Sitio</dt>
@@ -219,6 +233,38 @@ export default async function ProjectDetailPage({
           </SectionCard>
         </div>
       </div>
+
+      <SectionCard
+        title="Análisis"
+        action={
+          ctx.canManage ? (
+            <AddAnalysisForm
+              relationType="project"
+              targetId={p.id}
+              revalidate={`/dashboard/projects/${p.id}`}
+            />
+          ) : undefined
+        }
+      >
+        {analyses.length === 0 ? (
+          <p className="empty-state">Sin análisis vinculados.</p>
+        ) : (
+          <ul className="dep-list">
+            {analyses.map((a) => (
+              <li key={a.id}>
+                <span className="badge badge--soft">
+                  {ANALYSIS_TYPE_LABEL[a.type as AnalysisType] ?? a.type}
+                </span>{' '}
+                <Link href={`/dashboard/analysis/${a.id}`}>{a.title}</Link>{' '}
+                <span className="muted small">
+                  {ANALYSIS_STATUS_LABEL[a.status as AnalysisStatus] ?? a.status} ·{' '}
+                  {a.responsibleName ?? '—'} · {a.updatedAt}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
 
       <SectionCard title="Comentarios">
         {detail.comments.length === 0 ? (

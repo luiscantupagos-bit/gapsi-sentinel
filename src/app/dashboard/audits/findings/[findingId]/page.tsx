@@ -3,9 +3,17 @@ import { notFound } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
 import { FindingNotFoundError, getFindingDetail } from '@/server/audit-findings';
 import { getAuditPerms } from '@/server/audits';
+import { listAnalysesForTarget } from '@/server/quality-analysis';
+import {
+  ANALYSIS_STATUS_LABEL,
+  ANALYSIS_TYPE_LABEL,
+  type AnalysisStatus,
+  type AnalysisType,
+} from '@/features/capa/analysis-state';
 import { PageHeader, SectionCard } from '../../../_components/ui';
 import { FindingClassBadge, FindingStatusBadge, severityLabel } from '../../_components/AuditBits';
 import { AuditActionForm } from '../../_components/AuditActionForm';
+import { AddAnalysisForm } from '../../../analysis/_components/AddAnalysisForm';
 import {
   addFollowUpAction,
   convertFindingToCapaAction,
@@ -31,6 +39,7 @@ export default async function FindingDetailPage({
   }
   const ctx = await getAuditPerms(session.organizationId, session.userId);
   const f = detail.finding;
+  const analyses = await listAnalysesForTarget(session.organizationId, 'audit_finding', f.id);
 
   return (
     <main className="container">
@@ -126,6 +135,38 @@ export default async function FindingDetailPage({
                 />
               )}
             </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Investigación"
+            action={
+              ctx.canCreate && !f.readOnly ? (
+                <AddAnalysisForm
+                  relationType="audit_finding"
+                  targetId={f.id}
+                  revalidate={`/dashboard/audits/findings/${f.id}`}
+                  label="Investigar"
+                />
+              ) : undefined
+            }
+          >
+            {analyses.length === 0 ? (
+              <p className="empty-state">Sin análisis. Usa “Investigar” para iniciar uno.</p>
+            ) : (
+              <ul className="dep-list">
+                {analyses.map((a) => (
+                  <li key={a.id}>
+                    <span className="badge badge--soft">
+                      {ANALYSIS_TYPE_LABEL[a.type as AnalysisType] ?? a.type}
+                    </span>{' '}
+                    <Link href={`/dashboard/analysis/${a.id}`}>{a.title}</Link>{' '}
+                    <span className="muted small">
+                      {ANALYSIS_STATUS_LABEL[a.status as AnalysisStatus] ?? a.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </SectionCard>
 
           <SectionCard title="Trazabilidad">

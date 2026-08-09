@@ -259,6 +259,13 @@ export async function getProjectDetail(organizationId: string, projectId: string
       })
     : null;
 
+  // Progreso DERIVADO de las tareas (promedio de su avance); si no hay tareas,
+  // se conserva el valor almacenado. No sobrescribe el campo en la BD.
+  const derivedProgress =
+    tasks.length > 0
+      ? Math.round(tasks.reduce((sum, t) => sum + (t.progress ?? 0), 0) / tasks.length)
+      : p.progress;
+
   return {
     project: {
       id: p.id,
@@ -278,6 +285,7 @@ export async function getProjectDetail(organizationId: string, projectId: string
       targetDate: isoDate(p.targetDate),
       closedAt: p.closedAt,
       progress: p.progress,
+      derivedProgress,
       origin: p.origin,
       risksSummary: p.risksSummary,
       expectedOutcome: p.expectedOutcome,
