@@ -26,6 +26,7 @@ import {
   getTemplate,
   sanitizePageConfig,
 } from '../src/features/documents/templates';
+import { deviationPercentFormula } from '../src/features/studies/formula';
 
 const prisma = new PrismaClient();
 
@@ -2807,6 +2808,151 @@ async function seedEventsAndKpis(): Promise<void> {
   });
 }
 
+// --- Estudio de datos demo (CORE-ALIGN-003 Fase 6) ---------------------------
+// EST-2026-0001: mediciones de una pieza vs. su nominal, con dimensiones para
+// Pareto/tendencia/comparación. `desviacion_pct` es una VARIABLE CALCULADA
+// (no se almacena; se computa al leer). Idempotente: si ya existe, no hace nada.
+
+const STUDY_ID = '00000000-0000-4000-8000-0000000e5001';
+const DATASET_ID = '00000000-0000-4000-8000-0000000e5002';
+
+async function seedDataStudy(): Promise<void> {
+  const existing = await prisma.dataStudy.findFirst({
+    where: { organizationId: ORG_A, folio: 'EST-2026-0001' },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  // Contador de folios: deja EST-2026-0001 tomado (el siguiente será 0002).
+  await prisma.dataStudyFolioCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: 2026 } },
+    create: { organizationId: ORG_A, year: 2026, lastSeq: 1 },
+    update: {},
+  });
+
+  await prisma.dataStudy.create({
+    data: {
+      id: STUDY_ID,
+      organizationId: ORG_A,
+      siteId: SITE_A,
+      folio: 'EST-2026-0001',
+      title: 'Desviación dimensional de pieza P-100',
+      objective: 'Analizar la desviación de la medida real contra el nominal por turno y máquina.',
+      question: '¿La desviación se concentra en algún turno, máquina o proveedor?',
+      responsibleUserId: USER_A,
+      sourceType: 'independent',
+      status: 'data_loaded',
+      createdBy: USER_A,
+    },
+  });
+
+  const vars = [
+    { key: 'fecha', label: 'Fecha', varType: 'temporal', calculated: false },
+    { key: 'pieza', label: 'Pieza', varType: 'categorical', calculated: false },
+    { key: 'medida_nominal', label: 'Medida nominal (mm)', varType: 'numeric', calculated: false },
+    { key: 'medida_real', label: 'Medida real (mm)', varType: 'numeric', calculated: false },
+    { key: 'turno', label: 'Turno', varType: 'categorical', calculated: false },
+    { key: 'operador', label: 'Operador', varType: 'categorical', calculated: false },
+    { key: 'maquina', label: 'Máquina', varType: 'categorical', calculated: false },
+    { key: 'proveedor', label: 'Proveedor', varType: 'categorical', calculated: false },
+    { key: 'lote_material', label: 'Lote de material', varType: 'text', calculated: false },
+    { key: 'temperatura', label: 'Temperatura (°C)', varType: 'numeric', calculated: false },
+  ] as const;
+
+  // Genera ~40 observaciones deterministas (sin aleatoriedad) entre ene–mar 2026.
+  const turnos = ['A', 'B', 'C'];
+  const maquinas = ['M1', 'M2', 'M3'];
+  const operadores = ['Ana', 'Beto', 'Caro', 'Diego'];
+  const proveedores = ['Acme', 'Bolt', 'Cyl'];
+  const N = 40;
+  const start = Date.UTC(2026, 0, 5);
+  const rows: Record<string, string>[] = [];
+  for (let i = 0; i < N; i += 1) {
+    const iso = new Date(start + i * 2 * 86400000).toISOString().slice(0, 10);
+    const maquina = maquinas[i % 3]!;
+    const turno = turnos[i % 3]!;
+    // Desviación base -0.6..+0.6 mm; M3 sesga alto; dos atípicos controlados.
+    let real = 10 + (((i * 7) % 13) - 6) / 10;
+    if (maquina === 'M3') real += 0.5;
+    if (i === 17) real = 12.4;
+    if (i === 33) real = 8.2;
+    rows.push({
+      fecha: iso,
+      pieza: `P-${100 + i}`,
+      medida_nominal: '10',
+      medida_real: real.toFixed(2),
+      turno,
+      operador: operadores[i % 4]!,
+      maquina,
+      proveedor: proveedores[i % 3]!,
+      lote_material: `L-2026-${String(100 + (i % 12)).padStart(3, '0')}`,
+      temperatura: (20 + ((i * 3) % 9)).toFixed(1),
+    });
+  }
+
+  await prisma.studyDataset.create({
+    data: {
+      id: DATASET_ID,
+      organizationId: ORG_A,
+      studyId: STUDY_ID,
+      version: 1,
+      name: 'Mediciones ene–mar 2026',
+      sourceKind: 'csv',
+      fileName: 'mediciones-p100.csv',
+      fileChecksum: 'seed-est-2026-0001-v1',
+      fileSize: rows.length * 64,
+      rowCount: rows.length,
+      columnCount: vars.length,
+      createdBy: USER_A,
+    },
+  });
+
+  await prisma.studyVariable.createMany({
+    skipDuplicates: true,
+    data: vars.map((v, i) => ({
+      organizationId: ORG_A,
+      datasetId: DATASET_ID,
+      columnKey: v.key,
+      label: v.label,
+      varType: v.varType,
+      position: i,
+      calculated: false,
+    })),
+  });
+  // Variable CALCULADA: Desviación % = ((real - nominal)/nominal)*100.
+  await prisma.studyVariable.create({
+    data: {
+      organizationId: ORG_A,
+      datasetId: DATASET_ID,
+      columnKey: 'desviacion_pct',
+      label: 'Desviación %',
+      varType: 'numeric',
+      position: vars.length,
+      calculated: true,
+      formula: deviationPercentFormula('medida_real', 'medida_nominal') as unknown as object,
+    },
+  });
+
+  await prisma.studyRow.createMany({
+    data: rows.map((values, i) => ({
+      organizationId: ORG_A,
+      datasetId: DATASET_ID,
+      rowIndex: i,
+      values: values as object,
+    })),
+  });
+
+  await prisma.dataStudyHistory.create({
+    data: {
+      organizationId: ORG_A,
+      studyId: STUDY_ID,
+      event: 'study.seeded',
+      actorUserId: USER_A,
+      detail: `${rows.length} filas · ${vars.length + 1} columnas (1 calculada)`,
+    },
+  });
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -2866,9 +3012,10 @@ async function main(): Promise<void> {
   await seedProjectsAndTasks();
   await seedAudits();
   await seedEventsAndKpis();
+  await seedDataStudy();
 
   console.log(
-    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos, tareas, auditorías y eventos/KPI de calidad.',
+    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos, tareas, auditorías, eventos/KPI y 1 estudio de datos demo (EST-2026-0001).',
   );
 }
 

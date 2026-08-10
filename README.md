@@ -33,6 +33,15 @@ nativos + agregación en vivo de los demás módulos (sin IA). Ver
 `docs/tasks/TASK-011-IMPLEMENTATION-NOTES.md` y
 `docs/analytics/ANALYTICS-ARCHITECTURE.md`.
 
+**Herramientas transversales de análisis y Estudios de datos** (CORE-ALIGN-003):
+5 Porqués formal y Árbol de Fallas (FTA) con workspace propio, análisis
+reutilizables desde CAPA/proyecto/hallazgo/evento (vía `analysis_relations`),
+biblioteca global de análisis, y **Estudios de datos** (`/dashboard/analytics/studies`)
+para análisis estadístico ad hoc sobre CSV/XLSX/pegado con interpretación
+determinista y reproducible (sin IA, sin SPC avanzado todavía). Ver
+`docs/CORE-ALIGN-003-IMPLEMENTATION-NOTES.md` y
+`docs/analytics/DATA-STUDIES-ARCHITECTURE.md`.
+
 ## Principio rector
 
 Cada incremento debe poder demostrarse, probarse y potencialmente venderse.

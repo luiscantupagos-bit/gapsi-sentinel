@@ -196,3 +196,24 @@ internos no disparan la navegación del contenedor.
   estados internos en inglés.
 - Regla global de clickeables aplicada: folios (`PA/AUD/HAL`), títulos, códigos de
   requisito y tarjetas navegan a su detalle real; hover/focus visibles.
+
+## Herramientas de análisis y Estudios de datos (CORE-ALIGN-003)
+
+- **Gráficos interactivos**: los puntos/segmentos exponen su valor y contexto en
+  hover/focus (`<title>`, `role="img"`, `tabIndex`), navegables por teclado y con
+  `prefers-reduced-motion`. Aplica a tendencia, barras, Gantt y gauge.
+- **Interpretación determinista** (`.interpretation`): bloque de 3 niveles
+  (resultado principal / interpretación / siguiente paso). Nunca afirma causalidad
+  ni inventa significancia; la conclusión humana se muestra por separado.
+- **FTA** (`.fta__*`): árbol SVG derivado de la estructura (no drag-and-drop), con
+  esquema textual accesible e imprimible; badges de compuerta Y/O; edición
+  agregar/cambiar/eliminar en `<details>` con `no-print`.
+- **5 Porqués** (`.fivewhys__*`): cadena vertical de longitud variable; evidencia y
+  nota por nivel; la causa raíz la captura el responsable.
+- **Estudios de datos**: workspace con pestañas (Resumen/Datos/Variables/Calidad/
+  Análisis/Conclusión); tablas paginadas; `badge--study-*` en español.
+- **Versión imprimible**: botón Imprimir + `.no-print` en controles; el reporte
+  (`.analysis-report`/`.report-card`) queda limpio para PDF.
+- Regla global de clickeables: folios (`EST`), títulos y orígenes navegan a su
+  detalle real; la biblioteca de análisis enruta 5 Porqués/FTA al workspace
+  transversal y el resto a la CAPA.
