@@ -41,14 +41,24 @@ CAPA, tareas, evidencias, etc.).
 
 El Core es único y reutilizable; **ningún esquema duplica** estas capacidades:
 
-Organizaciones · Sitios · Usuarios/roles · Documentos · Auditorías ·
-Diagnósticos/evaluaciones · CAPA · Riesgos · Tareas · Proyectos · Proveedores ·
-Capacitación · Análisis · Estudios de datos · Indicadores · Analítica ·
-Evidencias · Historial · Notificaciones.
+- **Gestión:** Organizaciones · Sitios · Usuarios/roles · Documentos · Evidencias ·
+  Auditorías · Hallazgos · Diagnósticos/evaluaciones · CAPA · Riesgos · Tareas ·
+  Proyectos · Proveedores · Capacitación · Indicadores · Historial/trazabilidad ·
+  Notificaciones.
+- **Análisis (transversal, CORE-ALIGN-003):** herramientas de causa (5 Porqués
+  formal, FTA, Ishikawa, Árbol de causas, AMEF/FMEA), Pareto, y **Estudios de
+  Datos** con tendencias, correlación, regresión, ANOVA y chi-cuadrada +
+  **interpretación determinista** de resultados. Se inician desde CAPA, proyecto,
+  hallazgo, evento o de forma independiente (vía `analysis_relations`).
 
 Estado actual (ver `docs/product/CURRENT-CAPABILITY-MAP.md`): Documentos, CAPA,
-Análisis, Tareas, Proyectos, Auditorías, Diagnósticos, Indicadores y Analítica
-ya existen. Riesgos, Proveedores, Capacitación y Notificaciones son Core futuro.
+Análisis (incluidos 5 Porqués, FTA y Estudios de Datos), Tareas, Proyectos,
+Auditorías, Diagnósticos, Indicadores y Analítica ya existen. Riesgos, Proveedores,
+Capacitación, Activos/Mantenimiento y Notificaciones son Core futuro.
+
+Que el análisis estadístico, los Estudios de Datos y (a futuro) Activos/
+Mantenimiento sean **Core transversal** — no propiedad de un vertical — es una
+decisión explícita (ADR §12, decisiones 12–14).
 
 ## 3. Reutilización de lo existente (NO reinventar)
 
@@ -214,24 +224,43 @@ Nuevas pantallas futuras (solo especificación): `/dashboard/compliance/framewor
 
 ## 12. Decisiones (ADR-like)
 
-1. **Framework ≠ capability.** El esquema define requisitos; la capacidad los
-   satisface. Se modelan por separado.
-2. **Una capability sirve a múltiples frameworks** (relación M:N).
-3. **Un requisito puede relacionarse con varias evidencias** (M:N).
-4. **Una evidencia puede servir a varios requisitos** (M:N; no se duplica el
-   archivo, se relaciona).
-5. **Las versiones históricas son inmutables.** Nunca se sobrescribe un requisito
-   publicado ni una evaluación pasada.
-6. **Una actualización normativa no reescribe el pasado.** Genera una
+Registro de decisiones de arquitectura de ARCH-004 (numeración estable para
+auditoría):
+
+1. **Framework ≠ capability.** El esquema define requisitos (qué); la capacidad
+   los satisface (cómo). Se modelan por separado.
+2. **Una capability sirve a múltiples frameworks** (relación M:N); no se acopla
+   una disciplina a un solo esquema.
+3. **Una organización puede activar múltiples frameworks** (y combinaciones
+   distintas por sitio); la suscripción es por org/sitio, no global.
+4. **Los frameworks son versionados.** Cada versión se publica y congela; conviven
+   `A:2015` y `A:2026`.
+5. **Las evaluaciones históricas son inmutables.** Nunca se sobrescribe un
+   requisito publicado ni una evaluación/diagnóstico/auditoría pasada.
+6. **Una actualización normativa no modifica el pasado.** Genera una
    actualización/impacto; el historial de la versión anterior se conserva.
-7. **La aplicabilidad requiere decisión controlada** (humana), con
-   justificación, responsable y fecha; no se infiere automáticamente.
-8. **El catálogo maestro es independiente de la adopción organizacional.** GAPSI
-   actualiza el maestro; la organización conserva su copia/historial.
-9. **Los verticales reutilizan el Core.** No se duplican Documentos/CAPA/
-   Auditorías/etc. por sector o esquema.
-10. **Incorporar solo contenido (un esquema nuevo) no requiere cambios de
-    frontend/Core.** El catálogo es dato, no código React (§13 de la tarea).
+7. **Una evidencia puede servir a múltiples requisitos** (M:N; no se duplica el
+   archivo, se relaciona) — y un requisito puede relacionarse con varias
+   evidencias.
+8. **La aplicabilidad es una decisión controlada** (humana), con justificación,
+   responsable y fecha; no se infiere automáticamente.
+9. **El catálogo maestro ≠ adopción del cliente.** GAPSI administra el maestro
+   global; la organización conserva su copia/suscripción/historial (tenant-scoped).
+10. **Los verticales reutilizan el Core.** No se duplican Documentos/CAPA/
+    Auditorías/Proyectos/AMEF/etc. por sector o esquema.
+11. **Incorporar solo contenido (un esquema o regulación nueva) no requiere
+    despliegue del Core.** El catálogo es dato, no código React.
+12. **El análisis estadístico y de calidad es una capacidad transversal**
+    (Pareto, tendencias, correlación, regresión, ANOVA, chi², interpretación
+    determinista): pertenece al Core y sirve a cualquier sector.
+13. **Los Estudios de Datos son Core, no exclusivos de manufactura.** Cualquier
+    sector puede importar datos y analizarlos (CORE-ALIGN-003).
+14. **Activos/Mantenimiento/Ingeniería es una capacidad transversal** (Pharma,
+    Manufacturing, Food, EHS), no un módulo de un solo vertical.
+15. **Regulatory Intelligence no equivale automáticamente a IA.** Es catálogo +
+    versionado + detección + revisión editorial + aplicabilidad + impacto +
+    notificación; la IA es un asistente futuro opcional con revisión humana
+    obligatoria.
 
 ## 13. Anti-sobreingeniería
 
