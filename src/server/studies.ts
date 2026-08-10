@@ -168,6 +168,66 @@ export async function getStudy(organizationId: string, studyId: string) {
   return getPrisma().dataStudy.findFirst({ where: { id: studyId, organizationId } });
 }
 
+export interface StudyOrigin {
+  label: string;
+  folio: string | null;
+  href: string | null;
+}
+
+/** Resuelve el origen de un estudio (Proyecto/CAPA/Hallazgo/Evento) con folio y ruta. */
+export async function getStudyOrigin(
+  organizationId: string,
+  sourceType: string | null,
+  sourceId: string | null,
+): Promise<StudyOrigin | null> {
+  if (!sourceType || sourceType === 'independent') return null;
+  const label = STUDY_SOURCE_LABEL[sourceType] ?? sourceType;
+  if (!sourceId) return { label, folio: null, href: null };
+  const p = getPrisma();
+  const w = { id: sourceId, organizationId } as const;
+  switch (sourceType) {
+    case 'project': {
+      const r = await p.project.findFirst({ where: w, select: { folio: true } });
+      return { label, folio: r?.folio ?? null, href: `/dashboard/projects/${sourceId}` };
+    }
+    case 'capa': {
+      const r = await p.capa.findFirst({ where: w, select: { folio: true } });
+      return { label, folio: r?.folio ?? null, href: `/dashboard/capa/${sourceId}` };
+    }
+    case 'audit_finding': {
+      const r = await p.auditFinding.findFirst({ where: w, select: { folio: true } });
+      return { label, folio: r?.folio ?? null, href: `/dashboard/audits/findings/${sourceId}` };
+    }
+    case 'quality_event': {
+      const r = await p.qualityEvent.findFirst({ where: w, select: { folio: true } });
+      return { label, folio: r?.folio ?? null, href: `/dashboard/quality-events/${sourceId}` };
+    }
+    default:
+      return { label, folio: null, href: null };
+  }
+}
+
+/** Estudios vinculados a un origen (por sourceType/sourceId). Trazabilidad bidireccional. */
+export async function listStudiesForSource(
+  organizationId: string,
+  sourceType: string,
+  sourceId: string,
+) {
+  return getPrisma().dataStudy.findMany({
+    where: { organizationId, sourceType, sourceId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      folio: true,
+      title: true,
+      status: true,
+      responsibleUserId: true,
+      updatedAt: true,
+      createdAt: true,
+    },
+  });
+}
+
 /** Dataset más reciente del estudio (o null) con sus variables. */
 export async function getLatestDataset(organizationId: string, studyId: string) {
   const dataset = await getPrisma().studyDataset.findFirst({

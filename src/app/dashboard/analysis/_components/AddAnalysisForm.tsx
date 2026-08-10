@@ -3,10 +3,16 @@
 import { useActionState } from 'react';
 import { SubmitButton } from '../../documents/_components/SubmitButton';
 import { addLinkedAnalysisAction, type FormState } from '../link-actions';
+import {
+  TOOL_CATEGORY_LABEL,
+  groupedTools,
+  type OriginType,
+} from '@/features/analysis/tool-catalog';
 
 /**
- * Formulario reutilizable para iniciar un análisis (5 Porqués o FTA) vinculado a
- * un origen (proyecto/hallazgo/evento). No duplica el origen.
+ * Formulario reutilizable para iniciar un análisis vinculado a un origen
+ * (proyecto/hallazgo/evento). Consume el catálogo COMPARTIDO de herramientas con
+ * selector agrupado. No duplica el origen ni obliga a crear CAPA.
  */
 export function AddAnalysisForm({
   relationType,
@@ -23,6 +29,9 @@ export function AddAnalysisForm({
     addLinkedAnalysisAction,
     null,
   );
+  const groups = groupedTools(relationType as OriginType);
+  const firstTool = groups[0]?.tools[0]?.id ?? '5whys';
+
   return (
     <details className="more-actions">
       <summary>{label}</summary>
@@ -32,9 +41,16 @@ export function AddAnalysisForm({
         <input type="hidden" name="revalidate" value={revalidate} />
         <label className="field">
           <span className="field__label">Herramienta</span>
-          <select name="type" defaultValue="5whys">
-            <option value="5whys">5 Porqués</option>
-            <option value="fta">Árbol de Fallas (FTA)</option>
+          <select name="type" defaultValue={firstTool}>
+            {groups.map((g) => (
+              <optgroup key={g.category} label={TOOL_CATEGORY_LABEL[g.category]}>
+                {g.tools.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
           </select>
         </label>
         <label className="field field--full">

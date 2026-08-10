@@ -5,6 +5,7 @@ import {
   AnalysisNotFoundError,
   getAnalysisDetail,
   getAnalysisUserContext,
+  listAnalysisMembers,
   listFtaNodes,
   listRelationsOfAnalysis,
 } from '@/server/quality-analysis';
@@ -12,8 +13,12 @@ import {
   ANALYSIS_STATUS_LABEL,
   ANALYSIS_TYPE_HELP,
   ANALYSIS_TYPE_LABEL,
+  CAUSE_NODE_TYPE_LABEL,
+  HYPOTHESIS_STATUS_LABEL,
   type AnalysisStatus,
   type AnalysisType,
+  type CauseNodeType,
+  type HypothesisStatus,
 } from '@/features/capa/analysis-state';
 import { interpretFta } from '@/features/analysis/fta';
 import { interpretFiveWhys, type FiveWhysModel } from '@/features/analysis/five-whys';
@@ -22,6 +27,12 @@ import { FtaWorkspace } from './_components/FtaWorkspace';
 import { FiveWhysWorkspace, type WhyRow } from './_components/FiveWhysWorkspace';
 import { ActionForm } from './_components/ActionForm';
 import { saveConclusionAction, detachRelationAction } from './actions';
+import { AnalysisEditPanel } from '../../capa/[capaId]/analysis/[analysisId]/AnalysisEditPanel';
+import {
+  IshikawaChart,
+  CauseTreeChart,
+  ParetoChart,
+} from '../../capa/[capaId]/analysis/_components/AnalysisVisuals';
 
 const dt = (d: Date | null | undefined) => (d ? new Date(d).toLocaleString('es-MX') : '—');
 
@@ -44,6 +55,18 @@ export default async function AnalysisWorkspacePage({
     const type = analysis.type as AnalysisType;
     const status = analysis.status as AnalysisStatus;
     const editable = ctx.canEdit;
+
+    const LEGACY_TYPES = [
+      'ishikawa',
+      'cause_tree',
+      'pareto',
+      'fmea',
+      'recurrence',
+      'comparative',
+      'freeform',
+    ];
+    const isLegacy = LEGACY_TYPES.includes(type);
+    const members = isLegacy && editable ? await listAnalysisMembers(org) : [];
 
     const ftaNodes = type === 'fta' ? await listFtaNodes(org, analysisId) : [];
     const whySteps: WhyRow[] = detail.hypotheses
@@ -116,14 +139,132 @@ export default async function AnalysisWorkspacePage({
               editable={editable}
             />
           ) : (
-            <p className="muted">
-              Esta herramienta se edita desde la vista de la CAPA.{' '}
-              {analysis.capaId && (
-                <Link href={`/dashboard/capa/${analysis.capaId}/analysis/${analysisId}`}>
-                  Abrir en la CAPA
-                </Link>
+            <>
+              {/* Visual por herramienta */}
+              {type === 'ishikawa' && (
+                <IshikawaChart
+                  effect={analysis.title}
+                  categories={detail.categories
+                    .filter((cat) => cat.active)
+                    .map((cat) => ({
+                      id: cat.id,
+                      name: cat.name,
+                      causes: detail.hypotheses
+                        .filter((h) => h.ishikawaCategoryId === cat.id)
+                        .map((h) => ({ id: h.id, description: h.description, status: h.status })),
+                    }))}
+                />
               )}
-            </p>
+              {type === 'cause_tree' && (
+                <CauseTreeChart
+                  nodes={detail.nodes.map((n) => ({
+                    id: n.id,
+                    type: n.type,
+                    description: n.description,
+                    isProposedRootCause: n.isProposedRootCause,
+                  }))}
+                  edges={detail.edges.map((e) => ({
+                    fromNodeId: e.fromNodeId,
+                    toNodeId: e.toNodeId,
+                    relation: e.relation,
+                  }))}
+                />
+              )}
+              {type === 'pareto' && detail.pareto && <ParetoChart result={detail.pareto} />}
+              {type === 'fmea' && (
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Modo de falla</th>
+                        <th>S</th>
+                        <th>O</th>
+                        <th>D</th>
+                        <th>NPR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detail.fmea.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="muted">
+                            Sin modos de falla.
+                          </td>
+                        </tr>
+                      ) : (
+                        detail.fmea.map((r) => (
+                          <tr key={r.id}>
+                            <td>{r.failureMode}</td>
+                            <td>{r.severity}</td>
+                            <td>{r.occurrence}</td>
+                            <td>{r.detection}</td>
+                            <td>
+                              <strong>{r.npr}</strong>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {(type === 'ishikawa' || type === 'cause_tree' || type === 'freeform') &&
+                detail.hypotheses.length > 0 && (
+                  <ul className="gaps">
+                    {detail.hypotheses.map((h) => (
+                      <li key={h.id}>
+                        {type === 'cause_tree' ? '' : `${h.description} — `}
+                        {HYPOTHESIS_STATUS_LABEL[h.status as HypothesisStatus] ?? h.status}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              {type === 'cause_tree' && detail.nodes.length > 0 && (
+                <ul className="gaps">
+                  {detail.nodes.map((n) => (
+                    <li key={n.id}>
+                      <strong>{CAUSE_NODE_TYPE_LABEL[n.type as CauseNodeType] ?? n.type}:</strong>{' '}
+                      {n.description}
+                      {n.isProposedRootCause ? ' · (causa raíz propuesta)' : ''}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Captura y acciones (edición transversal, sin depender de CAPA) */}
+              <details className="more-actions no-print" open={editable}>
+                <summary>Captura y acciones</summary>
+                <AnalysisEditPanel
+                  capaId={analysis.capaId}
+                  analysisId={analysisId}
+                  type={type}
+                  status={status}
+                  ctx={{ isAdmin: ctx.isAdmin, canEdit: ctx.canEdit, canReview: ctx.canReview }}
+                  capaOpen={false}
+                  members={members}
+                  categories={detail.categories
+                    .filter((cat) => cat.active)
+                    .map((cat) => ({ id: cat.id, name: cat.name }))}
+                  hypotheses={detail.hypotheses.map((h) => ({
+                    id: h.id,
+                    description: h.description,
+                    status: h.status,
+                  }))}
+                  nodes={detail.nodes.map((n) => ({
+                    id: n.id,
+                    description: n.description,
+                    type: n.type,
+                  }))}
+                  fmeaRows={detail.fmea.map((r) => ({ id: r.id, failureMode: r.failureMode }))}
+                  recurrenceCandidates={[]}
+                  allCapas={[]}
+                  paretoItems={(detail.pareto?.rows ?? []).map((r) => ({
+                    category: r.category,
+                    count: r.value,
+                  }))}
+                  conclusion={detail.conclusion as unknown as Record<string, string | null> | null}
+                />
+              </details>
+            </>
           )}
         </section>
 
@@ -157,7 +298,7 @@ export default async function AnalysisWorkspacePage({
           <p className="muted no-print">
             La causa raíz y la conclusión las determina una persona; Sentinel no las deduce.
           </p>
-          {editable && (
+          {editable && !isLegacy && (
             <ActionForm
               action={saveConclusionAction}
               hidden={{ analysisId }}

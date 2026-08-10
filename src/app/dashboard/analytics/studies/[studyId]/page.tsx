@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
 import {
   getStudy,
+  getStudyOrigin,
   getLatestDataset,
   getDatasetPage,
   getDatasetQuality,
@@ -104,6 +105,7 @@ export default async function StudyWorkspace({
   if (!study) notFound();
 
   const dataset = await getLatestDataset(session.organizationId, studyId);
+  const origin = await getStudyOrigin(session.organizationId, study.sourceType, study.sourceId);
   const tab = TABS.some((t) => t.key === sp.tab) ? sp.tab! : 'resumen';
   const status = study.status;
 
@@ -126,6 +128,21 @@ export default async function StudyWorkspace({
               ? `v${dataset.version} · ${dataset.rowCount} filas · ${dataset.columnCount} col`
               : 'Sin datos',
           },
+          ...(origin
+            ? [
+                {
+                  label: 'Origen',
+                  value: origin.href ? (
+                    <Link href={origin.href}>
+                      {origin.label}
+                      {origin.folio ? ` ${origin.folio}` : ''}
+                    </Link>
+                  ) : (
+                    `${origin.label}${origin.folio ? ` ${origin.folio}` : ''}`
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
 

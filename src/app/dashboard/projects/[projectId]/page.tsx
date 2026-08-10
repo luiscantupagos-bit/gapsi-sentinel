@@ -8,6 +8,7 @@ import {
   listOrgMembers,
 } from '@/server/projects';
 import { listAnalysesForTarget } from '@/server/quality-analysis';
+import { listStudiesForSource, STUDY_STATUS_LABEL } from '@/server/studies';
 import {
   ANALYSIS_STATUS_LABEL,
   ANALYSIS_TYPE_LABEL,
@@ -42,10 +43,11 @@ export default async function ProjectDetailPage({
     if (error instanceof ProjectNotFoundError) notFound();
     throw error;
   }
-  const [ctx, members, analyses] = await Promise.all([
+  const [ctx, members, analyses, studies] = await Promise.all([
     getUserProjectContext(session.organizationId, session.userId, projectId),
     listOrgMembers(session.organizationId),
     listAnalysesForTarget(session.organizationId, 'project', projectId),
+    listStudiesForSource(session.organizationId, 'project', projectId),
   ]);
   const p = detail.project;
 
@@ -246,7 +248,7 @@ export default async function ProjectDetailPage({
           ) : undefined
         }
       >
-        {analyses.length === 0 ? (
+        {analyses.length === 0 && studies.length === 0 ? (
           <p className="empty-state">Sin análisis vinculados.</p>
         ) : (
           <ul className="dep-list">
@@ -259,6 +261,18 @@ export default async function ProjectDetailPage({
                 <span className="muted small">
                   {ANALYSIS_STATUS_LABEL[a.status as AnalysisStatus] ?? a.status} ·{' '}
                   {a.responsibleName ?? '—'} · {a.updatedAt}
+                </span>
+              </li>
+            ))}
+            {studies.map((st) => (
+              <li key={st.id}>
+                <span className="badge badge--soft">Estudio de Datos</span>{' '}
+                <Link href={`/dashboard/analytics/studies/${st.id}`}>
+                  {st.folio} · {st.title}
+                </Link>{' '}
+                <span className="muted small">
+                  {STUDY_STATUS_LABEL[st.status] ?? st.status} ·{' '}
+                  {(st.updatedAt ?? st.createdAt).toISOString().slice(0, 10)}
                 </span>
               </li>
             ))}
