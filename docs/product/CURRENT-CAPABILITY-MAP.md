@@ -40,3 +40,13 @@ sitio por contexto, aislamiento por organización (RLS), historiales append-only
 
 Estos elementos **no** se muestran como "Próximamente" en la interfaz: aparecerán
 cuando exista una capacidad real.
+
+## Arquitectura futura (solo diseño, ARCH-004)
+
+La evolución hacia **plataforma multisectorial de cumplimiento** (sectores,
+frameworks vs capacidades, catálogo maestro versionado, crosswalk, aplicabilidad,
+vigilancia normativa) está **documentada como arquitectura**, sin módulos, tablas ni
+pantallas nuevas: `docs/architecture/COMPLIANCE-PLATFORM-ARCHITECTURE.md`,
+`docs/architecture/SECTOR-FRAMEWORK-CAPABILITY-MODEL.md`,
+`docs/architecture/MASTER-COMPLIANCE-CATALOG.md`,
+`docs/architecture/REGULATORY-INTELLIGENCE.md` y `docs/roadmap/SECTOR-ROADMAP.md`.

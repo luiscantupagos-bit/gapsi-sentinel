@@ -10,10 +10,20 @@ Responsable, coordinador, gerente o consultor de calidad e inocuidad de una empr
 
 ## Propuesta de valor
 
-Sistema **SaaS B2B** para gestionar, evaluar y mejorar sistemas de calidad,
-inocuidad y cumplimiento en empresas de alimentos: **conocer el estado del
-sistema de gestión, identificar brechas, decidir qué hacer y dar seguimiento
-hasta el cierre**, con datos reales y trazabilidad.
+Sistema **SaaS B2B** para gestionar, evaluar y mejorar sistemas de gestión y
+cumplimiento: **conocer el estado del sistema, identificar brechas, decidir qué
+hacer y dar seguimiento hasta el cierre**, con datos reales y trazabilidad.
+
+Sentinel **nació** como diagnóstico digital para **alimentos** y evoluciona hacia
+una **plataforma multisectorial** (calidad, alimentos, manufactura, farmacéutica,
+seguridad y salud, medio ambiente, cumplimiento general). El principio es
+**Sector → esquema(s) → requisitos → capacidades del Core**: los verticales
+reutilizan un mismo Core (documentos, auditorías, CAPA, tareas, proyectos, análisis,
+Estudios de Datos, evidencia) en vez de duplicar módulos por norma. La arquitectura
+de esa evolución (catálogo maestro, versionado, crosswalk, vigilancia normativa)
+está en `docs/architecture/COMPLIANCE-PLATFORM-ARCHITECTURE.md` (ARCH-004) y el orden
+del trabajo en `docs/roadmap/SECTOR-ROADMAP.md`. **Es arquitectura, no módulos
+implementados todavía.**
 
 ## Sentinel hoy (capacidades actuales)
 
@@ -21,8 +31,12 @@ hasta el cierre**, con datos reales y trazabilidad.
 - **Documentos** — control documental con versionado automático, flujo,
   distribución y copias controladas.
 - **CAPA** — acciones correctivas guiadas por etapas hasta el cierre.
-- **Análisis** — herramientas de causa (5 porqués, Ishikawa, Pareto, AMEF,
-  recurrencia, comparativo).
+- **Análisis** — herramientas de causa (5 Porqués formal, FTA, Ishikawa, Árbol de
+  causas, AMEF, Pareto, recurrencia, comparativo), transversales a CAPA, proyectos,
+  hallazgos y eventos.
+- **Estudios de Datos** — análisis estadístico ad hoc (importar CSV/XLSX/pegado,
+  clasificar variables, calidad, tendencias/correlación/regresión/ANOVA/chi²) con
+  interpretación determinista y reproducible.
 - **Tareas y Proyectos** — gestión transversal del trabajo.
 - **Auditorías** — del programa al seguimiento, con preparación.
 - **Indicadores y Analítica** — KPI, Pareto, tendencias, estadística y calidad de
@@ -32,9 +46,10 @@ Ver `docs/product/CURRENT-CAPABILITY-MAP.md` para el mapa detallado.
 
 ## Roadmap (no implementado aún)
 
-Autenticación productiva, notificaciones, Sentinel Score, Riesgos, Proveedores,
-Capacitación, HACCP, Fraude alimentario, Food Defense, Recall/Trazabilidad, IA.
-No se muestran en la interfaz hasta ser reales.
+Deuda Core (autenticación productiva, notificaciones, Riesgos, Proveedores,
+Capacitación, Activos/Mantenimiento) y la **evolución multisectorial** por familias
+(Quality, Food, Manufacturing, Pharma, EHS, Regulatory Intelligence). Detalle y orden
+en `docs/roadmap/SECTOR-ROADMAP.md`. No se muestran en la interfaz hasta ser reales.
 
 ---
 

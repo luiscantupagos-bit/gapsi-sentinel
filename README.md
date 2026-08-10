@@ -1,6 +1,13 @@
 # GAPSI Sentinel
 
-SaaS B2B para diagnóstico, seguimiento y mejora de sistemas de calidad e inocuidad alimentaria.
+SaaS B2B para diagnóstico, seguimiento y mejora de sistemas de gestión y
+cumplimiento. Nació como diagnóstico digital para alimentos y evoluciona hacia una
+**plataforma multisectorial** (calidad, alimentos, manufactura, farmacéutica, EHS,
+cumplimiento general) con catálogo maestro, versionado de requisitos y vigilancia
+normativa. La arquitectura de esa evolución está en
+`docs/architecture/COMPLIANCE-PLATFORM-ARCHITECTURE.md` (ARCH-004); **el producto
+implementado hoy sigue siendo el descrito abajo** — ARCH-004 es arquitectura, no
+módulos nuevos.
 
 ## Estado actual
 
@@ -52,6 +59,12 @@ Cada incremento debe poder demostrarse, probarse y potencialmente venderse.
 - `docs/product/PRODUCT_BRIEF.md`: alcance y reglas del producto.
 - `docs/product/DOMAIN_GLOSSARY.md`: términos del dominio.
 - `docs/architecture/ARCHITECTURE_DECISIONS.md`: decisiones técnicas iniciales.
+- **Arquitectura multisectorial (ARCH-004, solo diseño):**
+  `docs/architecture/COMPLIANCE-PLATFORM-ARCHITECTURE.md`,
+  `docs/architecture/SECTOR-FRAMEWORK-CAPABILITY-MODEL.md`,
+  `docs/architecture/MASTER-COMPLIANCE-CATALOG.md`,
+  `docs/architecture/REGULATORY-INTELLIGENCE.md` y
+  `docs/roadmap/SECTOR-ROADMAP.md`.
 - `docs/tasks/TASK-001.md`: primera tarea ejecutable.
 - `docs/DEFINITION_OF_DONE.md`: criterio obligatorio de terminación.
 
