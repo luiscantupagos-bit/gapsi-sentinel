@@ -56,11 +56,18 @@ tenant nuevo empieza siempre en `#0001`.
   **Se conserva la ejecución en paralelo** (no se serializa): con ≤ 6 workers × 5
   conexiones el uso queda muy por debajo de `max_connections`.
 
-### 3.2 Aislamiento de datos
+### 3.2 Aislamiento y limpieza de datos
 
-No se cambió el patrón (ya era correcto): cada test crea su propia organización
-desechable con `randomUUID()`. No se usa TRUNCATE global. No se toca el seed de
-desarrollo.
+- Cada test sigue creando su propia organización **desechable** con `randomUUID()`
+  (ids únicos; folios por organización/año). No hay dependencia de orden.
+- **Limpieza global** (`tests/db-global-teardown.ts`, registrado como
+  `globalSetup`): al terminar toda la corrida se eliminan los datos de las
+  organizaciones desechables (todas menos las del seed), recorriendo dinámicamente
+  las tablas con `organization_id` y usando `SET LOCAL session_replication_role =
+replica` (desactiva triggers y FK) en una sola transacción. Evita que el estado
+  se **acumule** entre corridas locales (la acumulación bloatea la BD y ralentiza
+  algunas consultas hasta provocar timeouts). El seed de desarrollo se conserva; no
+  se usa TRUNCATE global. En CI, con BD efímera, la limpieza es un no-op inocuo.
 
 ### 3.3 Transacciones
 
