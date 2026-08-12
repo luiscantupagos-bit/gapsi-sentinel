@@ -125,7 +125,7 @@ export default async function CapaListPage({ searchParams }: { searchParams: Pro
         <p className="empty-state">No hay CAPA que coincidan con los filtros.</p>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="tbl-linkable">
             <thead>
               <tr>
                 <th>Folio</th>
@@ -145,8 +145,14 @@ export default async function CapaListPage({ searchParams }: { searchParams: Pro
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.folio}</td>
-                  <td>{c.title}</td>
+                  <td>
+                    <Link href={`/dashboard/capa/${c.id}`}>{c.folio}</Link>
+                  </td>
+                  <td>
+                    <Link className="tbl-title" href={`/dashboard/capa/${c.id}`}>
+                      {c.title}
+                    </Link>
+                  </td>
                   <td>{CAPA_SOURCE_TYPE_LABEL[c.sourceType as CapaSourceType] ?? c.sourceType}</td>
                   <td>{c.siteName ?? '—'}</td>
                   <td>

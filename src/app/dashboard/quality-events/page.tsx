@@ -74,7 +74,11 @@ export default async function QualityEventsPage({
                   <td>
                     <Link href={`/dashboard/quality-events/${e.id}`}>{e.folio}</Link>
                   </td>
-                  <td>{e.title}</td>
+                  <td>
+                    <Link className="tbl-title" href={`/dashboard/quality-events/${e.id}`}>
+                      {e.title}
+                    </Link>
+                  </td>
                   <td>{EVENT_TYPE_LABEL[e.eventType] ?? e.eventType}</td>
                   <td>{e.eventDate.toISOString().slice(0, 10)}</td>
                   <td>{SEVERITY_LABEL[e.severity] ?? e.severity}</td>

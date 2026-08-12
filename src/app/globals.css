@@ -462,7 +462,7 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 a:focus-visible {
-  outline: 3px solid #14202b;
+  outline: 2px solid var(--color-primary, #2563eb);
   outline-offset: 2px;
 }
 
@@ -4058,4 +4058,196 @@ a.tool-card:focus-visible {
   gap: var(--space-2);
   justify-content: space-between;
   flex-wrap: wrap;
+}
+
+/* =========================================================================
+   Estándar GLOBAL de controles de formulario (CORE-UX-004 · Obj 1)
+   Un solo baseline para input/select/textarea/file/date/number/search, para que
+   los campos se distingan del fondo de las cards en TODA la app. Tema claro.
+   ========================================================================= */
+:root {
+  --field-bg: #f8fafc;
+  --field-bg-focus: #ffffff;
+  --field-border: #cbd5e1;
+  --field-border-hover: #94a3b8;
+  --field-focus: var(--color-primary, #2563eb);
+  --field-ring: rgba(37, 99, 235, 0.18);
+  --field-placeholder: #94a3b8;
+  --field-disabled-bg: #eef1f6;
+  --field-error: var(--color-danger, #dc2626);
+  --field-error-ring: rgba(220, 38, 38, 0.18);
+}
+
+/* Baseline: controles de texto, select y textarea (no checkbox/radio/range/file). */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(
+    [type='color']
+  ),
+select,
+textarea {
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--color-text, #16202b);
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  line-height: 1.35;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    background-color 0.12s ease;
+}
+
+/* Hover perceptible. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(
+    [type='color']
+  ):hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--field-border-hover);
+}
+
+/* Focus azul + ring discreto (reemplaza el outline genérico en los campos). */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(
+    [type='color']
+  ):focus,
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(
+    [type='color']
+  ):focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--field-focus);
+  background: var(--field-bg-focus);
+  box-shadow: 0 0 0 3px var(--field-ring);
+}
+
+::placeholder {
+  color: var(--field-placeholder);
+  opacity: 1;
+}
+
+/* Disabled claramente diferente. */
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--field-disabled-bg);
+  color: var(--color-muted, #64748b);
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+/* File input: contenedor visible + botón claro. */
+input[type='file'] {
+  background: var(--field-bg);
+  border: 1px dashed var(--field-border);
+  border-radius: var(--radius-sm, 6px);
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+  width: 100%;
+  max-width: 32rem;
+  cursor: pointer;
+}
+input[type='file']:hover:not(:disabled) {
+  border-color: var(--field-border-hover);
+}
+input[type='file']:focus-visible {
+  outline: none;
+  border-color: var(--field-focus);
+  box-shadow: 0 0 0 3px var(--field-ring);
+}
+input[type='file']::file-selector-button {
+  font: inherit;
+  font-weight: 600;
+  margin-right: 0.6rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm, 6px);
+  background: #fff;
+  color: var(--color-text, #16202b);
+  cursor: pointer;
+}
+
+/* Estado de error: no depende solo del color (borde + ring + texto .field-error). */
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'],
+.is-error input,
+.is-error select,
+.is-error textarea {
+  border-color: var(--field-error);
+}
+input[aria-invalid='true']:focus,
+select[aria-invalid='true']:focus,
+textarea[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px var(--field-error-ring);
+}
+.field-error {
+  color: var(--field-error);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.field-error::before {
+  content: '⚠ ';
+}
+
+/* Checkbox/radio: acento azul + área de foco visible. */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--color-primary, #2563eb);
+  width: 1rem;
+  height: 1rem;
+}
+
+/* --- Tarea: "Siguiente acción" agrupada (CORE-UX-004 · Obj 2) --- */
+.wf-panel--grouped {
+  display: grid;
+  gap: var(--space-3);
+}
+.wf-group {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-3);
+  background: var(--color-surface, #fff);
+}
+.wf-group__title {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+  color: var(--color-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.wf-group__state {
+  margin: 0 0 var(--space-2);
+}
+.wf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.wf-more {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+.wf-more__label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-muted, #64748b);
+  margin-bottom: var(--space-1);
+}
+.wf-more__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.wf-more .button.is-active {
+  border-color: var(--color-primary, #2563eb);
+  color: var(--color-primary, #2563eb);
+  box-shadow: 0 0 0 3px var(--field-ring, rgba(37, 99, 235, 0.18));
+}
+.wf-context {
+  margin-top: var(--space-2);
 }
