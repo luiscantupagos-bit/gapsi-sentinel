@@ -157,3 +157,52 @@ export const IconGauge = (p: IconProps) => (
     <path d="M12 18l4-5" />
   </Svg>
 );
+
+// --- Iconos de herramientas de análisis (misma familia de línea) ---
+export const IconWhy = (p: IconProps) => (
+  <Svg className={p.className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 2.2-2.6 3.8" />
+    <path d="M12 17h.01" />
+  </Svg>
+);
+export const IconFishbone = (p: IconProps) => (
+  <Svg className={p.className}>
+    <path d="M3 12h16l2-2v4l-2-2" />
+    <path d="M7 12l-2-3M11 12l-2-3M15 12l-2-3" />
+    <path d="M7 12l-2 3M11 12l-2 3M15 12l-2 3" />
+  </Svg>
+);
+export const IconTree = (p: IconProps) => (
+  <Svg className={p.className}>
+    <path d="M12 3v4M12 7L6 11M12 7l6 4" />
+    <rect x="9" y="3" width="6" height="4" rx="1" />
+    <rect x="3" y="11" width="6" height="4" rx="1" />
+    <rect x="15" y="11" width="6" height="4" rx="1" />
+  </Svg>
+);
+export const IconCompare = (p: IconProps) => (
+  <Svg className={p.className}>
+    <path d="M6 20V8M12 20V4M18 20v-8" />
+    <path d="M3 20h18" />
+  </Svg>
+);
+
+/** Clave de icono → componente. Fuente única en `tool-catalog.ts` (campo `icon`). */
+const TOOL_ICONS: Record<string, (p: IconProps) => React.ReactElement> = {
+  why: IconWhy,
+  fishbone: IconFishbone,
+  tree: IconTree,
+  doc: IconDoc,
+  risk: IconRisk,
+  chart: IconChart,
+  recurrence: IconCapa,
+  compare: IconCompare,
+  analysis: IconAnalysis,
+};
+
+/** Renderiza el icono SVG de una herramienta a partir de su clave del catálogo. */
+export function ToolIcon({ icon, className }: { icon: string; className?: string }) {
+  const Cmp = TOOL_ICONS[icon] ?? IconAnalysis;
+  return <Cmp className={className} />;
+}

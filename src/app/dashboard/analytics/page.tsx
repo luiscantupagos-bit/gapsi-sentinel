@@ -89,6 +89,9 @@ export default async function AnalyticsPage({
         subtitle="Identifica patrones, tendencias y relaciones en los datos de calidad."
         actions={
           <>
+            <Link className="button button--primary" href="/dashboard/analytics/studies">
+              Estudios de datos
+            </Link>
             <Link className="button button--ghost" href="/dashboard/quality-events">
               Ver eventos
             </Link>

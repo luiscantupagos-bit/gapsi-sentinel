@@ -118,7 +118,7 @@ a {
 }
 
 .button:focus-visible {
-  outline: 3px solid #14202b;
+  outline: 2px solid var(--color-primary, #2563eb);
   outline-offset: 2px;
 }
 
@@ -462,7 +462,7 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 a:focus-visible {
-  outline: 3px solid #14202b;
+  outline: 2px solid var(--color-primary, #2563eb);
   outline-offset: 2px;
 }
 
@@ -3864,4 +3864,406 @@ a.tool-card:focus-visible {
   color: var(--color-muted);
   font-weight: 400;
   font-size: 0.72rem;
+}
+
+/* CORE-ALIGN-003 — Interacción de gráficos ejecutivos. */
+.trend__pt {
+  cursor: pointer;
+  outline: none;
+  transition: stroke-width 120ms ease;
+}
+.trend__pt:hover,
+.trend__pt:focus-visible {
+  stroke: var(--color-surface);
+  stroke-width: 3;
+}
+.schemebars__row,
+.minigantt__bar {
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trend__pt {
+    transition: none;
+  }
+}
+
+/* CORE-ALIGN-003 — Estudios de datos: badges de estado + formularios en línea. */
+.badge--study-draft {
+  background: #e5e7eb;
+  color: #374151;
+}
+.badge--study-data_loaded {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.badge--study-analyzing,
+.badge--study-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge--study-concluded {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--study-archived {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.inline-form .msg {
+  flex-basis: 100%;
+}
+
+/* Interpretación determinista de un análisis (3 niveles). */
+.interpretation {
+  border-left: 3px solid var(--color-primary, #2563eb);
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--color-primary, #2563eb) 6%, transparent);
+  border-radius: var(--radius-sm, 6px);
+  margin-bottom: var(--space-3);
+}
+.interpretation__principal {
+  font-weight: 600;
+  margin: 0 0 var(--space-1);
+}
+.interpretation__detail {
+  margin: 0 0 var(--space-1);
+}
+.interpretation__next {
+  margin: 0;
+  color: var(--color-text-muted, #64748b);
+}
+.checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* --- Fase 5: Árbol de Fallas (FTA) --- */
+.fta__diagram {
+  overflow-x: auto;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-surface, #fff);
+  padding: var(--space-2);
+}
+.fta__svg {
+  width: 100%;
+  min-width: 480px;
+  height: auto;
+}
+.fta__edge {
+  stroke: var(--color-border-strong, #94a3b8);
+  stroke-width: 1.5;
+}
+.fta__gate {
+  fill: var(--color-primary, #2563eb);
+  font-size: 13px;
+  font-weight: 700;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--color-surface, #fff);
+  stroke-width: 3;
+}
+.fta__box {
+  stroke: var(--color-border-strong, #94a3b8);
+  stroke-width: 1;
+}
+.fta__box-label {
+  text-anchor: middle;
+  font-size: 12px;
+  font-weight: 600;
+  fill: #0f172a;
+}
+.fta__box-type {
+  text-anchor: middle;
+  font-size: 10px;
+  fill: #475569;
+}
+.fta__outline {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-3);
+  list-style: none;
+}
+.fta__outline li {
+  padding: 2px 0;
+}
+.fta__errors {
+  margin-top: var(--space-2);
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.fta__editor h4,
+.fivewhys__add h4 {
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+/* --- Fase 5: 5 Porqués --- */
+.fivewhys__problem {
+  margin-bottom: var(--space-3);
+}
+.fivewhys__chain {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.fivewhys__step {
+  border-left: 3px solid var(--color-primary, #2563eb);
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--color-primary, #2563eb) 5%, transparent);
+  border-radius: var(--radius-sm, 6px);
+}
+.fivewhys__q {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary, #2563eb);
+}
+.fivewhys__a {
+  margin: 0.15rem 0;
+  font-weight: 600;
+}
+.fivewhys__ev,
+.fivewhys__note {
+  margin: 0.1rem 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted, #64748b);
+}
+.fivewhys__step-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+
+/* --- Relaciones transversales --- */
+.relations-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.relations-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+/* =========================================================================
+   Estándar GLOBAL de controles de formulario (CORE-UX-004 · Obj 1)
+   Un solo baseline para input/select/textarea/file/date/number/search, para que
+   los campos se distingan del fondo de las cards en TODA la app. Tema claro.
+   ========================================================================= */
+:root {
+  --field-bg: #f8fafc;
+  --field-bg-focus: #ffffff;
+  --field-border: #cbd5e1;
+  --field-border-hover: #94a3b8;
+  --field-focus: var(--color-primary, #2563eb);
+  --field-ring: rgba(37, 99, 235, 0.18);
+  --field-placeholder: #94a3b8;
+  --field-disabled-bg: #eef1f6;
+  --field-error: var(--color-danger, #dc2626);
+  --field-error-ring: rgba(220, 38, 38, 0.18);
+}
+
+/* Baseline: controles de texto, select y textarea (no checkbox/radio/range/file). */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(
+    [type='color']
+  ),
+select,
+textarea {
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--color-text, #16202b);
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  line-height: 1.35;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    background-color 0.12s ease;
+}
+
+/* Hover perceptible. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(
+    [type='color']
+  ):hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--field-border-hover);
+}
+
+/* Focus azul + ring discreto (reemplaza el outline genérico en los campos). */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(
+    [type='color']
+  ):focus,
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not(
+    [type='color']
+  ):focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--field-focus);
+  background: var(--field-bg-focus);
+  box-shadow: 0 0 0 3px var(--field-ring);
+}
+
+::placeholder {
+  color: var(--field-placeholder);
+  opacity: 1;
+}
+
+/* Disabled claramente diferente. */
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--field-disabled-bg);
+  color: var(--color-muted, #64748b);
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+/* File input: contenedor visible + botón claro. */
+input[type='file'] {
+  background: var(--field-bg);
+  border: 1px dashed var(--field-border);
+  border-radius: var(--radius-sm, 6px);
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+  width: 100%;
+  max-width: 32rem;
+  cursor: pointer;
+}
+input[type='file']:hover:not(:disabled) {
+  border-color: var(--field-border-hover);
+}
+input[type='file']:focus-visible {
+  outline: none;
+  border-color: var(--field-focus);
+  box-shadow: 0 0 0 3px var(--field-ring);
+}
+input[type='file']::file-selector-button {
+  font: inherit;
+  font-weight: 600;
+  margin-right: 0.6rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm, 6px);
+  background: #fff;
+  color: var(--color-text, #16202b);
+  cursor: pointer;
+}
+
+/* Estado de error: no depende solo del color (borde + ring + texto .field-error). */
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'],
+.is-error input,
+.is-error select,
+.is-error textarea {
+  border-color: var(--field-error);
+}
+input[aria-invalid='true']:focus,
+select[aria-invalid='true']:focus,
+textarea[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px var(--field-error-ring);
+}
+.field-error {
+  color: var(--field-error);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.field-error::before {
+  content: '⚠ ';
+}
+
+/* Checkbox/radio: acento azul + área de foco visible. */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--color-primary, #2563eb);
+  width: 1rem;
+  height: 1rem;
+}
+
+/* --- Tarea: "Siguiente acción" agrupada (CORE-UX-004 · Obj 2) --- */
+.wf-panel--grouped {
+  display: grid;
+  gap: var(--space-3);
+}
+.wf-group {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-3);
+  background: var(--color-surface, #fff);
+}
+.wf-group__title {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+  color: var(--color-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.wf-group__state {
+  margin: 0 0 var(--space-2);
+}
+.wf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.wf-more {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+.wf-more__label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-muted, #64748b);
+  margin-bottom: var(--space-1);
+}
+.wf-more__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.wf-more .button.is-active {
+  border-color: var(--color-primary, #2563eb);
+  color: var(--color-primary, #2563eb);
+  box-shadow: 0 0 0 3px var(--field-ring, rgba(37, 99, 235, 0.18));
+}
+.wf-context {
+  margin-top: var(--space-2);
+}
+
+/* --- Iconos de herramientas (SVG, no emoji) en catálogo/biblioteca --- */
+.tool-card__icon svg {
+  width: 26px;
+  height: 26px;
+  color: var(--color-primary, #2563eb);
+}
+.tool-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+.tool-cell__icon {
+  color: var(--color-primary, #2563eb);
+  flex: none;
 }

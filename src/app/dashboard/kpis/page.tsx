@@ -53,7 +53,7 @@ export default async function KpisPage() {
         <p className="muted">Aún no hay KPI. Crea el primero con el constructor.</p>
       ) : (
         <div className="table-wrap">
-          <table className="data-table">
+          <table className="data-table tbl-linkable">
             <thead>
               <tr>
                 <th>Código</th>
@@ -70,9 +70,13 @@ export default async function KpisPage() {
             <tbody>
               {kpis.map(({ definition: d, computation: c, trend }) => (
                 <tr key={d.id}>
-                  <td>{d.code}</td>
+                  <td className="mono">
+                    <Link href={`/dashboard/kpis/${d.id}`}>{d.code}</Link>
+                  </td>
                   <td>
-                    <Link href={`/dashboard/kpis/${d.id}`}>{d.name}</Link>
+                    <Link href={`/dashboard/kpis/${d.id}`} className="tbl-title">
+                      {d.name}
+                    </Link>
                   </td>
                   <td>{SOURCE_LABEL[d.source] ?? d.source}</td>
                   <td>{MEASURE_LABEL[d.measure] ?? d.measure}</td>

@@ -130,6 +130,7 @@ export function Gauge({ value, color }: { value: number; color: string }) {
       role="img"
       aria-label={`${value}%`}
     >
+      <title>Cumplimiento: {value}%</title>
       <path
         d={`M ${sx} ${sy} A ${r} ${r} 0 0 1 ${ex} ${ey}`}
         fill="none"
@@ -224,7 +225,11 @@ export function SchemeBars({
       {items.map((it) => {
         const vigente = it.status === 'submitted' || it.status === 'reviewed';
         return (
-          <li key={it.diagnosticId} className="schemebars__row">
+          <li
+            key={it.diagnosticId}
+            className="schemebars__row"
+            title={`${it.scheme}: ${it.percentage}%${vigente ? '' : ' (en progreso)'}`}
+          >
             <Link href={`/dashboard/diagnostics/${it.diagnosticId}`} className="schemebars__name">
               {it.scheme}
               {!vigente && <span className="schemebars__tag"> · en progreso</span>}
@@ -299,6 +304,7 @@ export function MiniGantt({
               <span
                 className={`minigantt__bar${r.overdue ? ' is-overdue' : ''}`}
                 style={{ left: `${left}%`, width: `${width}%` }}
+                title={`${r.folio ? `${r.folio} · ` : ''}${r.label}\n${r.start} → ${r.end}${r.progress != null ? ` · ${r.progress}%` : ''}${r.overdue ? ' · vencido' : ''}`}
               >
                 {r.progress != null && (
                   <span className="minigantt__progress" style={{ width: `${r.progress}%` }} />
@@ -360,6 +366,26 @@ export function TrendChart({
             points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(' ')}
           />
         ))}
+        {/* Puntos interactivos: hover/foco muestran mes · serie · valor. */}
+        {series.map((s) =>
+          s.values.map((v, i) => (
+            <circle
+              key={`${s.key}-${i}`}
+              className="trend__pt"
+              cx={x(i)}
+              cy={y(v)}
+              r={2.6}
+              fill={s.color}
+              tabIndex={0}
+              role="img"
+              aria-label={`${s.label}, ${months[i]}: ${v}`}
+            >
+              <title>
+                {months[i]} · {s.label}: {v}
+              </title>
+            </circle>
+          )),
+        )}
         {months.map((m, i) =>
           i % 3 === 0 ? (
             <text key={m} x={x(i)} y={H - 8} fontSize="10" textAnchor="middle" fill="#94a3b8">

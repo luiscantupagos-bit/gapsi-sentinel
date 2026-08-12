@@ -40,7 +40,8 @@ import {
 type Member = { id: string; name: string };
 
 interface Props {
-  capaId: string;
+  /** capaId es OPCIONAL: los análisis transversales no dependen de una CAPA. */
+  capaId: string | null;
   analysisId: string;
   type: AnalysisType;
   status: AnalysisStatus;
@@ -68,7 +69,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function AnalysisEditPanel(p: Props) {
-  const base = { capaId: p.capaId, analysisId: p.analysisId };
+  // capaId opcional: en modo transversal se omite el campo oculto.
+  const base: Record<string, string> = p.capaId
+    ? { capaId: p.capaId, analysisId: p.analysisId }
+    : { analysisId: p.analysisId };
+  const hasCapa = Boolean(p.capaId);
   const { canEdit, canReview, isAdmin } = p.ctx;
   const c = (k: string) => p.conclusion?.[k] ?? '';
 
@@ -133,7 +138,7 @@ export function AnalysisEditPanel(p: Props) {
               </Field>
             </AnalysisActionForm>
           )}
-          {p.status === 'approved' && (
+          {p.status === 'approved' && hasCapa && (
             <>
               <AnalysisActionForm
                 action={newVersionAction}
@@ -396,21 +401,23 @@ export function AnalysisEditPanel(p: Props) {
           desc="Captura cada categoría y su cantidad (frecuencia)."
           help="Escribe una categoría y su cantidad en cada fila, o genera los datos automáticamente desde las CAPA. El sistema calcula %, % acumulado y el grupo vital (corte 80%)."
         >
-          <AnalysisActionForm
-            action={generateParetoAction}
-            hidden={base}
-            button="Generar desde CAPA"
-          >
-            <Field label="Agrupar CAPA por">
-              <select name="dimension" defaultValue="sourceType">
-                <option value="sourceType">Tipo</option>
-                <option value="severity">Severidad</option>
-                <option value="priority">Prioridad</option>
-                <option value="area">Área</option>
-                <option value="process">Proceso</option>
-              </select>
-            </Field>
-          </AnalysisActionForm>
+          {hasCapa && (
+            <AnalysisActionForm
+              action={generateParetoAction}
+              hidden={base}
+              button="Generar desde CAPA"
+            >
+              <Field label="Agrupar CAPA por">
+                <select name="dimension" defaultValue="sourceType">
+                  <option value="sourceType">Tipo</option>
+                  <option value="severity">Severidad</option>
+                  <option value="priority">Prioridad</option>
+                  <option value="area">Área</option>
+                  <option value="process">Proceso</option>
+                </select>
+              </Field>
+            </AnalysisActionForm>
+          )}
           <AnalysisActionForm
             action={setParetoAction}
             hidden={base}
@@ -528,7 +535,11 @@ export function AnalysisEditPanel(p: Props) {
           desc="Revisa si el problema ya había ocurrido."
           help="El sistema propone CAPA parecidas por tipo, sitio, área o proceso. Confirma si es recurrente y justifica tu decisión."
         >
-          {p.recurrenceCandidates.length === 0 ? (
+          {!hasCapa ? (
+            <p className="muted">
+              La recurrencia compara CAPA: vincula este análisis a una CAPA para usarla.
+            </p>
+          ) : p.recurrenceCandidates.length === 0 ? (
             <p className="muted">No se encontraron CAPA candidatas.</p>
           ) : (
             <div className="rows">
@@ -569,20 +580,26 @@ export function AnalysisEditPanel(p: Props) {
           desc="Selecciona entre 2 y 5 CAPA."
           help="Marca las CAPA que quieres comparar (mínimo 2, máximo 5). La tabla comparativa aparece más abajo."
         >
-          <AnalysisActionForm
-            action={setComparativeAction}
-            hidden={base}
-            button="Guardar comparación"
-          >
-            <div className="capa-checklist">
-              {p.allCapas.map((cap) => (
-                <label key={cap.id} className="props-check">
-                  <input type="checkbox" name="capaIds" value={cap.id} /> {cap.folio} ·{' '}
-                  {cap.title.slice(0, 32)}
-                </label>
-              ))}
-            </div>
-          </AnalysisActionForm>
+          {!hasCapa ? (
+            <p className="muted">
+              La comparación de casos usa CAPA: vincula este análisis a una CAPA para usarla.
+            </p>
+          ) : (
+            <AnalysisActionForm
+              action={setComparativeAction}
+              hidden={base}
+              button="Guardar comparación"
+            >
+              <div className="capa-checklist">
+                {p.allCapas.map((cap) => (
+                  <label key={cap.id} className="props-check">
+                    <input type="checkbox" name="capaIds" value={cap.id} /> {cap.folio} ·{' '}
+                    {cap.title.slice(0, 32)}
+                  </label>
+                ))}
+              </div>
+            </AnalysisActionForm>
+          )}
         </Step>
       )}
 

@@ -61,8 +61,9 @@ export async function loadUnifiedEventsTx(
   ]);
 
   // Mapa analysisId -> capaId para localizar el CAPA de cada renglón AMEF.
+  // Solo análisis vinculados a una CAPA (los independientes no son eventos CAPA).
   const analysisToCapa = new Map<string, string>();
-  for (const a of analysisRows) analysisToCapa.set(a.id, a.capaId);
+  for (const a of analysisRows) if (a.capaId) analysisToCapa.set(a.id, a.capaId);
 
   const native: NativeEventRow[] = nativeRows.map((r) => ({
     id: r.id,
@@ -193,18 +194,20 @@ export async function loadUnifiedEventsTx(
       createdAt: r.createdAt,
     }));
 
-  const analyses: AnalysisRow[] = analysisRows.map((r) => ({
-    id: r.id,
-    organizationId: r.organizationId,
-    capaId: r.capaId,
-    type: r.type,
-    title: r.title,
-    status: r.status,
-    responsibleUserId: r.responsibleUserId,
-    startedAt: r.startedAt,
-    approvedAt: r.approvedAt,
-    createdAt: r.createdAt,
-  }));
+  const analyses: AnalysisRow[] = analysisRows
+    .filter((r): r is typeof r & { capaId: string } => r.capaId !== null)
+    .map((r) => ({
+      id: r.id,
+      organizationId: r.organizationId,
+      capaId: r.capaId,
+      type: r.type,
+      title: r.title,
+      status: r.status,
+      responsibleUserId: r.responsibleUserId,
+      startedAt: r.startedAt,
+      approvedAt: r.approvedAt,
+      createdAt: r.createdAt,
+    }));
 
   return buildUnifiedDataset({
     native,

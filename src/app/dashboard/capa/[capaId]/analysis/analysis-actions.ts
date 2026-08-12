@@ -69,10 +69,18 @@ const opt = (fd: FormData, k: string): string | null => {
 };
 const num = (fd: FormData, k: string): number => Number(s(fd, k));
 
+/**
+ * Revalida las rutas afectadas. `capaId` es OPCIONAL: los análisis transversales
+ * (sin CAPA) se editan en `/dashboard/analysis/[id]`. Siempre se revalida la
+ * biblioteca global y, si hay analysisId, el workspace transversal.
+ */
 function revalidate(capaId: string, analysisId?: string) {
-  revalidatePath(`/dashboard/capa/${capaId}/analysis`);
-  if (analysisId) revalidatePath(`/dashboard/capa/${capaId}/analysis/${analysisId}`);
-  revalidatePath(`/dashboard/capa/${capaId}`);
+  if (capaId) {
+    revalidatePath(`/dashboard/capa/${capaId}/analysis`);
+    if (analysisId) revalidatePath(`/dashboard/capa/${capaId}/analysis/${analysisId}`);
+    revalidatePath(`/dashboard/capa/${capaId}`);
+  }
+  if (analysisId) revalidatePath(`/dashboard/analysis/${analysisId}`);
   revalidatePath('/dashboard/capa/analysis');
 }
 
@@ -92,6 +100,9 @@ export async function createAnalysisAction(_p: FormState | null, fd: FormData): 
     return toState(e);
   }
   revalidate(capaId);
+  const type = s(fd, 'type');
+  // 5 Porqués y FTA se editan en el workspace transversal.
+  if (type === '5whys' || type === 'fta') redirect(`/dashboard/analysis/${id}`);
   redirect(`/dashboard/capa/${capaId}/analysis/${id}`);
 }
 

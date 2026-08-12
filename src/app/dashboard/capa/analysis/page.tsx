@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireServerSession } from '@/server/session';
-import { listAnalyses } from '@/server/quality-analysis';
+import { listAnalysisLibrary } from '@/server/quality-analysis';
 import {
   ANALYSIS_STATUSES,
   ANALYSIS_STATUS_LABEL,
@@ -10,16 +10,18 @@ import {
   type AnalysisStatus,
   type AnalysisType,
 } from '@/features/capa/analysis-state';
+import { getTool } from '@/features/analysis/tool-catalog';
+import { ToolIcon } from '../../_components/icons';
+import { NewIndependentForm } from './_components/NewIndependentForm';
 
-const ICON: Record<AnalysisType, string> = {
-  ishikawa: '🐟',
-  cause_tree: '🌳',
-  pareto: '📊',
-  fmea: '🧮',
-  recurrence: '🔁',
-  comparative: '🔀',
-  freeform: '📝',
-};
+const iconKey = (type: string) => getTool(type)?.icon ?? 'analysis';
+
+/** Ruta de detalle según herramienta y origen. */
+function hrefFor(a: { id: string; type: string; capaId: string | null }): string {
+  if (a.type === '5whys' || a.type === 'fta') return `/dashboard/analysis/${a.id}`;
+  if (a.capaId) return `/dashboard/capa/${a.capaId}/analysis/${a.id}`;
+  return `/dashboard/analysis/${a.id}`;
+}
 
 interface SP {
   q?: string;
@@ -27,10 +29,10 @@ interface SP {
   status?: string;
 }
 
-export default async function AnalysisListPage({ searchParams }: { searchParams: Promise<SP> }) {
+export default async function AnalysisLibraryPage({ searchParams }: { searchParams: Promise<SP> }) {
   const session = await requireServerSession();
   const sp = await searchParams;
-  const rows = await listAnalyses(session.organizationId, {
+  const rows = await listAnalysisLibrary(session.organizationId, {
     search: sp.q,
     type: sp.type,
     status: sp.status,
@@ -41,8 +43,12 @@ export default async function AnalysisListPage({ searchParams }: { searchParams:
       <div className="page-head">
         <div>
           <h1>Análisis</h1>
-          <p className="muted">Herramientas de análisis e investigación para CAPA.</p>
+          <p className="muted">
+            Biblioteca global de análisis de todos los orígenes: CAPA, proyectos, hallazgos, eventos
+            o independientes.
+          </p>
         </div>
+        <NewIndependentForm />
       </div>
 
       <div className="tool-grid tool-grid--compact">
@@ -53,7 +59,7 @@ export default async function AnalysisListPage({ searchParams }: { searchParams:
             href={`/dashboard/capa/analysis?type=${t}`}
           >
             <span className="tool-card__icon" aria-hidden>
-              {ICON[t]}
+              <ToolIcon icon={iconKey(t)} />
             </span>
             <span className="tool-card__title">{ANALYSIS_TYPE_LABEL[t]}</span>
             <span className="tool-card__help">{ANALYSIS_TYPE_HELP[t]}</span>
@@ -85,44 +91,44 @@ export default async function AnalysisListPage({ searchParams }: { searchParams:
       </form>
 
       {rows.length === 0 ? (
-        <p className="empty-state">No hay análisis. Créalos desde una CAPA.</p>
+        <p className="empty-state">No hay análisis todavía.</p>
       ) : (
         <div className="table-wrap">
           <table className="tbl-linkable">
             <thead>
               <tr>
-                <th>Tipo</th>
+                <th>Herramienta</th>
                 <th>Título</th>
-                <th>CAPA</th>
+                <th>Origen</th>
                 <th>Estado</th>
-                <th>Versión</th>
                 <th>Responsable</th>
                 <th>Actualizado</th>
+                <th>Resultado / conclusión</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((a) => (
                 <tr key={a.id}>
-                  <td>{ANALYSIS_TYPE_LABEL[a.type as AnalysisType] ?? a.type}</td>
                   <td>
-                    <Link
-                      href={`/dashboard/capa/${a.capaId}/analysis/${a.id}`}
-                      className="tbl-title"
-                    >
+                    <span className="tool-cell">
+                      <ToolIcon icon={iconKey(a.type)} className="tool-cell__icon" />
+                      {ANALYSIS_TYPE_LABEL[a.type as AnalysisType] ?? a.type}
+                    </span>
+                  </td>
+                  <td>
+                    <Link href={hrefFor(a)} className="tbl-title">
                       {a.title}
                     </Link>
                   </td>
-                  <td>
-                    <Link href={`/dashboard/capa/${a.capaId}`}>{a.capaFolio}</Link>
-                  </td>
+                  <td>{a.originHref ? <Link href={a.originHref}>{a.origin}</Link> : a.origin}</td>
                   <td>
                     <span className={`badge badge--analysis-${a.status}`}>
                       {ANALYSIS_STATUS_LABEL[a.status as AnalysisStatus] ?? a.status}
                     </span>
                   </td>
-                  <td>v{a.version}</td>
                   <td>{a.responsibleName ?? <span className="muted">—</span>}</td>
                   <td>{a.updatedAt}</td>
+                  <td>{a.conclusionSummary ?? <span className="muted">—</span>}</td>
                 </tr>
               ))}
             </tbody>
