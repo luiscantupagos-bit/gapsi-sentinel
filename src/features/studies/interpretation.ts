@@ -150,9 +150,9 @@ export function interpret(result: StudyAnalysisResult): Interpretation | null {
       return {
         principal: `F = ${a.fStatistic} (gl ${a.dfBetween}, ${a.dfWithin}).`,
         detail:
-          'ANOVA compara las medias entre grupos; no identifica automáticamente qué par difiere.',
+          'ANOVA compara si las medias difieren entre los grupos: un F más alto indica más variación entre grupos que dentro de ellos. Sentinel todavía NO calcula la significancia estadística (valor-p) de esta prueba, así que por sí sola no confirma que la diferencia sea significativa.',
         nextStep:
-          'Compara F contra una tabla F (α=0.05) y revisa descriptivos/distribuciones. Una diferencia no implica causa.',
+          'Revisa las medias y la dispersión de cada grupo. Para determinar si la diferencia es estadísticamente significativa se necesita el valor-p (aún no disponible) o el apoyo de un especialista; no lo asumas. Una diferencia no implica causa.',
       };
     }
 

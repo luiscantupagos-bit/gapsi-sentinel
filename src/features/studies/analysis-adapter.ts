@@ -86,6 +86,20 @@ function categoricalColumn(rows: StudyRowValues[], key: string): string[] {
   return rows.map((r) => (r[key] ?? '').trim()).filter((v) => v !== '');
 }
 
+/**
+ * Semana ISO 8601 (semana empieza el lunes; la semana 1 contiene el primer jueves
+ * del año). Devuelve el AÑO-SEMANA ISO, que puede diferir del año calendario cerca
+ * del cambio de año (p. ej. 2025-01-01 puede ser 2024-W01). Determinista, en UTC.
+ */
+function isoWeek(d: Date): { year: number; week: number } {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dayNum = date.getUTCDay() || 7; // domingo=7, lunes=1
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum); // avanza al jueves de esta semana
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return { year: date.getUTCFullYear(), week };
+}
+
 function periodBucket(iso: string, period: NonNullable<AnalysisConfig['period']>): string {
   const d = new Date(`${iso}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return iso;
@@ -98,8 +112,12 @@ function periodBucket(iso: string, period: NonNullable<AnalysisConfig['period']>
       return `${y}-Q${Math.floor(m / 3) + 1}`;
     case 'monthly':
       return `${y}-${String(m + 1).padStart(2, '0')}`;
+    case 'weekly': {
+      const { year, week } = isoWeek(d);
+      return `${year}-W${String(week).padStart(2, '0')}`;
+    }
     default:
-      return iso; // daily/weekly → por fecha exacta
+      return iso; // daily → por fecha exacta
   }
 }
 

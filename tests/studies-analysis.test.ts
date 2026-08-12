@@ -69,6 +69,24 @@ describe('runAnalysis · trend', () => {
     const r = runAnalysis('trend', { date: 'fecha', period: 'yearly' }, ROWS);
     expect(r.kind).toBe('insufficient');
   });
+  it('semanal agrupa por semana ISO y cruza mes/año', () => {
+    const rows = [
+      { f: '2025-12-30' }, // martes → ISO 2026-W01
+      { f: '2026-01-01' }, // jueves → ISO 2026-W01 (mismo bucket, cruza el año)
+      { f: '2026-01-05' }, // lunes → ISO 2026-W02
+      { f: '2026-01-11' }, // domingo → ISO 2026-W02 (mismo bucket, cruza el mes)
+      { f: '2026-01-12' }, // lunes → ISO 2026-W03
+    ];
+    const r = runAnalysis('trend', { date: 'f', period: 'weekly' }, rows);
+    expect(r.kind).toBe('trend');
+    if (r.kind === 'trend') {
+      expect(r.points.map((p) => p.label)).toEqual(['2026-W01', '2026-W02', '2026-W03']);
+      const byLabel = Object.fromEntries(r.points.map((p) => [p.label, p.value]));
+      expect(byLabel['2026-W01']).toBe(2);
+      expect(byLabel['2026-W02']).toBe(2);
+      expect(byLabel['2026-W03']).toBe(1);
+    }
+  });
 });
 
 describe('runAnalysis · correlation & regression', () => {

@@ -71,7 +71,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: ALL_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '❓',
+    icon: 'why',
   },
   {
     id: 'ishikawa',
@@ -81,7 +81,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: ALL_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '🐟',
+    icon: 'fishbone',
   },
   {
     id: 'cause_tree',
@@ -91,7 +91,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: ALL_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '🌳',
+    icon: 'tree',
   },
   {
     id: 'fta',
@@ -101,7 +101,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: ALL_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '🌲',
+    icon: 'tree',
   },
   {
     id: 'freeform',
@@ -111,7 +111,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: ALL_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '📝',
+    icon: 'doc',
   },
   {
     id: 'fmea',
@@ -121,7 +121,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: ALL_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '🧮',
+    icon: 'risk',
   },
   {
     id: 'pareto',
@@ -131,7 +131,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: ALL_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '📊',
+    icon: 'chart',
   },
   {
     id: 'recurrence',
@@ -141,7 +141,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: CAPA_ANALYTICS_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '🔁',
+    icon: 'recurrence',
   },
   {
     id: 'comparative',
@@ -151,7 +151,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: CAPA_ANALYTICS_ORIGINS,
     workspace: 'analysis',
     available: true,
-    icon: '🔀',
+    icon: 'compare',
   },
   {
     id: 'data_study',
@@ -161,7 +161,7 @@ export const ANALYSIS_TOOLS: ToolDef[] = [
     compatibleOrigins: ['independent', 'project', 'capa', 'audit_finding', 'quality_event'],
     workspace: 'study',
     available: true,
-    icon: '📈',
+    icon: 'analysis',
   },
 ];
 

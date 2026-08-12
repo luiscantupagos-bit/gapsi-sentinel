@@ -118,7 +118,7 @@ a {
 }
 
 .button:focus-visible {
-  outline: 3px solid #14202b;
+  outline: 2px solid var(--color-primary, #2563eb);
   outline-offset: 2px;
 }
 
@@ -4250,4 +4250,20 @@ input[type='radio'] {
 }
 .wf-context {
   margin-top: var(--space-2);
+}
+
+/* --- Iconos de herramientas (SVG, no emoji) en catálogo/biblioteca --- */
+.tool-card__icon svg {
+  width: 26px;
+  height: 26px;
+  color: var(--color-primary, #2563eb);
+}
+.tool-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+.tool-cell__icon {
+  color: var(--color-primary, #2563eb);
+  flex: none;
 }

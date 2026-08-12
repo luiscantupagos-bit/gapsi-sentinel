@@ -10,19 +10,11 @@ import {
   type AnalysisStatus,
   type AnalysisType,
 } from '@/features/capa/analysis-state';
+import { getTool } from '@/features/analysis/tool-catalog';
+import { ToolIcon } from '../../_components/icons';
 import { NewIndependentForm } from './_components/NewIndependentForm';
 
-const ICON: Partial<Record<AnalysisType, string>> = {
-  ishikawa: '🐟',
-  cause_tree: '🌳',
-  pareto: '📊',
-  fmea: '🧮',
-  recurrence: '🔁',
-  comparative: '🔀',
-  freeform: '📝',
-  '5whys': '❓',
-  fta: '🌲',
-};
+const iconKey = (type: string) => getTool(type)?.icon ?? 'analysis';
 
 /** Ruta de detalle según herramienta y origen. */
 function hrefFor(a: { id: string; type: string; capaId: string | null }): string {
@@ -67,7 +59,7 @@ export default async function AnalysisLibraryPage({ searchParams }: { searchPara
             href={`/dashboard/capa/analysis?type=${t}`}
           >
             <span className="tool-card__icon" aria-hidden>
-              {ICON[t] ?? '•'}
+              <ToolIcon icon={iconKey(t)} />
             </span>
             <span className="tool-card__title">{ANALYSIS_TYPE_LABEL[t]}</span>
             <span className="tool-card__help">{ANALYSIS_TYPE_HELP[t]}</span>
@@ -118,8 +110,10 @@ export default async function AnalysisLibraryPage({ searchParams }: { searchPara
               {rows.map((a) => (
                 <tr key={a.id}>
                   <td>
-                    <span aria-hidden>{ICON[a.type as AnalysisType] ?? '•'}</span>{' '}
-                    {ANALYSIS_TYPE_LABEL[a.type as AnalysisType] ?? a.type}
+                    <span className="tool-cell">
+                      <ToolIcon icon={iconKey(a.type)} className="tool-cell__icon" />
+                      {ANALYSIS_TYPE_LABEL[a.type as AnalysisType] ?? a.type}
+                    </span>
                   </td>
                   <td>
                     <Link href={hrefFor(a)} className="tbl-title">

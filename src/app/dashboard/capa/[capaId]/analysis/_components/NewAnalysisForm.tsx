@@ -9,16 +9,8 @@ import {
   type AnalysisType,
 } from '@/features/capa/analysis-state';
 import { createAnalysisAction, type FormState } from '../analysis-actions';
-
-const ICON: Partial<Record<AnalysisType, string>> = {
-  ishikawa: '🐟',
-  cause_tree: '🌳',
-  pareto: '📊',
-  fmea: '🧮',
-  recurrence: '🔁',
-  comparative: '🔀',
-  freeform: '📝',
-};
+import { getTool } from '@/features/analysis/tool-catalog';
+import { ToolIcon } from '../../../../_components/icons';
 
 export function NewAnalysisForm({
   capaId,
@@ -49,7 +41,7 @@ export function NewAnalysisForm({
               aria-pressed={type === t}
             >
               <span className="tool-card__icon" aria-hidden>
-                {ICON[t] ?? '•'}
+                <ToolIcon icon={getTool(t)?.icon ?? 'analysis'} />
               </span>
               <span className="tool-card__title">{ANALYSIS_TYPE_LABEL[t]}</span>
               <span className="tool-card__help">{ANALYSIS_TYPE_HELP[t]}</span>

@@ -106,6 +106,7 @@ export function NewAnalysisForm({
             <span className="field__label">Periodo</span>
             <select name="period" defaultValue="monthly">
               <option value="daily">Diario</option>
+              <option value="weekly">Semanal</option>
               <option value="monthly">Mensual</option>
               <option value="quarterly">Trimestral</option>
               <option value="yearly">Anual</option>
