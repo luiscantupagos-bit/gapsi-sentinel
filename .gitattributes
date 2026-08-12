@@ -1,0 +1,9 @@
+# CORE-MAINT-001 — Política de fin de línea del repositorio.
+#
+# Todo el contenido de texto se normaliza a LF en el repositorio y en el working
+# tree, independientemente de `core.autocrlf` del usuario. Así `format:check`
+# (Prettier `endOfLine: lf`) es determinista en Windows y Linux/CI.
+* text=auto eol=lf
+
+# Binarios: nunca convertir finales de línea.
+*.png binary
