@@ -3,7 +3,7 @@
  * e invalidación del resultado vigente al reabrir. Requiere `DATABASE_URL` +
  * migraciones aplicadas.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createDiagnostic,
   db,
@@ -14,10 +14,6 @@ import {
   type OrgTemplateFixture,
 } from './_helpers';
 import type { Prisma } from '@prisma/client';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function createCurrentResult(
   tx: Prisma.TransactionClient,

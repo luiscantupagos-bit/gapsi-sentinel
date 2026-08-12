@@ -7,12 +7,8 @@
  * anti-cruce de documentos y CAPA, los triggers append-only, la RLS activada,
  * las políticas por organización y los grants al rol de aplicación.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb } from './_helpers';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function count(sql: string): Promise<number> {
   const rows = await db().$queryRawUnsafe<{ n: bigint }[]>(sql);

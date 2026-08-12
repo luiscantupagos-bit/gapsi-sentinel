@@ -2,7 +2,7 @@
  * Auditorías — folios, estados, checklist/snapshot, hallazgos, CAPA/tareas,
  * preparación, permisos, RLS y aislamiento (TASK-010). DB.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, inRollbackTx, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   ProgramPermissionError,
@@ -28,10 +28,6 @@ import {
 } from '@/server/audit-findings';
 import { getPreparationMatrix } from '@/server/audit-preparation';
 import { InvalidAuditTransitionError } from '@/features/audits/audit-state';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function addMember(orgId: string, role: string): Promise<string> {
   const id = newId();

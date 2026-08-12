@@ -4,7 +4,7 @@
  *
  * Usa organizaciones desechables (ids aleatorios) para no contaminar la demo.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createDiagnostic,
   db,
@@ -28,10 +28,6 @@ import {
   linkDocument,
   updateDocumentMetadata,
 } from '@/server/documents';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 function validDoc(code: string) {
   return {

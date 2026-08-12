@@ -2,7 +2,7 @@
  * Gestor global de tareas — folios, estados, dependencias, permisos, agregación,
  * RLS y aislamiento entre organizaciones (TASK-009). DB.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, inRollbackTx, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   TaskPermissionError,
@@ -18,10 +18,6 @@ import {
 import { DependencyCycleError } from '@/features/tasks/dependencies';
 import { InvalidTaskTransitionError } from '@/features/tasks/task-state';
 import { createCapa } from '@/server/capa';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function addMember(orgId: string, role: string): Promise<string> {
   const id = newId();

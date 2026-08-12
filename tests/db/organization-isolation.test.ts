@@ -3,7 +3,7 @@
  * rechazo de relaciones cruzadas, rechazo de diagnóstico sobre plantilla
  * maestra, y RLS. Requiere `DATABASE_URL` + migraciones aplicadas.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createDiagnostic,
   db,
@@ -12,10 +12,6 @@ import {
   newId,
   seedOrgWithPublishedTemplate,
 } from './_helpers';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 describe.skipIf(!hasDb)('aislamiento por organización', () => {
   it('permite relaciones válidas dentro de una organización', async () => {

@@ -5,6 +5,14 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    // CORE-MAINT-001: normaliza DATABASE_URL (IPv4 + connection_limit) por worker.
+    setupFiles: ['./tests/setup-db-env.ts'],
+    // Se conserva la ejecución en paralelo (no se serializa). Se acota el número
+    // de workers para que N_workers × connection_limit(5) no agote max_connections
+    // de PostgreSQL. Cada worker comparte UN solo cliente Prisma (ver tests/db/_helpers).
+    poolOptions: {
+      forks: { maxForks: 6 },
+    },
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

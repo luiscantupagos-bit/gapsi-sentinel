@@ -6,7 +6,7 @@
  * para no contaminar la organización demo del seed. Como el modelo prohíbe el
  * borrado físico, no se limpian; `npm run db:reset:local` recrea la base.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createDiagnostic, db, hasDb, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   DiagnosticNotEditableError,
@@ -15,10 +15,6 @@ import {
   getDiagnosticDetail,
   saveAnswers,
 } from '@/server/diagnostics';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 describe.skipIf(!hasDb)('acceso y aislamiento del diagnóstico', () => {
   it('la organización propietaria puede abrir su diagnóstico', async () => {

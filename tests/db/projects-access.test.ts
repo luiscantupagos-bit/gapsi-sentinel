@@ -1,7 +1,7 @@
 /**
  * Proyectos — folios, estados, permisos, hitos, RLS y aislamiento (TASK-009). DB.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, inRollbackTx, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   ProjectPermissionError,
@@ -12,10 +12,6 @@ import {
   listProjects,
   transitionProject,
 } from '@/server/projects';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function addMember(orgId: string, role: string): Promise<string> {
   const id = newId();

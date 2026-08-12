@@ -6,17 +6,13 @@
  *  - deduplica: un evento nativo enlazado a una acción CAPA suprime el agregado,
  *  - respeta RLS (no filtra eventos de otra organización).
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb } from './_helpers';
 import { loadUnifiedEvents } from '@/server/analytics';
 
 const ORG_A = '00000000-0000-4000-8000-0000000000a0';
 const ORG_B = '00000000-0000-4000-8000-0000000000b0';
 const LINKED_ACTION = '00000000-0000-4000-8000-00000ca10003';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 describe.skipIf(!hasDb)('dataset unificado (loadUnifiedEvents)', () => {
   it('incluye eventos nativos sembrados', async () => {

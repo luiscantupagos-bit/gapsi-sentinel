@@ -2,7 +2,7 @@
  * Inmutabilidad de plantillas publicadas y conservación de la versión congelada
  * usada por un diagnóstico. Requiere `DATABASE_URL` + migraciones aplicadas.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createDiagnostic,
   db,
@@ -10,10 +10,6 @@ import {
   inRollbackTx,
   seedOrgWithPublishedTemplate,
 } from './_helpers';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 describe.skipIf(!hasDb)('inmutabilidad de plantillas', () => {
   it('rechaza modificar el contenido de una versión publicada', async () => {
