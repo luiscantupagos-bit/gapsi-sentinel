@@ -141,6 +141,13 @@ tests/            # pruebas unitarias e integración
 `.github/workflows/ci.yml` ejecuta lint, typecheck, pruebas y build en cada
 push a `main` y en cada pull request.
 
+Las pruebas de BD (`npm run test:db`) son deterministas e independientes del orden
+y la concurrencia: comparten un único cliente Prisma por worker y acotan las
+conexiones. El repositorio fija los finales de línea en **LF** vía `.gitattributes`
+(`* text=auto eol=lf`), por lo que `format:check` pasa igual en Windows y Linux sin
+tocar la configuración global de git. Detalles en
+`docs/maintenance/CORE-MAINT-001.md`.
+
 ## Base de datos y modelo de dominio (TASK-002)
 
 Modelo de dominio en **PostgreSQL + Prisma** (UUID, multi-tenant compartido). El
