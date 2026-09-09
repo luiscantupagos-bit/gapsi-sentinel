@@ -197,6 +197,28 @@ internos no disparan la navegación del contenedor.
 - Regla global de clickeables aplicada: folios (`PA/AUD/HAL`), títulos, códigos de
   requisito y tarjetas navegan a su detalle real; hover/focus visibles.
 
+## Motor documental estructurado (DOC-001)
+
+- **Creación por pasos** (`/dashboard/documents/new/editor`): **Paso 1** selección
+  de tipo con tarjetas (`.type-grid`/`.type-card`, prefijo + etiqueta +
+  descripción, `:hover`/`:focus-visible`); **Paso 2** identificación con el
+  estándar de formulario CORE-UX-004 (`.field`, `.form-grid-2` máx. 2 columnas,
+  `.field__help`); **Paso 3** editor por tipo. Evita las filas horizontales
+  gigantes de campos.
+- **Editor estructurado** (`.struct-editor`): barra fija con código/versión y
+  acciones (Vista previa, Guardar); secciones como `fieldset`/`legend`
+  (`.struct-section`); **bloques repetibles** (`.struct-repeat__item`) con botones
+  accesibles **Subir/Bajar/Eliminar** (con `aria-label`) y numeración automática
+  cuando aplica. Contenido a una columna.
+- **Renderer normalizado** (`.doc-render`): encabezado **C3 Sentinel** +
+  identificación (tipo, código, versión, área, fechas) + cuerpo por secciones;
+  tablas para repetibles; estados vacíos textuales. Reutilizable para la vista
+  previa (solo lectura) y exportación futura a PDF/DOCX.
+- **Documento externo** (`.external-doc-card`): tarjeta "Documento externo
+  registrado" con acciones reales (consultar/descargar) y "Convertir…
+  (Próximamente)" deshabilitado, sin botones sin ruta.
+- Marca visible: **C3 Sentinel** en todo texto nuevo.
+
 ## Herramientas de análisis y Estudios de datos (CORE-ALIGN-003)
 
 - **Gráficos interactivos**: los puntos/segmentos exponen su valor y contexto en

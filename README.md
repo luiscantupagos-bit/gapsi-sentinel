@@ -288,6 +288,30 @@ En **Documentos** → **Crear dentro de Sentinel**:
 Variable opcional: `DOCUMENTS_MAX_CONTENT_BYTES` (tamaño máximo de contenido; 512
 KB por defecto).
 
+## Motor de plantillas documentales estructuradas (DOC-001)
+
+Los documentos nativos de C3 Sentinel se capturan **por tipo** como DATOS
+estructurados (objetivo, alcance, responsabilidades, actividades, etc.), no como
+HTML. El HTML/render se **deriva** de esos datos con un renderer normalizado. Ver
+`docs/documents/DOCUMENT-ENGINE.md` y `docs/tasks/DOC-001-IMPLEMENTATION-NOTES.md`.
+
+En **Documentos** → **Crear dentro de C3 Sentinel**:
+
+1. **Paso 1 — Tipo**: tarjetas por tipo (Procedimiento, Política, Manual,
+   Instructivo, Programa, Plan, Formato, Especificación, Matriz, Documento libre).
+2. **Paso 2 — Identificación**: nombre, área, **código automático**
+   `[TIPO]-[ÁREA]-[###]` (p. ej. `PR-CA-001`, editable antes de publicar),
+   responsable, emisión y periodo de revisión (la próxima revisión se calcula).
+3. **Paso 3 — Contenido**: editor estructurado por tipo con campos y **bloques
+   repetibles** (agregar, reordenar, eliminar). El contenido es la fuente de
+   verdad; el servidor lo sanea, valida los obligatorios y deriva el HTML.
+
+**Vista previa** usa el mismo renderer (encabezado C3 Sentinel + identificación +
+cuerpo; base para PDF/DOCX futuro). El **Documento libre** conserva el editor
+enriquecido (TASK-005) y los **documentos externos** se registran sin transcribir
+su contenido. Los documentos estructurados entran al mismo control documental
+(versionado automático, flujo de aprobación) de TASK-005/006.
+
 ## Control documental avanzado (TASK-006)
 
 Ciclo formal de revisión, aprobación, publicación, distribución y lectura (ver
