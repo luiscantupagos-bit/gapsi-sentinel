@@ -676,7 +676,8 @@ const STRUCTURED_DOCS: StructuredDemo[] = [
     documentType: 'procedure',
     areaCode: 'CA',
     areaName: 'Calidad',
-    published: true,
+    // DOC-002: borrador para portar la referencia @ y el formato emitido // del seed.
+    published: false,
     content: {
       fields: {
         objetivo:
@@ -902,6 +903,206 @@ async function seedStructuredDocuments(): Promise<void> {
       create: { organizationId: ORG_A, codePrefix: prefix, areaCode: d.areaCode, lastSeq: 1 },
     });
   }
+}
+
+/**
+ * DOC-002: referencia inteligente (@) y formato emitido (//) de demostración.
+ * PR-CA-001 referencia a PO-DG-001 y emite FO-CA-001 (bitácora). Idempotente.
+ */
+async function seedSmartReferences(): Promise<void> {
+  const FO_DOC = stUuid('c', 5);
+  if (await prisma.document.findUnique({ where: { id: FO_DOC } })) return;
+  if (!(await prisma.document.findUnique({ where: { id: stUuid('c', 1) } }))) return;
+
+  const org = await prisma.organization.findUniqueOrThrow({
+    where: { id: ORG_A },
+    select: { name: true },
+  });
+  const PR = stUuid('c', 1);
+  const PR_VER = stUuid('d', 1);
+  const PODG = stUuid('c', 4);
+  const FO_VER = stUuid('d', 5);
+
+  // 1) Formato emitido FO-CA-001 (borrador v1.0).
+  const formContent = sanitizeStructuredContent('form', {
+    fields: {
+      proposito: 'Registrar cada producto no conforme detectado, su disposición y responsable.',
+    },
+    repeatables: {},
+  }) as StructuredContent;
+  const formHtml = renderStructuredHtml('form', formContent, {
+    organizationName: org.name,
+    typeLabel: labelOf(DOCUMENT_TYPES, 'form'),
+    code: 'FO-CA-001',
+    versionLabel: INITIAL_VERSION_LABEL,
+    title: 'Bitácora de producto no conforme',
+    areaLabel: 'Calidad',
+  });
+  await prisma.document.create({
+    data: {
+      id: FO_DOC,
+      organizationId: ORG_A,
+      code: 'FO-CA-001',
+      title: 'Bitácora de producto no conforme',
+      documentType: 'form',
+      origin: 'internal',
+      status: 'draft',
+      confidentiality: 'internal',
+      currentVersionLabel: INITIAL_VERSION_LABEL,
+      siteId: SITE_A,
+      responsibleUserId: USER_A,
+      ownerArea: 'Calidad',
+      createdBy: USER_A,
+    },
+  });
+  await prisma.documentVersion.create({
+    data: {
+      id: FO_VER,
+      organizationId: ORG_A,
+      documentId: FO_DOC,
+      label: INITIAL_VERSION_LABEL,
+      status: 'draft',
+      isCurrent: true,
+      author: USER_A,
+      updatedBy: USER_A,
+      templateKey: 'form',
+      contentSchemaVersion: STRUCTURED_SCHEMA_VERSION,
+      structuredContent: formContent as unknown as object,
+      contentHtml: formHtml,
+      contentChecksum: structuredChecksum(formContent),
+    },
+  });
+  await prisma.documentHistory.create({
+    data: {
+      organizationId: ORG_A,
+      documentId: FO_DOC,
+      action: 'document.created',
+      actorUserId: USER_A,
+    },
+  });
+  await prisma.documentCodeCounter.upsert({
+    where: {
+      organizationId_codePrefix_areaCode: {
+        organizationId: ORG_A,
+        codePrefix: 'FO',
+        areaCode: 'CA',
+      },
+    },
+    update: { lastSeq: 1 },
+    create: { organizationId: ORG_A, codePrefix: 'FO', areaCode: 'CA', lastSeq: 1 },
+  });
+
+  // 2) PR-CA-001 con referencia @ (→ PO-DG-001) y formato emitido // (→ FO-CA-001).
+  const base = STRUCTURED_DOCS[0]!.content;
+  const activities = base.repeatables.activities ?? [];
+  const prContent = sanitizeStructuredContent('procedure', {
+    fields: {
+      objetivo: {
+        segments: [
+          { type: 'text', text: `${base.fields.objetivo} Ver ` },
+          {
+            type: 'ref',
+            relationType: 'reference',
+            targetDocumentId: PODG,
+            code: 'PO-DG-001',
+            title: 'Política de calidad',
+          },
+          { type: 'text', text: '.' },
+        ],
+      },
+      alcance: base.fields.alcance,
+    },
+    repeatables: {
+      responsibilities: base.repeatables.responsibilities ?? [],
+      activities: activities.map((a, i) =>
+        i === activities.length - 1
+          ? {
+              ...a,
+              descripcion: {
+                segments: [
+                  { type: 'text', text: `${a.descripcion} Registrar en ` },
+                  {
+                    type: 'ref',
+                    relationType: 'issued_form',
+                    targetDocumentId: FO_DOC,
+                    code: 'FO-CA-001',
+                    title: 'Bitácora de producto no conforme',
+                  },
+                  { type: 'text', text: '.' },
+                ],
+              },
+            }
+          : a,
+      ),
+    },
+  }) as StructuredContent;
+  const resolved = {
+    [PODG]: {
+      documentId: PODG,
+      code: 'PO-DG-001',
+      title: 'Política de calidad',
+      typeLabel: 'Política',
+      versionLabel: INITIAL_VERSION_LABEL,
+      statusLabel: 'Borrador',
+      available: true,
+    },
+    [FO_DOC]: {
+      documentId: FO_DOC,
+      code: 'FO-CA-001',
+      title: 'Bitácora de producto no conforme',
+      typeLabel: 'Formato',
+      versionLabel: INITIAL_VERSION_LABEL,
+      statusLabel: 'Borrador',
+      available: true,
+    },
+  };
+  const prHtml = renderStructuredHtml(
+    'procedure',
+    prContent,
+    {
+      organizationName: org.name,
+      typeLabel: labelOf(DOCUMENT_TYPES, 'procedure'),
+      code: 'PR-CA-001',
+      versionLabel: INITIAL_VERSION_LABEL,
+      title: 'Control de producto no conforme',
+      areaLabel: 'Calidad',
+    },
+    resolved,
+  );
+  await prisma.documentVersion.update({
+    where: { id: PR_VER },
+    data: {
+      structuredContent: prContent as unknown as object,
+      contentHtml: prHtml,
+      contentChecksum: structuredChecksum(prContent),
+    },
+  });
+
+  // 3) Relaciones versionadas a PR-CA-001 v1.0.
+  await prisma.documentRelation.createMany({
+    data: [
+      {
+        organizationId: ORG_A,
+        documentId: PR,
+        relationType: 'reference',
+        relatedDocumentId: PODG,
+        sourceVersionId: PR_VER,
+        active: true,
+        createdBy: USER_A,
+      },
+      {
+        organizationId: ORG_A,
+        documentId: PR,
+        relationType: 'issued_form',
+        relatedDocumentId: FO_DOC,
+        sourceVersionId: PR_VER,
+        active: true,
+        createdBy: USER_A,
+        label: 'Bitácora de producto no conforme',
+      },
+    ],
+    skipDuplicates: true,
+  });
 }
 
 /** UUID determinista para la demo de control documental. */
@@ -3281,6 +3482,7 @@ async function main(): Promise<void> {
   await seedDocuments();
   await seedEditorDocuments();
   await seedStructuredDocuments();
+  await seedSmartReferences();
   await seedControlDocuments();
   await seedCapa();
   await seedQualityAnalysis();
