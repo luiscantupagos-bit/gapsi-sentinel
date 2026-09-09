@@ -33,6 +33,20 @@ export default async function StructuredEditorPage({
     );
   }
 
+  // Mapa targetDocumentId → snapshot resuelto (para los chips del editor).
+  const resolvedReferences: Record<
+    string,
+    { code?: string; title?: string; available?: boolean; obsolete?: boolean }
+  > = {};
+  for (const r of data.references) {
+    resolvedReferences[r.documentId] = {
+      code: r.code,
+      title: r.title,
+      available: r.available,
+      obsolete: r.obsolete,
+    };
+  }
+
   return (
     <main className="container">
       <p>
@@ -47,8 +61,10 @@ export default async function StructuredEditorPage({
         code={data.documentCode}
         title={data.documentTitle}
         label={data.label}
+        ownerArea={data.ownerArea}
         initialFields={data.structuredContent.fields}
         initialRepeatables={data.structuredContent.repeatables}
+        resolvedReferences={resolvedReferences}
       />
     </main>
   );
