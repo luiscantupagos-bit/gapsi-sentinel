@@ -312,6 +312,21 @@ enriquecido (TASK-005) y los **documentos externos** se registran sin transcribi
 su contenido. Los documentos estructurados entran al mismo control documental
 (versionado automático, flujo de aprobación) de TASK-005/006.
 
+## Referencias inteligentes y formatos (DOC-002)
+
+Dentro de los campos de texto de un documento estructurado (C3 Sentinel):
+
+- **`@`** vincula un **documento existente** (relación real, no texto): abre un
+  buscador y se inserta un chip navegable.
+- **`//`** **emite un formato** (`FO-[ÁREA]-[###]`) como borrador y lo relaciona
+  con el documento que lo emitió.
+
+Las relaciones son **versionadas** (viven en la versión que las contiene) y se
+sincronizan al guardar; al publicar, quedan **selladas**. El render puebla solo
+las secciones "Documentos referenciados" y "Formatos y registros relacionados".
+Ver `docs/documents/SMART-REFERENCES.md` y
+`docs/tasks/DOC-002-IMPLEMENTATION-NOTES.md`.
+
 ## Control documental avanzado (TASK-006)
 
 Ciclo formal de revisión, aprobación, publicación, distribución y lectura (ver

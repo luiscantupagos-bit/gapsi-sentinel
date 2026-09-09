@@ -93,14 +93,14 @@ enriquecido (TASK-005).
 
 ## 9. Roadmap (§43)
 
-| Tarea   | Alcance                                                         |
-| ------- | --------------------------------------------------------------- |
-| DOC-002 | Referencias `@` entre documentos y creación de formatos `//`.   |
-| DOC-003 | Programas ejecutables que generan tareas.                       |
-| DOC-004 | Diseñador de formatos/registros.                                |
-| DOC-005 | Importación inteligente (transcripción de documentos externos). |
-| DOC-006 | Asistencia con IA.                                              |
-| DOC-007 | Integración con Microsoft 365 / Google.                         |
+| Tarea                     | Alcance                                                         |
+| ------------------------- | --------------------------------------------------------------- |
+| DOC-002 ✅ (implementado) | Referencias `@` y formatos `//` — ver `SMART-REFERENCES.md`.    |
+| DOC-003                   | Programas ejecutables que generan tareas.                       |
+| DOC-004                   | Diseñador de formatos/registros.                                |
+| DOC-005                   | Importación inteligente (transcripción de documentos externos). |
+| DOC-006                   | Asistencia con IA.                                              |
+| DOC-007                   | Integración con Microsoft 365 / Google.                         |
 
 Estas capacidades **no** están implementadas en DOC-001; el motor deja la base
 preparada (esquema versionado, renderer reutilizable, secciones futuras del
