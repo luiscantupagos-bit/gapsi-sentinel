@@ -34,7 +34,22 @@ import {
   type PageConfig,
 } from '@/features/documents/templates';
 import { isEditableStatus, type VersionStatus } from '@/features/documents/workflow-state';
-import { nextVersionLabel, type VersionBump } from '@/features/documents/versioning';
+import {
+  nextVersionLabel,
+  INITIAL_VERSION_LABEL,
+  type VersionBump,
+} from '@/features/documents/versioning';
+import { getTemplateDefinition, codePrefixFor } from '@/features/documents/template-registry';
+import {
+  STRUCTURED_SCHEMA_VERSION,
+  sanitizeStructuredContent,
+} from '@/features/documents/structured-content';
+import { structuredByteSize, structuredChecksum } from '@/features/documents/structured-checksum';
+import { renderStructuredHtml, type RenderIdentity } from '@/features/documents/structured-render';
+import { formatDocumentCode, codeFormatError, normalizeAreaCode } from '@/features/documents/code';
+import { computeNextReviewAt, reviewMonthsOf } from '@/features/documents/dates';
+import { documentContentMode } from '@/features/documents/content-mode';
+import { labelOf, DOCUMENT_TYPES } from '@/features/documents/catalog';
 
 /** Última etiqueta de versión conocida del documento (vigente o más reciente). */
 async function latestVersionLabel(
@@ -253,6 +268,11 @@ export async function getDocumentDetail(organizationId: string, documentId: stri
     description: doc.description,
     documentType: doc.documentType,
     origin: doc.origin,
+    // DOC-001: el editor/preview a abrir depende de la versión vigente, no del tipo.
+    contentMode: documentContentMode({
+      origin: doc.origin,
+      hasStructuredContent: current?.structuredContent != null,
+    }),
     status: doc.status,
     confidentiality: doc.confidentiality,
     currentVersionLabel: doc.currentVersionLabel,
@@ -854,6 +874,10 @@ export async function createEditorVersion(
           contentHtml: current?.contentHtml ?? null,
           contentChecksum: current?.contentChecksum ?? null,
           pageConfig: current?.pageConfig ? asJson(current.pageConfig) : Prisma.JsonNull,
+          // DOC-001: arrastra el contenido estructurado a la nueva versión borrador.
+          structuredContent: current?.structuredContent
+            ? asJson(current.structuredContent)
+            : Prisma.JsonNull,
         },
       });
       await tx.document.update({
@@ -905,4 +929,323 @@ export async function addDocumentImage(
     }),
   );
   return { fileId: created.id, url: `/dashboard/documents/${documentId}/files/${created.id}` };
+}
+
+// --- DOC-001: documentos ESTRUCTURADOS por tipo ------------------------------
+
+type Tx = Prisma.TransactionClient;
+
+/** Áreas cortas configuradas (catálogo de calidad, `kind='area'`). Reutilización §6. */
+export async function listDocumentAreas(
+  organizationId: string,
+): Promise<{ code: string | null; name: string }[]> {
+  const rows = await getPrisma().qualityCatalogValue.findMany({
+    where: { organizationId, kind: 'area', active: true },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    select: { code: true, name: true },
+  });
+  return rows;
+}
+
+/** Consecutivo atómico por organización + prefijo de tipo + área (§5). */
+async function reserveDocumentCodeSeq(
+  tx: Tx,
+  organizationId: string,
+  codePrefix: string,
+  areaCode: string,
+): Promise<number> {
+  const rows = await tx.$queryRaw<{ last_seq: number }[]>`
+    INSERT INTO document_code_counters ("organization_id", "code_prefix", "area_code", "last_seq")
+    VALUES (${organizationId}::uuid, ${codePrefix}, ${areaCode}, 1)
+    ON CONFLICT ("organization_id", "code_prefix", "area_code")
+    DO UPDATE SET "last_seq" = document_code_counters."last_seq" + 1
+    RETURNING "last_seq"`;
+  return rows[0]?.last_seq ?? 1;
+}
+
+/**
+ * Propone (sin reservar) el siguiente código para un tipo + área. Es una vista
+ * previa no autoritativa: la reserva definitiva ocurre al crear el documento.
+ */
+export async function proposeDocumentCode(
+  organizationId: string,
+  documentType: string,
+  areaCode: string | null | undefined,
+): Promise<string> {
+  const prefix = codePrefixFor(documentType);
+  const area = normalizeAreaCode(areaCode);
+  return withOrgContext(organizationId, async (tx) => {
+    const rows = await tx.$queryRaw<{ last_seq: number }[]>`
+      SELECT "last_seq" FROM document_code_counters
+      WHERE "organization_id" = ${organizationId}::uuid
+        AND "code_prefix" = ${prefix}
+        AND "area_code" = ${area}`;
+    const next = (rows[0]?.last_seq ?? 0) + 1;
+    return formatDocumentCode(prefix, area, next);
+  });
+}
+
+function buildRenderIdentity(
+  doc: {
+    documentType: string;
+    code: string;
+    title: string;
+    ownerArea: string | null;
+    issuedAt: Date | null;
+    nextReviewAt: Date | null;
+  },
+  versionLabel: string,
+  organizationName: string,
+): RenderIdentity {
+  return {
+    organizationName,
+    typeLabel: labelOf(DOCUMENT_TYPES, doc.documentType),
+    code: doc.code,
+    versionLabel,
+    title: doc.title,
+    areaLabel: doc.ownerArea,
+    issuedAt: isoDate(doc.issuedAt),
+    nextReviewAt: isoDate(doc.nextReviewAt),
+  };
+}
+
+export interface CreateStructuredDocumentInput {
+  documentType: string;
+  title: string;
+  /** Código personalizado; si `codeIsCustom` es false o vacío, se genera. */
+  code?: string | null;
+  codeIsCustom?: boolean;
+  /** Código corto de área para el código automático y `ownerArea`. */
+  areaCode?: string | null;
+  /** Nombre de área a mostrar (prevalece en `ownerArea`). */
+  areaName?: string | null;
+  siteId?: string | null;
+  responsibleUserId?: string | null;
+  /** Emisión opcional (ISO). Por defecto se fija al publicar (§8). */
+  issuedAt?: string | null;
+  /** Periodo de revisión (`'6'|'12'|'24'|'none'` o meses). */
+  reviewPeriod?: string | null;
+  /** Contenido estructurado inicial (opcional; puede completarse luego). */
+  structuredContent?: unknown;
+}
+
+/**
+ * Crea un documento nativo ESTRUCTURADO (borrador v1.0) con código automático y
+ * fechas por defecto. El contenido estructurado es la fuente de verdad; el HTML
+ * se deriva del renderer normalizado.
+ */
+export async function createStructuredDocument(
+  organizationId: string,
+  userId: string,
+  input: CreateStructuredDocumentInput,
+): Promise<string> {
+  const def = getTemplateDefinition(input.documentType);
+  const errors: string[] = [];
+  if (!def || !def.supportsStructuredEditor) {
+    errors.push('El tipo documental estructurado es inválido.');
+  }
+  if (!input.title?.trim()) errors.push('El nombre del documento es obligatorio.');
+  const useCustom = Boolean(input.codeIsCustom && input.code?.trim());
+  if (useCustom) {
+    const codeError = codeFormatError(input.code);
+    if (codeError) errors.push(codeError);
+  }
+  if (errors.length) throw new DocumentValidationError(errors);
+
+  const documentType = input.documentType;
+  const prefix = def!.codePrefix;
+  const areaCode = normalizeAreaCode(input.areaCode);
+  const ownerArea = input.areaName?.trim() || (areaCode ? areaCode : null);
+  const months = input.reviewPeriod
+    ? reviewMonthsOf(input.reviewPeriod, def!.defaultReviewMonths)
+    : def!.defaultReviewMonths;
+  const issuedAt = input.issuedAt?.trim() || null;
+  const nextReviewAt = computeNextReviewAt(issuedAt, months);
+
+  const content = sanitizeStructuredContent(documentType, input.structuredContent);
+  if (structuredByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
+
+  return saneCreate(() =>
+    withOrgContext(organizationId, async (tx) => {
+      const code = useCustom
+        ? input.code!.trim()
+        : formatDocumentCode(
+            prefix,
+            areaCode,
+            await reserveDocumentCodeSeq(tx, organizationId, prefix, areaCode),
+          );
+
+      const org = await tx.organization.findUniqueOrThrow({
+        where: { id: organizationId },
+        select: { name: true },
+      });
+      const identity = buildRenderIdentity(
+        {
+          documentType,
+          code,
+          title: input.title.trim(),
+          ownerArea,
+          issuedAt: parseDate(issuedAt),
+          nextReviewAt: parseDate(nextReviewAt),
+        },
+        INITIAL_VERSION_LABEL,
+        org.name,
+      );
+      const html = renderStructuredHtml(documentType, content, identity);
+
+      const document = await tx.document.create({
+        data: {
+          organizationId,
+          code,
+          title: input.title.trim(),
+          documentType,
+          origin: 'internal',
+          status: 'draft',
+          confidentiality: 'internal',
+          currentVersionLabel: INITIAL_VERSION_LABEL,
+          siteId: input.siteId || null,
+          responsibleUserId: input.responsibleUserId || userId,
+          ownerArea,
+          issuedAt: parseDate(issuedAt),
+          nextReviewAt: parseDate(nextReviewAt),
+          createdBy: userId,
+        },
+      });
+      await tx.documentVersion.create({
+        data: {
+          organizationId,
+          documentId: document.id,
+          label: INITIAL_VERSION_LABEL,
+          status: 'draft',
+          isCurrent: true,
+          author: userId,
+          updatedBy: userId,
+          templateKey: documentType,
+          contentSchemaVersion: STRUCTURED_SCHEMA_VERSION,
+          structuredContent: asJson(content),
+          contentHtml: html,
+          contentChecksum: structuredChecksum(content),
+        },
+      });
+      await tx.documentHistory.create({
+        data: {
+          organizationId,
+          documentId: document.id,
+          action: 'document.created',
+          actorUserId: userId,
+        },
+      });
+      return document.id;
+    }),
+  );
+}
+
+/** Payload del editor estructurado (contenido + identificación + render). */
+export async function getStructuredContent(
+  organizationId: string,
+  documentId: string,
+  versionId?: string,
+) {
+  const doc = await loadScopedDocument(organizationId, documentId);
+  const prisma = getPrisma();
+  const version = versionId
+    ? await loadScopedVersion(organizationId, documentId, versionId)
+    : ((await prisma.documentVersion.findFirst({
+        where: { documentId, organizationId, isCurrent: true },
+      })) ??
+      (await prisma.documentVersion.findFirst({
+        where: { documentId, organizationId },
+        orderBy: { createdAt: 'desc' },
+      })));
+  if (!version) throw new DocumentNotFoundError();
+
+  const versions = await prisma.documentVersion.findMany({
+    where: { documentId, organizationId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, label: true, status: true, isCurrent: true },
+  });
+  const org = await prisma.organization.findUniqueOrThrow({
+    where: { id: organizationId },
+    select: { name: true },
+  });
+
+  const content = sanitizeStructuredContent(doc.documentType, version.structuredContent);
+  const identity = buildRenderIdentity(doc, version.label, org.name);
+  const renderedHtml = renderStructuredHtml(doc.documentType, content, identity);
+
+  return {
+    documentId: doc.id,
+    documentCode: doc.code,
+    documentTitle: doc.title,
+    documentType: doc.documentType,
+    // DOC-001: 'structured' solo si la versión realmente tiene structured_content.
+    contentMode: documentContentMode({
+      origin: doc.origin,
+      hasStructuredContent: version.structuredContent != null,
+    }),
+    documentStatus: doc.status,
+    organizationName: org.name,
+    ownerArea: doc.ownerArea,
+    issuedAt: isoDate(doc.issuedAt),
+    nextReviewAt: isoDate(doc.nextReviewAt),
+    versionId: version.id,
+    label: version.label,
+    versionStatus: version.status,
+    isCurrent: version.isCurrent,
+    editable:
+      !doc.archivedAt && isEditableStatus(version.status as VersionStatus) && version.isCurrent,
+    schemaVersion: version.contentSchemaVersion,
+    structuredContent: content,
+    renderedHtml,
+    versions,
+  };
+}
+
+/** Guarda el contenido estructurado de una versión BORRADOR (sanea, deriva HTML). */
+export async function saveStructuredContent(
+  organizationId: string,
+  userId: string,
+  documentId: string,
+  versionId: string,
+  payload: { structuredContent: unknown },
+): Promise<{ checksum: string; savedAt: string }> {
+  const doc = await loadScopedDocument(organizationId, documentId);
+  if (doc.archivedAt) throw new DocumentNotEditableError();
+  const version = await loadScopedVersion(organizationId, documentId, versionId);
+  if (!isEditableStatus(version.status as VersionStatus) || !version.isCurrent) {
+    throw new DocumentNotEditableError();
+  }
+  // DOC-001: no se convierte implícitamente un documento rich_text/externo en
+  // estructurado. Solo se guarda contenido estructurado sobre versiones que ya lo
+  // son (creadas por createStructuredDocument o heredado por createEditorVersion).
+  if (version.structuredContent == null) {
+    throw new DocumentValidationError([
+      'Este documento no es estructurado; no admite contenido estructurado.',
+    ]);
+  }
+
+  const content = sanitizeStructuredContent(doc.documentType, payload.structuredContent);
+  if (structuredByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
+
+  const org = await getPrisma().organization.findUniqueOrThrow({
+    where: { id: organizationId },
+    select: { name: true },
+  });
+  const identity = buildRenderIdentity(doc, version.label, org.name);
+  const html = renderStructuredHtml(doc.documentType, content, identity);
+  const checksum = structuredChecksum(content);
+
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.documentVersion.update({
+      where: { id: versionId },
+      data: {
+        structuredContent: asJson(content),
+        contentHtml: html,
+        contentChecksum: checksum,
+        contentSchemaVersion: STRUCTURED_SCHEMA_VERSION,
+        updatedBy: userId,
+      },
+    });
+  });
+  return { checksum, savedAt: new Date().toISOString() };
 }

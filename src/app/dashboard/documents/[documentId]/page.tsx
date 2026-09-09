@@ -63,6 +63,11 @@ export default async function DocumentDetailPage({
   ]);
   const ctx = await getUserVersionContext(session.organizationId, session.userId, editor.versionId);
 
+  // DOC-001: el editor/preview depende del MODO de la versión vigente, no del tipo:
+  // un documento rich_text histórico puede tener un documentType estructurado.
+  const isExternal = doc.contentMode === 'external';
+  const isStructured = doc.contentMode === 'structured';
+
   return (
     <main className="container">
       <p>
@@ -74,17 +79,42 @@ export default async function DocumentDetailPage({
           <span className="muted">{doc.code}</span> {doc.title}
         </h1>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <Link className="button button--ghost" href={`/dashboard/documents/${doc.id}/preview`}>
-            Vista previa
-          </Link>
+          {isStructured ? (
+            <Link
+              className="button button--ghost"
+              href={`/dashboard/documents/${doc.id}/structured/preview`}
+            >
+              Vista previa
+            </Link>
+          ) : (
+            !isExternal && (
+              <Link
+                className="button button--ghost"
+                href={`/dashboard/documents/${doc.id}/preview`}
+              >
+                Vista previa
+              </Link>
+            )
+          )}
           {doc.editable && (
             <>
-              <Link
-                className="button button--primary"
-                href={`/dashboard/documents/${doc.id}/editor`}
-              >
-                Abrir en editor
-              </Link>
+              {isStructured ? (
+                <Link
+                  className="button button--primary"
+                  href={`/dashboard/documents/${doc.id}/structured`}
+                >
+                  Abrir editor estructurado
+                </Link>
+              ) : (
+                !isExternal && (
+                  <Link
+                    className="button button--primary"
+                    href={`/dashboard/documents/${doc.id}/editor`}
+                  >
+                    Abrir en editor
+                  </Link>
+                )
+              )}
               <Link className="button button--ghost" href={`/dashboard/documents/${doc.id}/edit`}>
                 Editar metadatos
               </Link>
@@ -92,6 +122,22 @@ export default async function DocumentDetailPage({
           )}
         </div>
       </div>
+
+      {isExternal && (
+        <div className="external-doc-card">
+          <p>
+            <strong>Documento externo registrado.</strong> C3 Sentinel conserva el archivo y sus
+            metadatos; su contenido no se transcribe.
+          </p>
+          <p className="muted">
+            Acciones disponibles: consultar el archivo desde la sección «Archivos de la versión
+            vigente». La conversión a documento estructurado de C3 Sentinel llegará próximamente.
+          </p>
+          <button className="button button--ghost" type="button" disabled aria-disabled="true">
+            Convertir a documento C3 Sentinel (Próximamente)
+          </button>
+        </div>
+      )}
 
       <dl className="meta-grid">
         <div>

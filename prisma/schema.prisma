@@ -495,6 +495,10 @@ model DocumentVersion {
   updatedBy            String?   @map("updated_by") @db.Uuid
   updatedAt            DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  // DOC-001: contenido ESTRUCTURADO por tipo (fuente de verdad de los documentos
+  // nativos estructurados). El HTML/render se deriva de estos datos.
+  structuredContent Json? @map("structured_content")
+
   document Document       @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Restrict)
   files    DocumentFile[]
 
@@ -502,6 +506,19 @@ model DocumentVersion {
   @@unique([id, organizationId])
   @@index([documentId])
   @@map("document_versions")
+}
+
+/// DOC-001: contador atómico del código automático `[TIPO]-[ÁREA]-[###]`.
+/// El consecutivo es por organización + prefijo de tipo + código de área (no por
+/// año). Se reserva con `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`.
+model DocumentCodeCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  codePrefix     String @map("code_prefix")
+  areaCode       String @map("area_code")
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, codePrefix, areaCode])
+  @@map("document_code_counters")
 }
 
 /// Archivo o anexo. Los binarios NO se guardan en PostgreSQL, solo metadatos.
