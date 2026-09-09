@@ -219,6 +219,21 @@ internos no disparan la navegación del contenedor.
   (Próximamente)" deshabilitado, sin botones sin ruta.
 - Marca visible: **C3 Sentinel** en todo texto nuevo.
 
+## Referencias inteligentes documentales (DOC-002)
+
+- **Editor con referencias** (`.ref-editor`, `contenteditable`): en campos de texto
+  largo, `@` abre un **autocompletado** (`.ref-autocomplete`, `role="listbox"`,
+  navegable por teclado con `aria-activedescendant`) y `//` abre un **modal**
+  (`.modal`) para emitir un formato. Las referencias se muestran como **chips**
+  (`.ref-chip`, `.ref-chip--form`).
+- **Render/preview**: las referencias son enlaces (`.doc-ref`; `--missing` /
+  `--obsolete`) al detalle del documento, y las secciones "Documentos
+  referenciados" y "Formatos y registros relacionados" se llenan **solas** desde el
+  contenido (no se capturan dos veces).
+- **Detalle**: sección "Relaciones documentales" (y "Emitido desde" en formatos)
+  con folios/títulos clickeables (regla global de clickeables).
+- Marca visible: **C3 Sentinel** en todo texto nuevo.
+
 ## Herramientas de análisis y Estudios de datos (CORE-ALIGN-003)
 
 - **Gráficos interactivos**: los puntos/segmentos exponen su valor y contexto en

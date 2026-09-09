@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * Editor documental ESTRUCTURADO por tipo (DOC-001 §9/§21/§34).
+ * Editor documental ESTRUCTURADO por tipo (DOC-001 §9/§21/§34, DOC-002).
  *
- * Guiado por el registro de plantillas: renderiza los campos y bloques
- * repetibles del tipo. Los repetibles permiten agregar, eliminar y reordenar
- * (botones accesibles, sin arrastrar). El contenido es la fuente de verdad; se
- * guarda como JSON y el servidor deriva el HTML.
+ * Guiado por el registro de plantillas: renderiza los campos y bloques repetibles
+ * del tipo. Los campos `textarea` usan el editor con REFERENCIAS (`@`/`//`); los
+ * `text` son texto plano. El contenido es la fuente de verdad; se guarda como
+ * JSON y el servidor deriva el HTML y sincroniza las relaciones.
  */
 import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -15,9 +15,12 @@ import {
   type StructuredSectionDef,
 } from '@/features/documents/template-registry';
 import { STRUCTURED_SCHEMA_VERSION } from '@/features/documents/structured-content';
+import { richPlainText, type RichValue } from '@/features/documents/references';
 import { saveStructuredContentAction } from '../editor-actions';
+import { ReferenceTextEditor, type ResolvedSnapshot } from './ReferenceTextEditor';
+import { IssuedFormDialog } from './IssuedFormDialog';
 
-type Item = Record<string, string>;
+type Item = Record<string, RichValue>;
 
 interface Props {
   documentId: string;
@@ -27,19 +30,35 @@ interface Props {
   code: string;
   title: string;
   label: string;
-  initialFields: Record<string, string>;
+  ownerArea: string | null;
+  initialFields: Record<string, RichValue>;
   initialRepeatables: Record<string, Item[]>;
+  resolvedReferences: Record<string, ResolvedSnapshot>;
 }
+
+const asText = (v: RichValue | undefined): string =>
+  v === undefined ? '' : typeof v === 'string' ? v : richPlainText(v);
 
 export function StructuredEditor(props: Props) {
   const def = getTemplateDefinition(props.documentType);
-  const [fields, setFields] = useState<Record<string, string>>(props.initialFields);
+  const [fields, setFields] = useState<Record<string, RichValue>>(props.initialFields);
   const [repeatables, setRepeatables] = useState<Record<string, Item[]>>(props.initialRepeatables);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // Diálogo de emisión de formato (//): guarda el callback que inserta el chip.
+  const [issueCb, setIssueCb] = useState<
+    ((form: { documentId: string; code: string; title: string }) => void) | null
+  >(null);
 
-  const setField = useCallback((key: string, value: string) => {
+  const requestIssueForm = useCallback(
+    (onCreated: (form: { documentId: string; code: string; title: string }) => void) => {
+      setIssueCb(() => onCreated);
+    },
+    [],
+  );
+
+  const setFieldValue = useCallback((key: string, value: RichValue) => {
     setFields((f) => ({ ...f, [key]: value }));
     setDirty(true);
     setMessage(null);
@@ -50,6 +69,15 @@ export function StructuredEditor(props: Props) {
     setDirty(true);
     setMessage(null);
   }, []);
+
+  const setItemValue = useCallback(
+    (repKey: string, index: number, fieldKey: string, value: RichValue) => {
+      mutateList(repKey, (l) =>
+        l.map((it, i) => (i === index ? { ...it, [fieldKey]: value } : it)),
+      );
+    },
+    [mutateList],
+  );
 
   const emptyItem = (section: Extract<StructuredSectionDef, { kind: 'repeatable' }>): Item =>
     Object.fromEntries(section.repeatable.fields.map((f) => [f.key, '']));
@@ -84,6 +112,39 @@ export function StructuredEditor(props: Props) {
     return <p className="empty-state">Este tipo de documento no tiene editor estructurado.</p>;
   }
 
+  const renderField = (
+    fieldKey: string,
+    kind: string,
+    value: RichValue,
+    onChange: (v: RichValue) => void,
+    domId: string,
+    placeholder?: string,
+    maxLength?: number,
+    rows = 3,
+  ) =>
+    kind === 'textarea' ? (
+      <ReferenceTextEditor
+        id={domId}
+        value={value}
+        editable={props.editable}
+        documentId={props.documentId}
+        placeholder={placeholder}
+        rows={rows}
+        resolved={props.resolvedReferences}
+        onChange={onChange}
+        onRequestIssueForm={requestIssueForm}
+      />
+    ) : (
+      <input
+        id={domId}
+        value={asText(value)}
+        placeholder={placeholder}
+        maxLength={maxLength ?? 300}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={!props.editable}
+      />
+    );
+
   return (
     <div className="struct-editor">
       <div className="struct-editor__bar">
@@ -116,6 +177,12 @@ export function StructuredEditor(props: Props) {
           {message.text}
         </p>
       )}
+      {props.editable && (
+        <p className="field__help">
+          Escribe <strong>@</strong> para vincular un documento existente o <strong>{'//'}</strong>{' '}
+          para emitir un formato.
+        </p>
+      )}
       {!props.editable && (
         <p className="empty-state">
           Esta versión no es editable (no es la vigente en borrador). Se muestra en solo lectura.
@@ -134,23 +201,15 @@ export function StructuredEditor(props: Props) {
                     {f.label}
                     {f.required ? ' *' : ''}
                   </label>
-                  {f.kind === 'textarea' ? (
-                    <textarea
-                      id={`f-${f.key}`}
-                      rows={3}
-                      value={fields[f.key] ?? ''}
-                      placeholder={f.placeholder}
-                      maxLength={f.maxLength ?? 2000}
-                      onChange={(e) => setField(f.key, e.target.value)}
-                    />
-                  ) : (
-                    <input
-                      id={`f-${f.key}`}
-                      value={fields[f.key] ?? ''}
-                      placeholder={f.placeholder}
-                      maxLength={f.maxLength ?? 300}
-                      onChange={(e) => setField(f.key, e.target.value)}
-                    />
+                  {renderField(
+                    f.key,
+                    f.kind,
+                    fields[f.key] ?? '',
+                    (v) => setFieldValue(f.key, v),
+                    `f-${f.key}`,
+                    f.placeholder,
+                    f.maxLength,
+                    3,
                   )}
                 </div>
               ))
@@ -221,35 +280,15 @@ export function StructuredEditor(props: Props) {
                               {f.label}
                               {f.required ? ' *' : ''}
                             </label>
-                            {f.kind === 'textarea' ? (
-                              <textarea
-                                id={`r-${rep.key}-${index}-${f.key}`}
-                                rows={2}
-                                value={item[f.key] ?? ''}
-                                placeholder={f.placeholder}
-                                maxLength={f.maxLength ?? 2000}
-                                onChange={(e) =>
-                                  mutateList(rep.key, (l) =>
-                                    l.map((it, i) =>
-                                      i === index ? { ...it, [f.key]: e.target.value } : it,
-                                    ),
-                                  )
-                                }
-                              />
-                            ) : (
-                              <input
-                                id={`r-${rep.key}-${index}-${f.key}`}
-                                value={item[f.key] ?? ''}
-                                placeholder={f.placeholder}
-                                maxLength={f.maxLength ?? 300}
-                                onChange={(e) =>
-                                  mutateList(rep.key, (l) =>
-                                    l.map((it, i) =>
-                                      i === index ? { ...it, [f.key]: e.target.value } : it,
-                                    ),
-                                  )
-                                }
-                              />
+                            {renderField(
+                              f.key,
+                              f.kind,
+                              item[f.key] ?? '',
+                              (v) => setItemValue(rep.key, index, f.key, v),
+                              `r-${rep.key}-${index}-${f.key}`,
+                              f.placeholder,
+                              f.maxLength,
+                              2,
                             )}
                           </div>
                         ))}
@@ -282,6 +321,20 @@ export function StructuredEditor(props: Props) {
           </button>
         </div>
       )}
+
+      <IssuedFormDialog
+        open={issueCb !== null}
+        sourceDocumentId={props.documentId}
+        sourceVersionId={props.versionId}
+        sourceCode={props.code}
+        sourceTitle={props.title}
+        defaultAreaName={props.ownerArea}
+        onClose={() => setIssueCb(null)}
+        onCreated={(form) => {
+          issueCb?.(form);
+          setDirty(true);
+        }}
+      />
     </div>
   );
 }

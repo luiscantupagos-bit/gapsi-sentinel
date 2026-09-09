@@ -545,23 +545,37 @@ model DocumentFile {
   @@map("document_files")
 }
 
-/// Relación opcional del documento con sitio/marco/requisito/diagnóstico/otro documento.
+/// Relación documental. `document_id` = documento ORIGEN, `related_document_id` =
+/// documento DESTINO. DOC-002 agrega relaciones derivadas del CONTENIDO de una
+/// versión (`reference` con `@`, `issued_form` con `//`), versionadas por
+/// `source_version_id` y con borrado lógico (`active`) que respeta el trigger
+/// de no-borrado físico.
 model DocumentRelation {
   id                String   @id @default(uuid()) @db.Uuid
   organizationId    String   @map("organization_id") @db.Uuid
   documentId        String   @map("document_id") @db.Uuid
-  /// relation_type: site | framework | requirement | diagnostic | document
+  /// relation_type: site | framework | requirement | diagnostic | document | reference | issued_form | supersedes | related | evidence | generated_record | attachment_reference
   relationType      String   @map("relation_type")
   siteId            String?  @map("site_id") @db.Uuid
   frameworkId       String?  @map("framework_id") @db.Uuid
   requirementId     String?  @map("requirement_id") @db.Uuid
   diagnosticId      String?  @map("diagnostic_id") @db.Uuid
   relatedDocumentId String?  @map("related_document_id") @db.Uuid
+  // DOC-002: versión origen que contiene la referencia; versión destino opcional;
+  // etiqueta/snapshot; borrado lógico; autor.
+  sourceVersionId   String?  @map("source_version_id") @db.Uuid
+  targetVersionId   String?  @map("target_version_id") @db.Uuid
+  label             String?
+  active            Boolean  @default(true)
+  createdBy         String?  @map("created_by") @db.Uuid
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   document Document @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Restrict)
 
   @@index([documentId])
+  @@index([organizationId, relationType])
+  @@index([sourceVersionId])
+  @@index([relatedDocumentId])
   @@map("document_relations")
 }
 

@@ -4,7 +4,9 @@ import { requireServerSession } from '@/server/session';
 import {
   DocumentNotFoundError,
   getDocumentDetail,
+  getDocumentRelations,
   getEditorContent,
+  getIssuedFromSources,
   listResponsibles,
 } from '@/server/documents';
 import { getDocumentControl, getUserVersionContext } from '@/server/document-workflow';
@@ -67,6 +69,45 @@ export default async function DocumentDetailPage({
   // un documento rich_text histórico puede tener un documentType estructurado.
   const isExternal = doc.contentMode === 'external';
   const isStructured = doc.contentMode === 'structured';
+
+  // DOC-002: relaciones documentales (referencias @ y formatos emitidos //) de la
+  // versión vigente, y —si es un formato— los documentos que lo emitieron.
+  const [relations, issuedFrom] = await Promise.all([
+    getDocumentRelations(session.organizationId, documentId),
+    doc.documentType === 'form'
+      ? getIssuedFromSources(session.organizationId, documentId)
+      : Promise.resolve([]),
+  ]);
+  const relRow = (r: {
+    relatedDocumentId: string;
+    code: string;
+    title: string;
+    versionLabel: string | null;
+    statusLabel: string;
+    obsolete: boolean;
+    available: boolean;
+  }) =>
+    r.available ? (
+      <tr key={r.relatedDocumentId}>
+        <td className="mono">
+          <Link href={`/dashboard/documents/${r.relatedDocumentId}`}>{r.code}</Link>
+        </td>
+        <td>
+          <Link href={`/dashboard/documents/${r.relatedDocumentId}`}>{r.title}</Link>
+        </td>
+        <td>{r.versionLabel ?? '—'}</td>
+        <td>
+          {r.statusLabel}
+          {r.obsolete ? ' · Obsoleto' : ''}
+        </td>
+      </tr>
+    ) : (
+      <tr key={r.relatedDocumentId}>
+        <td colSpan={4} className="muted">
+          Referencia no disponible
+        </td>
+      </tr>
+    );
 
   return (
     <main className="container">
@@ -197,6 +238,70 @@ export default async function DocumentDetailPage({
             </li>
           ))}
         </ul>
+      )}
+
+      {(relations.references.length > 0 ||
+        relations.issuedForms.length > 0 ||
+        issuedFrom.length > 0) && (
+        <>
+          <h2>Relaciones documentales</h2>
+          <div className="doc-relations">
+            {issuedFrom.length > 0 && (
+              <div>
+                <h3>Emitido desde</h3>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Documento</th>
+                        <th>Versión</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>{issuedFrom.map(relRow)}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {relations.references.length > 0 && (
+              <div>
+                <h3>Documentos referenciados</h3>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Documento</th>
+                        <th>Versión</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>{relations.references.map(relRow)}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {relations.issuedForms.length > 0 && (
+              <div>
+                <h3>Formatos y registros relacionados</h3>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Formato</th>
+                        <th>Versión</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>{relations.issuedForms.map(relRow)}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       <h2>Acciones</h2>

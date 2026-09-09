@@ -43,13 +43,20 @@ import { getTemplateDefinition, codePrefixFor } from '@/features/documents/templ
 import {
   STRUCTURED_SCHEMA_VERSION,
   sanitizeStructuredContent,
+  extractReferences,
+  type StructuredContent,
 } from '@/features/documents/structured-content';
 import { structuredByteSize, structuredChecksum } from '@/features/documents/structured-checksum';
-import { renderStructuredHtml, type RenderIdentity } from '@/features/documents/structured-render';
+import {
+  renderStructuredHtml,
+  type RenderIdentity,
+  type ReferenceResolver,
+} from '@/features/documents/structured-render';
+import { REF_RELATION_TYPES, refKey } from '@/features/documents/references';
 import { formatDocumentCode, codeFormatError, normalizeAreaCode } from '@/features/documents/code';
 import { computeNextReviewAt, reviewMonthsOf } from '@/features/documents/dates';
 import { documentContentMode } from '@/features/documents/content-mode';
-import { labelOf, DOCUMENT_TYPES } from '@/features/documents/catalog';
+import { labelOf, DOCUMENT_TYPES, DOCUMENT_STATUSES } from '@/features/documents/catalog';
 
 /** Última etiqueta de versión conocida del documento (vigente o más reciente). */
 async function latestVersionLabel(
@@ -884,6 +891,35 @@ export async function createEditorVersion(
         where: { id: documentId },
         data: { currentVersionLabel: label },
       });
+      // DOC-002 (§24): copia las relaciones ACTIVAS de la versión anterior a la
+      // nueva (source_version_id = nueva versión). La versión anterior conserva su
+      // snapshot relacional histórico intacto.
+      if (current) {
+        const rels = await tx.documentRelation.findMany({
+          where: {
+            organizationId,
+            documentId,
+            sourceVersionId: current.id,
+            active: true,
+            relationType: { in: [...REF_RELATION_TYPES] },
+          },
+        });
+        for (const r of rels) {
+          await tx.documentRelation.create({
+            data: {
+              organizationId,
+              documentId,
+              relationType: r.relationType,
+              relatedDocumentId: r.relatedDocumentId,
+              sourceVersionId: created.id,
+              targetVersionId: r.targetVersionId,
+              label: r.label,
+              active: true,
+              createdBy: userId,
+            },
+          });
+        }
+      }
       await tx.documentHistory.create({
         data: { organizationId, documentId, action: 'version.created', actorUserId: userId },
       });
@@ -1009,6 +1045,128 @@ function buildRenderIdentity(
   };
 }
 
+// --- DOC-002: referencias inteligentes y sincronización de relaciones --------
+
+type PrismaLike = Pick<Prisma.TransactionClient, 'document'> | ReturnType<typeof getPrisma>;
+
+/**
+ * Resuelve los documentos destino por id (nunca por código) a sus datos ACTUALES
+ * (§13). Fuera del alcance/permisos → `available: false` (no se exponen datos).
+ */
+async function resolveReferences(
+  client: PrismaLike,
+  organizationId: string,
+  ids: string[],
+): Promise<ReferenceResolver> {
+  const unique = [...new Set(ids)];
+  const map: ReferenceResolver = {};
+  for (const id of unique) map[id] = { documentId: id, code: '', title: '', available: false };
+  if (unique.length === 0) return map;
+  const docs = await client.document.findMany({
+    where: { id: { in: unique }, organizationId },
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      documentType: true,
+      status: true,
+      currentVersionLabel: true,
+      archivedAt: true,
+    },
+  });
+  for (const d of docs) {
+    map[d.id] = {
+      documentId: d.id,
+      code: d.code,
+      title: d.title,
+      typeLabel: labelOf(DOCUMENT_TYPES, d.documentType),
+      versionLabel: d.currentVersionLabel,
+      statusLabel: labelOf(DOCUMENT_STATUSES, d.status),
+      obsolete: d.status === 'obsolete' || Boolean(d.archivedAt),
+      available: true,
+    };
+  }
+  return map;
+}
+
+/**
+ * Sincroniza (§26) las relaciones derivadas del CONTENIDO de una versión con las
+ * persistidas: crea las nuevas, reactiva las que vuelven y da de BAJA LÓGICA
+ * (`active=false`, respeta el trigger de no-borrado) las que se retiraron. Solo
+ * toca relaciones `reference`/`issued_form` de esa versión origen; no afecta a
+ * versiones anteriores ni a otros tipos. Debe ejecutarse dentro de una versión
+ * editable (el trigger de BD bloquea versiones publicadas).
+ */
+async function syncVersionRelations(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  userId: string,
+  documentId: string,
+  versionId: string,
+  content: StructuredContent,
+  validTargetIds: Set<string>,
+): Promise<void> {
+  // Solo se persisten relaciones a destinos EXISTENTES del mismo tenant. Una
+  // referencia colgante (destino borrado/sin permisos/otra organización) se
+  // conserva en el contenido (se muestra "no disponible") pero no crea fila.
+  const desired = extractReferences(content).filter((d) => validTargetIds.has(d.targetDocumentId));
+  const desiredKeys = new Set(desired.map((d) => refKey(d.relationType, d.targetDocumentId)));
+  const existing = await tx.documentRelation.findMany({
+    where: {
+      organizationId,
+      documentId,
+      sourceVersionId: versionId,
+      relationType: { in: [...REF_RELATION_TYPES] },
+    },
+  });
+  const byKey = new Map(
+    existing.map((r) => [
+      refKey(r.relationType as (typeof REF_RELATION_TYPES)[number], r.relatedDocumentId ?? ''),
+      r,
+    ]),
+  );
+
+  for (const r of existing) {
+    const key = refKey(
+      r.relationType as (typeof REF_RELATION_TYPES)[number],
+      r.relatedDocumentId ?? '',
+    );
+    if (r.active && !desiredKeys.has(key)) {
+      await tx.documentRelation.update({ where: { id: r.id }, data: { active: false } });
+    }
+  }
+  for (const d of desired) {
+    const key = refKey(d.relationType, d.targetDocumentId);
+    const r = byKey.get(key);
+    if (!r) {
+      await tx.documentRelation.create({
+        data: {
+          organizationId,
+          documentId,
+          relationType: d.relationType,
+          relatedDocumentId: d.targetDocumentId,
+          sourceVersionId: versionId,
+          active: true,
+          createdBy: userId,
+        },
+      });
+    } else if (!r.active) {
+      await tx.documentRelation.update({ where: { id: r.id }, data: { active: true } });
+    }
+  }
+}
+
+/** Referencias resueltas de un contenido (para el editor: chips con datos actuales). */
+async function resolvedReferencesOf(organizationId: string, content: StructuredContent) {
+  const refs = extractReferences(content);
+  const resolved = await resolveReferences(
+    getPrisma(),
+    organizationId,
+    refs.map((r) => r.targetDocumentId),
+  );
+  return { refs, resolved };
+}
+
 export interface CreateStructuredDocumentInput {
   documentType: string;
   title: string;
@@ -1091,7 +1249,13 @@ export async function createStructuredDocument(
         INITIAL_VERSION_LABEL,
         org.name,
       );
-      const html = renderStructuredHtml(documentType, content, identity);
+      // DOC-002: resuelve referencias del contenido inicial (normalmente ninguna).
+      const resolved = await resolveReferences(
+        tx,
+        organizationId,
+        extractReferences(content).map((r) => r.targetDocumentId),
+      );
+      const html = renderStructuredHtml(documentType, content, identity, resolved);
 
       const document = await tx.document.create({
         data: {
@@ -1111,7 +1275,7 @@ export async function createStructuredDocument(
           createdBy: userId,
         },
       });
-      await tx.documentVersion.create({
+      const version = await tx.documentVersion.create({
         data: {
           organizationId,
           documentId: document.id,
@@ -1135,6 +1299,20 @@ export async function createStructuredDocument(
           actorUserId: userId,
         },
       });
+      const valid = new Set(
+        Object.values(resolved)
+          .filter((r) => r.available)
+          .map((r) => r.documentId),
+      );
+      await syncVersionRelations(
+        tx,
+        organizationId,
+        userId,
+        document.id,
+        version.id,
+        content,
+        valid,
+      );
       return document.id;
     }),
   );
@@ -1171,7 +1349,18 @@ export async function getStructuredContent(
 
   const content = sanitizeStructuredContent(doc.documentType, version.structuredContent);
   const identity = buildRenderIdentity(doc, version.label, org.name);
-  const renderedHtml = renderStructuredHtml(doc.documentType, content, identity);
+  // DOC-002: resuelve referencias del contenido (datos actuales por id).
+  const { refs, resolved } = await resolvedReferencesOf(organizationId, content);
+  const renderedHtml = renderStructuredHtml(doc.documentType, content, identity, resolved);
+  const references = refs.map((r) => ({
+    relationType: r.relationType,
+    ...(resolved[r.targetDocumentId] ?? {
+      documentId: r.targetDocumentId,
+      code: '',
+      title: '',
+      available: false,
+    }),
+  }));
 
   return {
     documentId: doc.id,
@@ -1197,6 +1386,7 @@ export async function getStructuredContent(
     schemaVersion: version.contentSchemaVersion,
     structuredContent: content,
     renderedHtml,
+    references,
     versions,
   };
 }
@@ -1232,8 +1422,14 @@ export async function saveStructuredContent(
     select: { name: true },
   });
   const identity = buildRenderIdentity(doc, version.label, org.name);
-  const html = renderStructuredHtml(doc.documentType, content, identity);
+  const { resolved } = await resolvedReferencesOf(organizationId, content);
+  const html = renderStructuredHtml(doc.documentType, content, identity, resolved);
   const checksum = structuredChecksum(content);
+  const valid = new Set(
+    Object.values(resolved)
+      .filter((r) => r.available)
+      .map((r) => r.documentId),
+  );
 
   await withOrgContext(organizationId, async (tx) => {
     await tx.documentVersion.update({
@@ -1246,6 +1442,321 @@ export async function saveStructuredContent(
         updatedBy: userId,
       },
     });
+    // DOC-002: reconcilia relaciones derivadas del contenido de esta versión.
+    await syncVersionRelations(tx, organizationId, userId, documentId, versionId, content, valid);
   });
   return { checksum, savedAt: new Date().toISOString() };
+}
+
+export interface MentionResult {
+  id: string;
+  code: string;
+  title: string;
+  documentType: string;
+  typeLabel: string;
+  statusLabel: string;
+  version: string | null;
+  area: string | null;
+}
+
+/**
+ * Búsqueda ligera de documentos para el autocompletado de `@` (§7/§32). Scoped a
+ * la organización; excluye archivados y (opcional) el documento origen. No toca
+ * `structured_content`.
+ */
+export async function searchDocumentsForMention(
+  organizationId: string,
+  query: string,
+  opts: { excludeDocumentId?: string; limit?: number } = {},
+): Promise<MentionResult[]> {
+  const q = query.trim();
+  const where: Prisma.DocumentWhereInput = { organizationId, archivedAt: null };
+  if (opts.excludeDocumentId) where.id = { not: opts.excludeDocumentId };
+  if (q) {
+    where.OR = [
+      { code: { contains: q, mode: 'insensitive' } },
+      { title: { contains: q, mode: 'insensitive' } },
+    ];
+  }
+  const docs = await getPrisma().document.findMany({
+    where,
+    take: Math.min(Math.max(opts.limit ?? 12, 1), 20),
+    orderBy: [{ code: 'asc' }],
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      documentType: true,
+      status: true,
+      currentVersionLabel: true,
+      ownerArea: true,
+    },
+  });
+  return docs.map((d) => ({
+    id: d.id,
+    code: d.code,
+    title: d.title,
+    documentType: d.documentType,
+    typeLabel: labelOf(DOCUMENT_TYPES, d.documentType),
+    statusLabel: labelOf(DOCUMENT_STATUSES, d.status),
+    version: d.currentVersionLabel,
+    area: d.ownerArea,
+  }));
+}
+
+export interface IssueFormInput {
+  title: string;
+  code?: string | null;
+  codeIsCustom?: boolean;
+  areaCode?: string | null;
+  areaName?: string | null;
+  proposito?: string | null;
+}
+
+/**
+ * Emite un FORMATO (documentType 'form') desde un documento origen (§18): reserva
+ * código `FO-[ÁREA]-[###]`, crea el documento + versión 1.0 (borrador, sin
+ * autoaprobación §21) + contenido base + relación `issued_form` versionada, todo
+ * en UNA transacción. Devuelve datos para insertar el token `//` en el origen.
+ */
+export async function issueFormFromDocument(
+  organizationId: string,
+  userId: string,
+  sourceDocumentId: string,
+  sourceVersionId: string,
+  input: IssueFormInput,
+): Promise<{ documentId: string; code: string; title: string; relationId: string }> {
+  // El origen debe ser una versión estructurada EDITABLE (permiso de edición §42).
+  const sourceDoc = await loadScopedDocument(organizationId, sourceDocumentId);
+  if (sourceDoc.archivedAt) throw new DocumentNotEditableError();
+  const sourceVersion = await loadScopedVersion(organizationId, sourceDocumentId, sourceVersionId);
+  if (
+    !isEditableStatus(sourceVersion.status as VersionStatus) ||
+    !sourceVersion.isCurrent ||
+    sourceVersion.structuredContent == null
+  ) {
+    throw new DocumentNotEditableError();
+  }
+
+  const errors: string[] = [];
+  if (!input.title?.trim()) errors.push('El nombre del formato es obligatorio.');
+  const useCustom = Boolean(input.codeIsCustom && input.code?.trim());
+  if (useCustom) {
+    const codeError = codeFormatError(input.code);
+    if (codeError) errors.push(codeError);
+  }
+  if (errors.length) throw new DocumentValidationError(errors);
+
+  // Hereda el área del documento origen si no se indica otra (§15).
+  const areaCode = normalizeAreaCode(input.areaCode) || normalizeAreaCode(sourceDoc.ownerArea);
+  const ownerArea = input.areaName?.trim() || sourceDoc.ownerArea || areaCode || null;
+  const content = sanitizeStructuredContent('form', {
+    fields: { proposito: input.proposito ?? '' },
+    repeatables: {},
+  });
+
+  return saneCreate(() =>
+    withOrgContext(organizationId, async (tx) => {
+      const code = useCustom
+        ? input.code!.trim()
+        : formatDocumentCode(
+            'FO',
+            areaCode,
+            await reserveDocumentCodeSeq(tx, organizationId, 'FO', areaCode),
+          );
+      const org = await tx.organization.findUniqueOrThrow({
+        where: { id: organizationId },
+        select: { name: true },
+      });
+      const identity = buildRenderIdentity(
+        {
+          documentType: 'form',
+          code,
+          title: input.title.trim(),
+          ownerArea,
+          issuedAt: null,
+          nextReviewAt: null,
+        },
+        INITIAL_VERSION_LABEL,
+        org.name,
+      );
+      const html = renderStructuredHtml('form', content, identity, {});
+
+      const formDoc = await tx.document.create({
+        data: {
+          organizationId,
+          code,
+          title: input.title.trim(),
+          documentType: 'form',
+          origin: 'internal',
+          status: 'draft',
+          confidentiality: 'internal',
+          currentVersionLabel: INITIAL_VERSION_LABEL,
+          ownerArea,
+          responsibleUserId: userId,
+          createdBy: userId,
+        },
+      });
+      await tx.documentVersion.create({
+        data: {
+          organizationId,
+          documentId: formDoc.id,
+          label: INITIAL_VERSION_LABEL,
+          status: 'draft',
+          isCurrent: true,
+          author: userId,
+          updatedBy: userId,
+          templateKey: 'form',
+          contentSchemaVersion: STRUCTURED_SCHEMA_VERSION,
+          structuredContent: asJson(content),
+          contentHtml: html,
+          contentChecksum: structuredChecksum(content),
+        },
+      });
+      await tx.documentHistory.create({
+        data: {
+          organizationId,
+          documentId: formDoc.id,
+          action: 'document.created',
+          actorUserId: userId,
+        },
+      });
+      // Relación issued_form: versión origen → formato emitido (§18).
+      const relation = await tx.documentRelation.create({
+        data: {
+          organizationId,
+          documentId: sourceDocumentId,
+          relationType: 'issued_form',
+          relatedDocumentId: formDoc.id,
+          sourceVersionId,
+          active: true,
+          createdBy: userId,
+          label: input.title.trim(),
+        },
+      });
+      await tx.documentHistory.create({
+        data: {
+          organizationId,
+          documentId: sourceDocumentId,
+          action: 'form.issued',
+          actorUserId: userId,
+        },
+      });
+      return { documentId: formDoc.id, code, title: input.title.trim(), relationId: relation.id };
+    }),
+  );
+}
+
+export interface DocumentRelationView {
+  id: string;
+  relationType: string;
+  relatedDocumentId: string;
+  code: string;
+  title: string;
+  typeLabel: string;
+  versionLabel: string | null;
+  statusLabel: string;
+  obsolete: boolean;
+  available: boolean;
+}
+
+/**
+ * Relaciones documentales ACTIVAS derivadas del contenido (referencias y formatos
+ * emitidos), resueltas para la sección "Relaciones documentales" del detalle
+ * (§36). Toma la versión vigente si no se indica una.
+ */
+export async function getDocumentRelations(
+  organizationId: string,
+  documentId: string,
+  versionId?: string,
+): Promise<{ references: DocumentRelationView[]; issuedForms: DocumentRelationView[] }> {
+  const prisma = getPrisma();
+  const version =
+    versionId != null
+      ? { id: versionId }
+      : ((await prisma.documentVersion.findFirst({
+          where: { documentId, organizationId, isCurrent: true },
+          select: { id: true },
+        })) ??
+        (await prisma.documentVersion.findFirst({
+          where: { documentId, organizationId },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        })));
+  if (!version) return { references: [], issuedForms: [] };
+
+  const rels = await prisma.documentRelation.findMany({
+    where: {
+      organizationId,
+      documentId,
+      sourceVersionId: version.id,
+      active: true,
+      relationType: { in: [...REF_RELATION_TYPES] },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+  const resolved = await resolveReferences(
+    prisma,
+    organizationId,
+    rels.map((r) => r.relatedDocumentId ?? '').filter(Boolean),
+  );
+  const view = (r: (typeof rels)[number]): DocumentRelationView => {
+    const res = resolved[r.relatedDocumentId ?? ''];
+    return {
+      id: r.id,
+      relationType: r.relationType,
+      relatedDocumentId: r.relatedDocumentId ?? '',
+      code: res?.code ?? '',
+      title: res?.title ?? '',
+      typeLabel: res?.typeLabel ?? '',
+      versionLabel: res?.versionLabel ?? null,
+      statusLabel: res?.statusLabel ?? '',
+      obsolete: Boolean(res?.obsolete),
+      available: Boolean(res?.available),
+    };
+  };
+  return {
+    references: rels.filter((r) => r.relationType === 'reference').map(view),
+    issuedForms: rels.filter((r) => r.relationType === 'issued_form').map(view),
+  };
+}
+
+/**
+ * Documentos que EMITIERON este formato (§37): relaciones `issued_form` activas
+ * cuyo destino es `documentId`. Resuelve los orígenes.
+ */
+export async function getIssuedFromSources(
+  organizationId: string,
+  documentId: string,
+): Promise<DocumentRelationView[]> {
+  const prisma = getPrisma();
+  const rels = await prisma.documentRelation.findMany({
+    where: {
+      organizationId,
+      relatedDocumentId: documentId,
+      relationType: 'issued_form',
+      active: true,
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+  const resolved = await resolveReferences(
+    prisma,
+    organizationId,
+    rels.map((r) => r.documentId),
+  );
+  return rels.map((r) => {
+    const res = resolved[r.documentId];
+    return {
+      id: r.id,
+      relationType: r.relationType,
+      relatedDocumentId: r.documentId,
+      code: res?.code ?? '',
+      title: res?.title ?? '',
+      typeLabel: res?.typeLabel ?? '',
+      versionLabel: res?.versionLabel ?? null,
+      statusLabel: res?.statusLabel ?? '',
+      obsolete: Boolean(res?.obsolete),
+      available: Boolean(res?.available),
+    };
+  });
 }
