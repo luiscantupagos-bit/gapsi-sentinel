@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
 import { DocumentNotFoundError, getStructuredContent } from '@/server/documents';
 
@@ -20,6 +20,16 @@ export default async function StructuredPreviewPage({
   } catch (error) {
     if (error instanceof DocumentNotFoundError) notFound();
     throw error;
+  }
+
+  // DOC-001: no renderizar un documento estructurado vacío para un doc que no lo
+  // es; se redirige a la vista previa correcta.
+  if (data.contentMode !== 'structured') {
+    redirect(
+      data.contentMode === 'external'
+        ? `/dashboard/documents/${documentId}`
+        : `/dashboard/documents/${documentId}/preview`,
+    );
   }
 
   return (

@@ -48,6 +48,7 @@ import { structuredByteSize, structuredChecksum } from '@/features/documents/str
 import { renderStructuredHtml, type RenderIdentity } from '@/features/documents/structured-render';
 import { formatDocumentCode, codeFormatError, normalizeAreaCode } from '@/features/documents/code';
 import { computeNextReviewAt, reviewMonthsOf } from '@/features/documents/dates';
+import { documentContentMode } from '@/features/documents/content-mode';
 import { labelOf, DOCUMENT_TYPES } from '@/features/documents/catalog';
 
 /** Última etiqueta de versión conocida del documento (vigente o más reciente). */
@@ -267,6 +268,11 @@ export async function getDocumentDetail(organizationId: string, documentId: stri
     description: doc.description,
     documentType: doc.documentType,
     origin: doc.origin,
+    // DOC-001: el editor/preview a abrir depende de la versión vigente, no del tipo.
+    contentMode: documentContentMode({
+      origin: doc.origin,
+      hasStructuredContent: current?.structuredContent != null,
+    }),
     status: doc.status,
     confidentiality: doc.confidentiality,
     currentVersionLabel: doc.currentVersionLabel,
@@ -1172,6 +1178,11 @@ export async function getStructuredContent(
     documentCode: doc.code,
     documentTitle: doc.title,
     documentType: doc.documentType,
+    // DOC-001: 'structured' solo si la versión realmente tiene structured_content.
+    contentMode: documentContentMode({
+      origin: doc.origin,
+      hasStructuredContent: version.structuredContent != null,
+    }),
     documentStatus: doc.status,
     organizationName: org.name,
     ownerArea: doc.ownerArea,
@@ -1203,6 +1214,14 @@ export async function saveStructuredContent(
   const version = await loadScopedVersion(organizationId, documentId, versionId);
   if (!isEditableStatus(version.status as VersionStatus) || !version.isCurrent) {
     throw new DocumentNotEditableError();
+  }
+  // DOC-001: no se convierte implícitamente un documento rich_text/externo en
+  // estructurado. Solo se guarda contenido estructurado sobre versiones que ya lo
+  // son (creadas por createStructuredDocument o heredado por createEditorVersion).
+  if (version.structuredContent == null) {
+    throw new DocumentValidationError([
+      'Este documento no es estructurado; no admite contenido estructurado.',
+    ]);
   }
 
   const content = sanitizeStructuredContent(doc.documentType, payload.structuredContent);

@@ -7,7 +7,9 @@ import { db, hasDb, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   DocumentNotEditableError,
   DocumentNotFoundError,
+  DocumentValidationError,
   DuplicateCodeError,
+  createEditorDocument,
   createStructuredDocument,
   getStructuredContent,
   proposeDocumentCode,
@@ -193,6 +195,54 @@ describe.skipIf(!hasDb)('documentos estructurados (DOC-001)', () => {
         true,
       );
     }
+  });
+
+  it('un documento rich_text histórico de tipo estructurado NO se trata como estructurado', async () => {
+    const org = await seedOrgWithPublishedTemplate(db());
+    // Documento creado con el editor enriquecido (TASK-005): documentType estructurado
+    // pero SIN structured_content (caso histórico).
+    const id = await createEditorDocument(org.orgId, org.userId, {
+      code: `PRO-${org.orgId.slice(0, 6)}`,
+      title: 'Procedimiento histórico rich_text',
+      documentType: 'procedure',
+      templateKey: 'procedure',
+    });
+    const data = await getStructuredContent(org.orgId, id);
+    expect(data.contentMode).toBe('rich_text');
+
+    // La versión conserva su contentJson y structured_content sigue NULL.
+    const version = await db().documentVersion.findFirst({ where: { documentId: id } });
+    expect(version?.structuredContent).toBeNull();
+    expect(version?.contentJson).not.toBeNull();
+
+    // No se permite convertirlo implícitamente guardando contenido estructurado.
+    await expect(
+      saveStructuredContent(org.orgId, org.userId, id, data.versionId, {
+        structuredContent: { fields: { objetivo: 'x', alcance: 'y' }, repeatables: {} },
+      }),
+    ).rejects.toBeInstanceOf(DocumentValidationError);
+
+    // Tras el intento, structured_content sigue NULL (sin conversión).
+    const after = await db().documentVersion.findFirst({ where: { documentId: id } });
+    expect(after?.structuredContent).toBeNull();
+  });
+
+  it('un documento estructurado nuevo sí se trata como estructurado', async () => {
+    const org = await seedOrgWithPublishedTemplate(db());
+    const id = await createStructuredDocument(org.orgId, org.userId, {
+      documentType: 'procedure',
+      title: 'Estructurado nuevo',
+      areaCode: 'CA',
+      structuredContent: procedureContent,
+    });
+    const data = await getStructuredContent(org.orgId, id);
+    expect(data.contentMode).toBe('structured');
+    // Y sí admite guardar contenido estructurado.
+    await expect(
+      saveStructuredContent(org.orgId, org.userId, id, data.versionId, {
+        structuredContent: procedureContent,
+      }),
+    ).resolves.toMatchObject({ checksum: expect.any(String) });
   });
 
   it('mantiene el aislamiento entre organizaciones', async () => {

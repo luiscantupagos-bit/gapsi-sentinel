@@ -25,7 +25,6 @@ import {
   DOCUMENT_TYPES,
   labelOf,
 } from '@/features/documents/catalog';
-import { isStructuredType } from '@/features/documents/template-registry';
 import { DocumentActions } from './DocumentActions';
 import { WorkflowPanel } from './WorkflowPanel';
 import { recoverCopyForm } from '../workflow-actions';
@@ -64,8 +63,10 @@ export default async function DocumentDetailPage({
   ]);
   const ctx = await getUserVersionContext(session.organizationId, session.userId, editor.versionId);
 
-  const isExternal = doc.origin === 'external';
-  const isStructured = doc.origin === 'internal' && isStructuredType(doc.documentType);
+  // DOC-001: el editor/preview depende del MODO de la versión vigente, no del tipo:
+  // un documento rich_text histórico puede tener un documentType estructurado.
+  const isExternal = doc.contentMode === 'external';
+  const isStructured = doc.contentMode === 'structured';
 
   return (
     <main className="container">

@@ -23,6 +23,27 @@ import {
 } from '@/features/documents/code';
 import { addMonthsIso, computeNextReviewAt, reviewMonthsOf } from '@/features/documents/dates';
 import { renderStructuredHtml } from '@/features/documents/structured-render';
+import { documentContentMode } from '@/features/documents/content-mode';
+
+describe('modo de contenido (histórico rich_text vs estructurado)', () => {
+  it('el modo NO depende del documentType, sino de la versión vigente', () => {
+    // Documento rich_text histórico con documentType estructurado → rich_text.
+    expect(documentContentMode({ origin: 'internal', hasStructuredContent: false })).toBe(
+      'rich_text',
+    );
+    // Documento estructurado nuevo → structured.
+    expect(documentContentMode({ origin: 'internal', hasStructuredContent: true })).toBe(
+      'structured',
+    );
+    // Externo → external (sin importar structured_content).
+    expect(documentContentMode({ origin: 'external', hasStructuredContent: false })).toBe(
+      'external',
+    );
+    expect(documentContentMode({ origin: 'external', hasStructuredContent: true })).toBe(
+      'external',
+    );
+  });
+});
 
 describe('registro de plantillas', () => {
   it('define los 10 tipos con prefijos correctos (§5)', () => {

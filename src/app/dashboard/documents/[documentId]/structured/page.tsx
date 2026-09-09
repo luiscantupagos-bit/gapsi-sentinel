@@ -1,8 +1,7 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
 import { DocumentNotFoundError, getStructuredContent } from '@/server/documents';
-import { isStructuredType } from '@/features/documents/template-registry';
 import { StructuredEditor } from '../../_editor/StructuredEditor';
 
 export default async function StructuredEditorPage({
@@ -24,7 +23,15 @@ export default async function StructuredEditorPage({
     throw error;
   }
 
-  if (!isStructuredType(data.documentType)) notFound();
+  // DOC-001: no abrir el editor estructurado sobre un documento que no lo es. Se
+  // redirige al editor correcto (sin conversión implícita), nunca contenido vacío.
+  if (data.contentMode !== 'structured') {
+    redirect(
+      data.contentMode === 'external'
+        ? `/dashboard/documents/${documentId}`
+        : `/dashboard/documents/${documentId}/editor`,
+    );
+  }
 
   return (
     <main className="container">
