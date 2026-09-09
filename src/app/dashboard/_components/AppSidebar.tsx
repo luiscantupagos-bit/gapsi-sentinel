@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { devSignOut } from '@/features/auth/dev-actions';
@@ -13,10 +14,15 @@ export function AppSidebar() {
   return (
     <nav className="sidebar" aria-label="Navegación principal">
       <div className="sidebar__brand">
-        <span className="sidebar__logo" aria-hidden>
-          GS
-        </span>
-        <span className="sidebar__brandtext">GAPSI Sentinel</span>
+        <Image
+          className="sidebar__logo-img"
+          src="/logo.png"
+          alt=""
+          width={34}
+          height={34}
+          priority
+        />
+        <span className="sidebar__brandtext">C3 Sentinel</span>
       </div>
 
       <div className="sidebar__scroll">
