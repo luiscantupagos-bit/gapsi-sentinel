@@ -18,6 +18,7 @@ import { extractReferences, type StructuredContent, type RichValue } from './str
 import { richHasContent, type RefSegment } from './references';
 import { getDocumentDesign } from './document-design';
 import { readableTextColor } from './contrast';
+import { scheduleLabel, type ProgramBlock } from './program-execution';
 
 export interface RenderIdentity {
   organizationName?: string | null;
@@ -86,6 +87,8 @@ export interface RenderOptions {
   showC3Attribution?: boolean;
   /** Marca de salida controlada (solo en `controlled_copy`). */
   copyMark?: CopyMark | null;
+  /** DOC-003: nombres de usuario por id, para el render del bloque de programa. */
+  users?: Record<string, string>;
 }
 
 const CONFIDENTIAL_URL = 'https://www.c3digital.com.mx';
@@ -370,6 +373,7 @@ export function renderStructuredHtml(
   options: RenderOptions = {},
 ): string {
   const resolved = options.resolved ?? {};
+  const users = options.users ?? {};
   const mode: RenderMode = options.mode ?? 'published_document';
   // Documento "limpio" (sin andamiaje de edición): publicado o copia controlada.
   const clean = mode === 'published_document' || mode === 'controlled_copy';
@@ -396,6 +400,11 @@ export function renderStructuredHtml(
       sections.push(
         `<section class="doc-render__section"><h2>${esc(section.title)}</h2>${desc}${body}</section>`,
       );
+    }
+
+    // Programa ejecutable (DOC-003): tabla formal de actividades (sin botones §67).
+    if (templateType === 'program' && content.program) {
+      sections.push(renderProgramBlock(content.program, users));
     }
 
     const referenced = extractReferences(content)
@@ -444,4 +453,23 @@ export function renderStructuredHtml(
   const classes = ['doc-render', design.cssClass];
   if (mode === 'controlled_copy') classes.push('doc-render--controlled-copy');
   return `<article class="${classes.join(' ')}"${themeStyle(options.theme)}>${sections.join('')}</article>`;
+}
+
+/** Render formal del bloque de programa (§67): actividades, programación, responsable. */
+function renderProgramBlock(program: ProgramBlock, users: Record<string, string>): string {
+  const period =
+    program.periodStart || program.periodEnd
+      ? `<p class="doc-render__section-desc">Periodo: ${esc(program.periodStart ?? EMPTY)} — ${esc(program.periodEnd ?? EMPTY)}</p>`
+      : '';
+  if (program.activities.length === 0) {
+    return `<section class="doc-render__section"><h2>Actividades del programa</h2>${period}<p class="doc-render__empty">Sin actividades.</p></section>`;
+  }
+  const rows = program.activities
+    .map((a, i) => {
+      const resp = a.responsibleUserId ? (users[a.responsibleUserId] ?? 'Usuario') : EMPTY;
+      const seguimiento = a.executionEnabled ? 'Sí' : 'No';
+      return `<tr><td class="doc-render__num">${i + 1}</td><td>${inlineText(a.name)}</td><td>${esc(scheduleLabel(a.schedule))}</td><td>${esc(resp)}</td><td>${inlineText(a.expectedEvidence)}</td><td>${seguimiento}</td></tr>`;
+    })
+    .join('');
+  return `<section class="doc-render__section"><h2>Actividades del programa</h2>${period}<div class="doc-render__table-wrap"><table class="doc-render__table"><thead><tr><th class="doc-render__num">#</th><th>Actividad</th><th>Programación</th><th>Responsable</th><th>Evidencia esperada</th><th>Seguimiento</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }

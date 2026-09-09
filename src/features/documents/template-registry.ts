@@ -266,28 +266,15 @@ const PROGRAM: DocumentTemplateDefinition = {
   cover: false,
   supportsStructuredEditor: true,
   supportsRichText: false,
+  // Las actividades del Programa son EJECUTABLES (DOC-003): viven en el bloque
+  // `structured_content.program` (periodo + actividades con id estable, programación
+  // y responsable), no en un repetible genérico. El editor y el renderer las tratan
+  // de forma especializada.
   sections: [
     fieldsSection('content', 'Contenido', [
       area('objetivo', 'Objetivo', { required: true }),
       area('alcance', 'Alcance', { required: true }),
     ]),
-    repeatableSection(
-      'activities',
-      'Actividades del programa',
-      {
-        label: 'Actividades',
-        itemLabel: 'Actividad',
-        addLabel: 'Agregar actividad',
-        autoNumber: true,
-        fields: [
-          text('actividad', 'Actividad', { required: true }),
-          text('responsable', 'Responsable', { placeholder: 'Opcional' }),
-          text('periodo', 'Periodo / fecha', { placeholder: 'p. ej. 1er trimestre' }),
-          text('recursos', 'Recursos', { placeholder: 'Opcional' }),
-        ],
-      },
-      'Actividades planificadas con su periodo.',
-    ),
   ],
 };
 

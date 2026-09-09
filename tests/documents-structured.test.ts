@@ -192,11 +192,15 @@ describe('contenido estructurado — saneo (§25/§26)', () => {
   });
 
   it('sanea también programa y especificación', () => {
+    // DOC-003: el Programa usa el bloque ejecutable `program` (no un repetible
+    // genérico). El saneo conserva los campos y descarta el repetible viejo.
     const program = sanitizeStructuredContent('program', {
       fields: { objetivo: 'O', alcance: 'A' },
-      repeatables: { activities: [{ actividad: 'Auditar', responsable: 'Líder' }] },
+      program: { activities: [{ name: 'Auditar', executionEnabled: false }] },
     });
-    expect(program.repeatables.activities?.[0]?.actividad).toBe('Auditar');
+    expect(program.fields.objetivo).toBe('O');
+    expect(program.repeatables.activities).toBeUndefined();
+    expect(program.program?.activities?.[0]?.name).toBe('Auditar');
 
     const spec = sanitizeStructuredContent('specification', {
       fields: { objeto: 'Materia prima' },
