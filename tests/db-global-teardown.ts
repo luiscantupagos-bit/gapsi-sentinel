@@ -15,8 +15,12 @@
  */
 import { readFileSync } from 'node:fs';
 import { PrismaClient } from '@prisma/client';
+import { isSafeTestDatabase } from './db-teardown-guard';
 
 // Organizaciones del seed de desarrollo (prisma/seed.ts): NO se borran.
+// NOTA: preservar el seed NO es una barrera contra una BD equivocada (en una BD
+// sin estos ids equivaldría a borrar todo). La barrera real es `isSafeTestDatabase`
+// (host local + contexto de test), evaluada ANTES de cualquier consulta destructiva.
 const SEED_ORG_IDS = [
   '00000000-0000-4000-8000-0000000000a0',
   '00000000-0000-4000-8000-0000000000b0',
@@ -44,11 +48,20 @@ function ensureDatabaseUrl(): string | undefined {
 }
 
 export async function setup(): Promise<void> {
-  // Nada que preparar; toda la lógica está en el teardown.
+  // Marca explícita de contexto de test para la guarda del teardown. Solo se
+  // establece cuando Vitest carga este globalSetup (nunca en runtime de la app).
+  process.env.GAPSI_TEST_DB = 'true';
 }
 
 export async function teardown(): Promise<void> {
-  if (!ensureDatabaseUrl()) return; // sin BD: las pruebas se saltan.
+  const url = ensureDatabaseUrl();
+  // BARRERA DE SEGURIDAD (fail-closed): antes de cualquier consulta destructiva,
+  // exige host LOCAL y contexto de TEST. Si no se cumple, se OMITE sin borrar nada
+  // y sin fallar la corrida (una suite exitosa no debe romperse por saltar limpieza).
+  if (!isSafeTestDatabase(url, process.env)) {
+    console.warn('DB test cleanup skipped: DATABASE_URL is not a local test database.');
+    return;
+  }
   const prisma = new PrismaClient();
   try {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
