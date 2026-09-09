@@ -52,9 +52,15 @@ tenant nuevo empieza siempre en `#0001`.
 - Nuevo **setupFile** `tests/setup-db-env.ts` (una vez por worker, antes de importar
   los tests): garantiza `DATABASE_URL` (cargándola de `.env` si el runtime aún no la
   puso), fuerza **IPv4** (`127.0.0.1`) y añade **`connection_limit=5`** al URL.
-- `vitest.config.ts`: registra el setupFile y acota `poolOptions.forks.maxForks=6`.
-  **Se conserva la ejecución en paralelo** (no se serializa): con ≤ 6 workers × 5
-  conexiones el uso queda muy por debajo de `max_connections`.
+- `vitest.config.ts`: registra el setupFile y acota `poolOptions.forks.maxForks=3`.
+  **Se conserva la ejecución en paralelo** (no se serializa). El límite bajo de
+  workers **no** es por `max_connections` (con 5 conexiones/worker el total es
+  mínimo) sino para reducir la **ráfaga de establecimiento de conexiones**
+  simultáneas contra el **port-proxy de Docker en Windows**, que bajo carga puede
+  rechazar conexiones nuevas y producir fallos transitorios `Can't reach database
+server at 127.0.0.1:5432`. Contraintuitivamente, **subir** `connection_limit`
+  empeora el problema (ráfagas más grandes); por eso el pool se mantiene pequeño y
+  se reducen los workers. En CI (Linux, sin port-proxy) el problema no aplica.
 
 ### 3.2 Aislamiento y limpieza de datos
 
@@ -68,6 +74,36 @@ replica` (desactiva triggers y FK) en una sola transacción. Evita que el estado
   se **acumule** entre corridas locales (la acumulación bloatea la BD y ralentiza
   algunas consultas hasta provocar timeouts). El seed de desarrollo se conserva; no
   se usa TRUNCATE global. En CI, con BD efímera, la limpieza es un no-op inocuo.
+
+### 3.2.1 Guarda de seguridad del cleanup (fail-closed)
+
+**Brecha detectada antes del merge:** la limpieza global es destructiva y, en su
+primera versión, se ejecutaba contra cualquiera que fuese `DATABASE_URL` sin
+verificar que fuera una BD de pruebas local; forzaba `127.0.0.1` pero **no abortaba**
+ante un host remoto/staging/prod.
+
+**Guardas añadidas** (`tests/db-teardown-guard.ts`, función pura
+`isSafeTestDatabase(url, env)` evaluada **antes de cualquier consulta destructiva**):
+
+- **Host local obligatorio:** `localhost`, `127.0.0.1` o `::1` (misma política que
+  `scripts/db-reset-local.mjs`). Cualquier otro host → se omite.
+- **Contexto de test obligatorio:** `VITEST === 'true'` o `GAPSI_TEST_DB === 'true'`
+  (el `globalSetup.setup()` fija `GAPSI_TEST_DB` solo cuando Vitest lo carga; no en
+  runtime de la app). No se depende de `NODE_ENV`.
+- **Se exigen AMBAS** (host local **y** contexto de test).
+- **Validación de `DATABASE_URL` con `URL`** (fail-closed): si falta, no parsea, el
+  protocolo no es `postgres(ql):` o el host no está permitido → **no** se ejecuta
+  nada.
+- Si la guarda no pasa, se emite `DB test cleanup skipped: DATABASE_URL is not a
+local test database.` y se **omite sin borrar** (no rompe una corrida exitosa).
+
+**Preservar el seed NO es una barrera de seguridad** (en una BD sin esos ids
+equivaldría a borrar todo); la barrera es `isSafeTestDatabase`, ejecutada primero.
+
+**`session_replication_role = replica`** se mantiene porque es necesario para borrar
+datos con triggers append-only y FK Restrict en una transacción; **no** es un
+mecanismo de seguridad y solo corre **después** de pasar las guardas. Requiere rol con
+privilegios (el `DATABASE_URL` de desarrollo usa `gapsi`).
 
 ### 3.3 Transacciones
 

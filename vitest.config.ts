@@ -10,11 +10,14 @@ export default defineConfig({
     // Limpieza global (una vez): elimina los datos de organizaciones desechables
     // al terminar, para que el estado no se acumule entre corridas.
     globalSetup: ['./tests/db-global-teardown.ts'],
-    // Se conserva la ejecución en paralelo (no se serializa). Se acota el número
-    // de workers para que N_workers × connection_limit(5) no agote max_connections
-    // de PostgreSQL. Cada worker comparte UN solo cliente Prisma (ver tests/db/_helpers).
+    // Se conserva la ejecución en paralelo (no se serializa), pero se acota a pocos
+    // workers para reducir la RÁFAGA de conexiones simultáneas contra el port-proxy
+    // de Docker en Windows, causa de fallos transitorios "Can't reach database
+    // server". maxForks(3) × connection_limit(5) = 15 conexiones máx, muy por debajo
+    // de max_connections. Cada worker comparte UN solo cliente Prisma (ver
+    // tests/db/_helpers).
     poolOptions: {
-      forks: { maxForks: 6 },
+      forks: { maxForks: 3 },
     },
     coverage: {
       provider: 'v8',

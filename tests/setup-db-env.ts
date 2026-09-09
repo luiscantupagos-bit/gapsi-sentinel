@@ -15,6 +15,12 @@
  */
 import { readFileSync } from 'node:fs';
 
+// Límite de conexiones por worker. Se mantiene PEQUEÑO a propósito: el fallo
+// transitorio "Can't reach database server" bajo Windows+Docker no viene de falta
+// de conexiones, sino de la RÁFAGA de establecimientos simultáneos contra el
+// port-proxy de Docker. Un pool chico (5) se calienta una vez y luego reutiliza
+// conexiones (las queries que exceden el fan-out se encolan, lo cual es inofensivo).
+// Total = maxForks(3) × 5 = 15 conexiones máx.
 const CONNECTION_LIMIT = 5;
 
 function loadDatabaseUrlFromEnvFile(): void {
