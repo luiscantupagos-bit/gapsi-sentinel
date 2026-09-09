@@ -6,14 +6,20 @@
  * persiste datos ni choca con los triggers de "no borrado físico".
  */
 import { randomUUID } from 'node:crypto';
-import { PrismaClient, type Prisma } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
+import { getPrisma } from '@/server/db';
 
 export const hasDb = Boolean(process.env.DATABASE_URL);
 
-let client: PrismaClient | null = null;
+/**
+ * Cliente Prisma de las pruebas. CORE-MAINT-001: reutiliza el MISMO singleton que
+ * la aplicación (`getPrisma`), de modo que hay UNA sola instancia por worker y las
+ * pruebas y las funciones de servidor comparten conexión. No se hace `$disconnect`
+ * por archivo (lo cerraba antes de que otras suites terminaran); la conexión se
+ * libera al salir el proceso/worker.
+ */
 export function db(): PrismaClient {
-  if (!client) client = new PrismaClient();
-  return client;
+  return getPrisma();
 }
 
 export function newId(): string {

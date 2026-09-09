@@ -1,7 +1,7 @@
 /**
  * CAPA — permisos, folios y aislamiento entre organizaciones (TASK-007). DB.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, inRollbackTx, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   CapaNotFoundError,
@@ -11,10 +11,6 @@ import {
   listCapas,
   updateCapa,
 } from '@/server/capa';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function addMember(orgId: string, role: string): Promise<string> {
   const id = newId();

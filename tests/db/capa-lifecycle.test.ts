@@ -2,7 +2,7 @@
  * CAPA — ciclo de vida completo contra la capa de datos (TASK-007). Requiere DB.
  * Usa organizaciones desechables (persisten; sin borrado físico).
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   CapaPermissionError,
@@ -19,10 +19,6 @@ import {
   updateAction,
   updateCapa,
 } from '@/server/capa';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function addMember(orgId: string, role: string): Promise<string> {
   const id = newId();

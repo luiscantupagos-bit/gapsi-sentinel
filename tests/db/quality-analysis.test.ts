@@ -2,7 +2,7 @@
  * Análisis de calidad (TASK-008) contra la capa de datos. Requiere DB.
  * Usa organizaciones desechables (persisten; sin borrado físico de agregados).
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, inRollbackTx, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import type { Prisma } from '@prisma/client';
 import {
@@ -28,10 +28,6 @@ import {
   updateAnalysis,
   updateFmeaRow,
 } from '@/server/quality-analysis';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function addMember(orgId: string, role: string): Promise<string> {
   const id = newId();

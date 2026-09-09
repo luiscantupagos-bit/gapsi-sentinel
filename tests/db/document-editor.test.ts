@@ -2,7 +2,7 @@
  * Editor documental (TASK-005) contra la capa de datos. Requiere `DATABASE_URL`.
  * Usa organizaciones desechables para no contaminar la demo.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   ContentTooLargeError,
@@ -15,10 +15,6 @@ import {
   getEditorContent,
   saveContent,
 } from '@/server/documents';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
 const doc = (nodes: unknown[]) => ({ type: 'doc', content: nodes });

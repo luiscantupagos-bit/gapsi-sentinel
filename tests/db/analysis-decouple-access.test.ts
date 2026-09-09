@@ -2,7 +2,7 @@
  * CORE-UX-004 — Desacople de análisis legacy de CAPA, estudios desde origen y
  * acciones contextuales de tarea. Requiere DB. Organizaciones desechables.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   createIndependentAnalysis,
@@ -13,10 +13,6 @@ import {
 } from '@/server/quality-analysis';
 import { createStudy, getStudyOrigin, listStudiesForSource } from '@/server/studies';
 import { createTask, transitionTask, TaskValidationError } from '@/server/tasks';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function makeProject(orgId: string): Promise<string> {
   const id = newId();

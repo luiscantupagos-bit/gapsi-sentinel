@@ -1,7 +1,7 @@
 /**
  * Control documental avanzado (TASK-006) contra la capa de datos. Requiere DB.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { db, hasDb, newId, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   createEditorDocument,
@@ -24,10 +24,6 @@ import {
   reviewDecision,
   submitForReview,
 } from '@/server/document-workflow';
-
-afterAll(async () => {
-  if (hasDb) await db().$disconnect();
-});
 
 async function addMember(orgId: string, role: string): Promise<string> {
   const id = newId();
