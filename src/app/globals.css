@@ -4267,3 +4267,290 @@ input[type='radio'] {
   color: var(--color-primary, #2563eb);
   flex: none;
 }
+
+/* =====================================================================
+   DOC-001 — Motor de plantillas documentales estructuradas
+   ===================================================================== */
+
+/* Ayuda e inline de campos (complementa el estándar CORE-UX-004). */
+.field__help {
+  font-weight: 400;
+  font-size: 0.76rem;
+  color: var(--color-muted);
+  margin: 2px 0 0;
+}
+.field__inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  margin-top: 4px;
+}
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+@media (max-width: 720px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Paso 1 — selección de tipo por tarjetas. */
+.wizard__step-title {
+  font-size: 1.05rem;
+  margin: var(--space-4) 0 var(--space-2);
+}
+.type-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+.type-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.type-card:hover,
+.type-card:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  outline: none;
+}
+.type-card__prefix {
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  padding: 0 0.4rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-sm);
+}
+.type-card__label {
+  font-weight: 600;
+  color: var(--color-text);
+}
+.type-card__desc {
+  grid-column: 2;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+/* Paso 2 — migas y tipo elegido. */
+.wizard__crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+.wizard__chosen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+
+/* Editor estructurado. */
+.struct-editor__bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-3);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+.struct-editor__bar-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.struct-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+.struct-section > legend {
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 0 var(--space-2);
+}
+.struct-section[disabled] {
+  opacity: 0.85;
+}
+.struct-section .field {
+  margin-bottom: var(--space-3);
+}
+.struct-repeat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.struct-repeat__item {
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  padding: var(--space-3);
+}
+.struct-repeat__item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+.struct-repeat__item-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+.struct-repeat__item-actions .button {
+  padding: 0.2rem 0.5rem;
+}
+
+/* Documento externo registrado (§29). */
+.external-doc-card {
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-3) 0;
+}
+.external-doc-card p {
+  margin: 0 0 var(--space-2);
+}
+
+/* Renderer normalizado (§23) — usado en la vista previa estructurada. */
+.doc-render {
+  color: var(--color-text);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.doc-render__header {
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.doc-render__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.doc-render__system {
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.02em;
+}
+.doc-render__org {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+.doc-render__title {
+  font-size: 1.3rem;
+  margin: var(--space-2) 0 var(--space-3);
+}
+.doc-render__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.doc-render__meta-item dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+}
+.doc-render__meta-item dd {
+  margin: 0;
+  font-weight: 600;
+}
+.doc-render__section {
+  margin: 0 0 var(--space-4);
+}
+.doc-render__section > h2 {
+  font-size: 1.05rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 4px;
+  margin-bottom: var(--space-2);
+}
+.doc-render__section-desc {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  margin: 0 0 var(--space-2);
+}
+.doc-render__field {
+  margin-bottom: var(--space-3);
+}
+.doc-render__field h3 {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  margin: 0 0 2px;
+}
+.doc-render__field p {
+  margin: 0 0 var(--space-1);
+}
+.doc-render__empty {
+  color: var(--color-muted);
+  font-style: italic;
+}
+.doc-render__section--future {
+  opacity: 0.9;
+}
+.doc-render__table-wrap {
+  overflow-x: auto;
+}
+.doc-render__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.doc-render__table th,
+.doc-render__table td {
+  border: 1px solid var(--color-border);
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+.doc-render__table thead th {
+  background: var(--color-surface-2);
+}
+.doc-render__num {
+  width: 2.5rem;
+  text-align: center;
+}
