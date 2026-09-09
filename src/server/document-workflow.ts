@@ -15,6 +15,8 @@ import {
   isEditableStatus,
   type VersionStatus,
 } from '@/features/documents/workflow-state';
+import { validateStructuredContent } from '@/features/documents/structured-content';
+import { isStructuredType } from '@/features/documents/template-registry';
 
 export class WorkflowPermissionError extends Error {
   constructor(message = 'No tienes permiso para esta acción.') {
@@ -172,6 +174,21 @@ function hasContent(contentJson: Prisma.JsonValue | null): boolean {
   return Boolean(doc && Array.isArray(doc.content) && doc.content.length > 0);
 }
 
+/** DOC-001: un documento estructurado tiene contenido si trae campos o ítems. */
+function hasStructuredContent(structuredContent: Prisma.JsonValue | null): boolean {
+  const sc = structuredContent as unknown as {
+    fields?: Record<string, unknown>;
+    repeatables?: Record<string, unknown[]>;
+  } | null;
+  if (!sc || typeof sc !== 'object') return false;
+  const hasField = Boolean(sc.fields && Object.keys(sc.fields).length > 0);
+  const hasItem = Boolean(
+    sc.repeatables &&
+      Object.values(sc.repeatables).some((list) => Array.isArray(list) && list.length > 0),
+  );
+  return hasField || hasItem;
+}
+
 /** Envía a revisión (bloquea edición). Elaborador o admin. */
 export async function submitForReview(
   organizationId: string,
@@ -198,7 +215,12 @@ export async function submitForReview(
   if (!doc.code?.trim()) errors.push('Falta el código.');
   if (!doc.title?.trim()) errors.push('Falta el título.');
   if (!version.label?.trim()) errors.push('Falta la versión.');
-  if (!hasContent(version.contentJson)) errors.push('El contenido está vacío.');
+  if (!hasContent(version.contentJson) && !hasStructuredContent(version.structuredContent))
+    errors.push('El contenido está vacío.');
+  // DOC-001: en documentos estructurados, exige los campos obligatorios del tipo.
+  if (isStructuredType(doc.documentType) && version.structuredContent) {
+    errors.push(...validateStructuredContent(doc.documentType, version.structuredContent));
+  }
   if (!doc.responsibleUserId) errors.push('Falta el responsable.');
   if (!version.changeNotes?.trim()) errors.push('Falta la nota de cambio.');
   if (!steps.some((s) => s.role === 'reviewer')) errors.push('Falta asignar un revisor.');

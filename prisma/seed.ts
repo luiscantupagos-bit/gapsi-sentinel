@@ -26,6 +26,16 @@ import {
   getTemplate,
   sanitizePageConfig,
 } from '../src/features/documents/templates';
+import {
+  STRUCTURED_SCHEMA_VERSION,
+  sanitizeStructuredContent,
+  type StructuredContent,
+} from '../src/features/documents/structured-content';
+import { structuredChecksum } from '../src/features/documents/structured-checksum';
+import { renderStructuredHtml } from '../src/features/documents/structured-render';
+import { INITIAL_VERSION_LABEL } from '../src/features/documents/versioning';
+import { getTemplateDefinition } from '../src/features/documents/template-registry';
+import { labelOf, DOCUMENT_TYPES } from '../src/features/documents/catalog';
 import { deviationPercentFormula } from '../src/features/studies/formula';
 
 const prisma = new PrismaClient();
@@ -626,6 +636,270 @@ async function seedEditorDocuments(): Promise<void> {
     }
     await prisma.documentHistory.create({
       data: { organizationId: ORG_A, documentId, action: 'document.created', actorUserId: USER_A },
+    });
+  }
+}
+
+/** UUID determinista para la demo de documentos estructurados (DOC-001, sufijo `d2`). */
+function stUuid(kind: 'c' | 'd', n: number): string {
+  return `00000000-0000-4000-8000-00000000d2${kind}${n.toString(16)}`;
+}
+
+/** Áreas cortas de demostración (catálogo de calidad, reutilizado por DOC-001 §6). */
+const DEMO_AREAS: { code: string; name: string }[] = [
+  { code: 'CA', name: 'Calidad' },
+  { code: 'PR', name: 'Producción' },
+  { code: 'RH', name: 'Recursos Humanos' },
+  { code: 'MT', name: 'Mantenimiento' },
+  { code: 'DG', name: 'Dirección General' },
+];
+
+interface StructuredDemo {
+  n: number;
+  code: string;
+  title: string;
+  documentType: string;
+  areaCode: string;
+  areaName: string;
+  published?: boolean;
+  content: {
+    fields: Record<string, string>;
+    repeatables: Record<string, Record<string, string>[]>;
+  };
+}
+
+const STRUCTURED_DOCS: StructuredDemo[] = [
+  {
+    n: 1,
+    code: 'PR-CA-001',
+    title: 'Control de producto no conforme',
+    documentType: 'procedure',
+    areaCode: 'CA',
+    areaName: 'Calidad',
+    published: true,
+    content: {
+      fields: {
+        objetivo:
+          'Establecer el método para identificar, segregar y disponer del producto no conforme, evitando su uso o entrega no intencional.',
+        alcance:
+          'Aplica a todo producto no conforme detectado en recepción, proceso y producto terminado.',
+      },
+      repeatables: {
+        responsibilities: [
+          {
+            responsable: 'Jefe de Calidad',
+            responsabilidad: 'Autorizar la disposición final del producto no conforme.',
+          },
+          {
+            responsable: 'Supervisor de Producción',
+            responsabilidad: 'Detener el proceso y notificar a Calidad ante una no conformidad.',
+          },
+        ],
+        activities: [
+          {
+            nombre: 'Identificación',
+            descripcion: 'Detectar y etiquetar el producto no conforme.',
+            responsable: 'Operador',
+            evidencia: 'Etiqueta de retención',
+          },
+          {
+            nombre: 'Segregación',
+            descripcion: 'Trasladar el producto al área de retención para evitar su uso.',
+            responsable: 'Supervisor de Producción',
+          },
+          {
+            nombre: 'Disposición',
+            descripcion: 'Decidir reproceso, concesión o rechazo y registrar la decisión.',
+            responsable: 'Jefe de Calidad',
+            evidencia: 'Registro de disposición',
+          },
+        ],
+      },
+    },
+  },
+  {
+    n: 2,
+    code: 'PG-CA-001',
+    title: 'Programa anual de auditorías internas',
+    documentType: 'program',
+    areaCode: 'CA',
+    areaName: 'Calidad',
+    content: {
+      fields: {
+        objetivo:
+          'Planificar las auditorías internas del año para verificar la conformidad del sistema de gestión.',
+        alcance: 'Cubre todos los procesos del sistema de gestión de calidad e inocuidad.',
+      },
+      repeatables: {
+        activities: [
+          {
+            actividad: 'Auditoría al sistema de gestión',
+            responsable: 'Auditor líder',
+            periodo: '1er trimestre',
+          },
+          {
+            actividad: 'Auditoría a producción',
+            responsable: 'Equipo auditor',
+            periodo: '2do trimestre',
+          },
+          {
+            actividad: 'Auditoría a almacén y distribución',
+            responsable: 'Auditor',
+            periodo: '3er trimestre',
+          },
+        ],
+      },
+    },
+  },
+  {
+    n: 3,
+    code: 'PL-CA-001',
+    title: 'Plan de capacitación anual',
+    documentType: 'plan',
+    areaCode: 'CA',
+    areaName: 'Calidad',
+    content: {
+      fields: {
+        objetivo:
+          'Desarrollar las competencias del personal conforme a las necesidades del sistema de gestión.',
+        alcance: 'Aplica a todo el personal de la organización.',
+        estrategia: 'Detección de necesidades, ejecución de cursos y evaluación de la eficacia.',
+        recursos: 'Presupuesto de capacitación, instructores internos y externos.',
+        seguimiento: 'Revisión trimestral del avance del plan por parte de RRHH y Calidad.',
+      },
+      repeatables: {
+        stages: [
+          { etapa: 'Detección de necesidades', responsable: 'Recursos Humanos', periodo: 'Enero' },
+          {
+            etapa: 'Ejecución de cursos',
+            responsable: 'Recursos Humanos',
+            periodo: 'Febrero a noviembre',
+          },
+          { etapa: 'Evaluación de la eficacia', responsable: 'Calidad', periodo: 'Diciembre' },
+        ],
+      },
+    },
+  },
+  {
+    n: 4,
+    code: 'PO-DG-001',
+    title: 'Política de calidad',
+    documentType: 'policy',
+    areaCode: 'DG',
+    areaName: 'Dirección General',
+    content: {
+      fields: {
+        declaracion:
+          'La dirección se compromete a satisfacer los requisitos del cliente y a mejorar continuamente la eficacia del sistema de gestión de calidad e inocuidad.',
+        alcance: 'Aplica a todas las actividades y personal de la organización.',
+      },
+      repeatables: {
+        commitments: [
+          { enunciado: 'Cumplir los requisitos del cliente, legales y reglamentarios aplicables.' },
+          { enunciado: 'Mejorar continuamente el sistema de gestión.' },
+          { enunciado: 'Proporcionar los recursos necesarios para la calidad e inocuidad.' },
+        ],
+      },
+    },
+  },
+];
+
+async function seedStructuredDocuments(): Promise<void> {
+  // Áreas del catálogo (idempotente por @@unique[org,kind,name]).
+  await prisma.qualityCatalogValue.createMany({
+    data: DEMO_AREAS.map((a, i) => ({
+      organizationId: ORG_A,
+      kind: 'area',
+      code: a.code,
+      name: a.name,
+      sortOrder: i,
+      createdBy: USER_A,
+    })),
+    skipDuplicates: true,
+  });
+
+  if (await prisma.document.findUnique({ where: { id: stUuid('c', 1) } })) return;
+
+  const org = await prisma.organization.findUniqueOrThrow({
+    where: { id: ORG_A },
+    select: { name: true },
+  });
+
+  for (const d of STRUCTURED_DOCS) {
+    const content = sanitizeStructuredContent(d.documentType, {
+      schemaVersion: STRUCTURED_SCHEMA_VERSION,
+      templateType: d.documentType,
+      fields: d.content.fields,
+      repeatables: d.content.repeatables,
+    }) as StructuredContent;
+    const issuedAt = d.published ? new Date('2026-06-01T00:00:00.000Z') : null;
+    const nextReviewAt = d.published ? new Date('2027-06-01T00:00:00.000Z') : null;
+    const html = renderStructuredHtml(d.documentType, content, {
+      organizationName: org.name,
+      typeLabel: labelOf(DOCUMENT_TYPES, d.documentType),
+      code: d.code,
+      versionLabel: INITIAL_VERSION_LABEL,
+      title: d.title,
+      areaLabel: d.areaName,
+      issuedAt: d.published ? '2026-06-01' : null,
+      nextReviewAt: d.published ? '2027-06-01' : null,
+    });
+
+    const documentId = stUuid('c', d.n);
+    await prisma.document.create({
+      data: {
+        id: documentId,
+        organizationId: ORG_A,
+        code: d.code,
+        title: d.title,
+        documentType: d.documentType,
+        origin: 'internal',
+        status: d.published ? 'effective' : 'draft',
+        confidentiality: 'internal',
+        currentVersionLabel: INITIAL_VERSION_LABEL,
+        siteId: SITE_A,
+        responsibleUserId: USER_A,
+        ownerArea: d.areaName,
+        issuedAt,
+        effectiveAt: issuedAt,
+        nextReviewAt,
+        createdBy: USER_A,
+      },
+    });
+    await prisma.documentVersion.create({
+      data: {
+        id: stUuid('d', d.n),
+        organizationId: ORG_A,
+        documentId,
+        label: INITIAL_VERSION_LABEL,
+        status: d.published ? 'published' : 'draft',
+        isCurrent: true,
+        author: USER_A,
+        updatedBy: USER_A,
+        templateKey: d.documentType,
+        contentSchemaVersion: STRUCTURED_SCHEMA_VERSION,
+        structuredContent: content as unknown as object,
+        contentHtml: html,
+        contentChecksum: structuredChecksum(content),
+        publishedAt: d.published ? issuedAt : null,
+      },
+    });
+    await prisma.documentHistory.create({
+      data: { organizationId: ORG_A, documentId, action: 'document.created', actorUserId: USER_A },
+    });
+
+    // Avanza el contador del código para que la UI proponga el siguiente consecutivo.
+    const prefix = getTemplateDefinition(d.documentType)?.codePrefix ?? 'DO';
+    await prisma.documentCodeCounter.upsert({
+      where: {
+        organizationId_codePrefix_areaCode: {
+          organizationId: ORG_A,
+          codePrefix: prefix,
+          areaCode: d.areaCode,
+        },
+      },
+      update: { lastSeq: 1 },
+      create: { organizationId: ORG_A, codePrefix: prefix, areaCode: d.areaCode, lastSeq: 1 },
     });
   }
 }
@@ -3006,6 +3280,7 @@ async function main(): Promise<void> {
   await seedDiagnostic();
   await seedDocuments();
   await seedEditorDocuments();
+  await seedStructuredDocuments();
   await seedControlDocuments();
   await seedCapa();
   await seedQualityAnalysis();
