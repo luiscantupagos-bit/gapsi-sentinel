@@ -13,4 +13,5 @@ next-env.d.ts
 .vscode/
 .idea/
 # TASK-004: almacenamiento local de archivos documentales (no versionar)
-storage/
+# Anclado a la raíz para no ignorar carpetas `storage/` dentro de `src/`.
+/storage/
