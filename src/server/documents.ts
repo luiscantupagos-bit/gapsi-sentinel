@@ -63,6 +63,12 @@ import {
 } from '@/features/documents/document-theme';
 import { sanitizeDesignId, DEFAULT_DESIGN_ID } from '@/features/documents/document-design';
 import {
+  sanitizeDateFormat,
+  formatIsoDate,
+  DEFAULT_DATE_FORMAT,
+  type DateFormat,
+} from '@/features/documents/date-format';
+import {
   computeEntitlements,
   resolveShowC3Attribution,
   isSubscriptionPlan,
@@ -1419,9 +1425,10 @@ export interface DocumentPresentation {
   designId: string;
   /** Preferencia guardada (no la efectiva; la efectiva depende del entitlement). */
   showC3AttributionPref: boolean;
+  dateFormat: DateFormat;
 }
 
-/** Tema + diseño + preferencia de atribución de la organización (o defaults). */
+/** Tema + diseño + preferencia de atribución + formato de fecha (o defaults). */
 export async function getDocumentPresentation(
   organizationId: string,
 ): Promise<DocumentPresentation> {
@@ -1435,6 +1442,7 @@ export async function getDocumentPresentation(
       headingColor: true,
       designId: true,
       showC3Attribution: true,
+      dateFormat: true,
     },
   });
   if (!row) {
@@ -1442,6 +1450,7 @@ export async function getDocumentPresentation(
       theme: DEFAULT_DOCUMENT_THEME,
       designId: DEFAULT_DESIGN_ID,
       showC3AttributionPref: true,
+      dateFormat: DEFAULT_DATE_FORMAT,
     };
   }
   return {
@@ -1454,6 +1463,7 @@ export async function getDocumentPresentation(
     }),
     designId: sanitizeDesignId(row.designId),
     showC3AttributionPref: row.showC3Attribution,
+    dateFormat: sanitizeDateFormat(row.dateFormat),
   };
 }
 
@@ -1507,6 +1517,7 @@ export async function setDocumentTheme(
   const theme = sanitizeDocumentTheme(input);
   const raw = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const designId = sanitizeDesignId(raw.designId);
+  const dateFormat = sanitizeDateFormat(raw.dateFormat);
 
   // Guard de entitlement: si la org no puede ocultar la atribución, la preferencia
   // se fuerza a true independientemente de lo que envíe el cliente.
@@ -1525,6 +1536,7 @@ export async function setDocumentTheme(
         headingColor: theme.heading,
         designId,
         showC3Attribution,
+        dateFormat,
         updatedBy: userId,
       },
       create: {
@@ -1536,11 +1548,12 @@ export async function setDocumentTheme(
         headingColor: theme.heading,
         designId,
         showC3Attribution,
+        dateFormat,
         updatedBy: userId,
       },
     });
   });
-  return { theme, designId, showC3AttributionPref: showC3Attribution };
+  return { theme, designId, showC3AttributionPref: showC3Attribution, dateFormat };
 }
 
 // --- Copias controladas de salida (impresión / PDF) — DOC-UX-002 §67-82 ---------
@@ -1693,13 +1706,14 @@ export async function getControlledCopyHistory(
   });
   if (copies.length === 0) return [];
 
-  const [versions, names, areas] = await Promise.all([
+  const [versions, names, areas, presentation] = await Promise.all([
     prisma.documentVersion.findMany({
       where: { documentId, organizationId },
       select: { id: true, label: true },
     }),
     userNames(copies.map((c) => c.issuedBy)),
     listDocumentAreas(organizationId),
+    getDocumentPresentation(organizationId),
   ]);
   const versionLabel = new Map(versions.map((v) => [v.id, v.label]));
   const areaName = new Map(areas.map((a) => [(a.code ?? '').toUpperCase(), a.name]));
@@ -1714,7 +1728,7 @@ export async function getControlledCopyHistory(
       : null,
     reason: c.reason,
     issuedByName: c.issuedBy ? (names.get(c.issuedBy) ?? null) : null,
-    issuedAt: isoDate(c.issuedAt),
+    issuedAt: formatIsoDate(isoDate(c.issuedAt), presentation.dateFormat),
   }));
 }
 
@@ -1773,11 +1787,19 @@ export async function renderDocumentControlledCopy(
     select: { name: true },
   });
   const content = sanitizeStructuredContent(doc.documentType, version.structuredContent);
-  const identity = buildRenderIdentity(doc, version.label, org.name);
   const { resolved } = await resolvedReferencesOf(organizationId, content);
   const presentation = await getDocumentPresentation(organizationId);
   const showC3Attribution = await resolveShowC3AttributionForOrg(organizationId);
-  const changeLog = await buildChangeLog(organizationId, documentId, version.createdAt);
+  const identity = formatIdentityDates(
+    buildRenderIdentity(doc, version.label, org.name),
+    presentation.dateFormat,
+  );
+  const changeLog = await buildChangeLog(
+    organizationId,
+    documentId,
+    version.createdAt,
+    presentation.dateFormat,
+  );
   const html = renderStructuredHtml(doc.documentType, content, identity, {
     resolved,
     theme: presentation.theme,
@@ -1785,9 +1807,18 @@ export async function renderDocumentControlledCopy(
     showC3Attribution,
     changeLog,
     mode: 'controlled_copy',
-    copyMark,
+    copyMark: { ...copyMark, issuedAt: formatIsoDate(copyMark.issuedAt, presentation.dateFormat) },
   });
   return { html, documentCode: doc.code, documentTitle: doc.title, versionLabel: version.label };
+}
+
+/** Aplica el formato de fecha de la organización a las fechas del encabezado. */
+function formatIdentityDates(identity: RenderIdentity, fmt: DateFormat): RenderIdentity {
+  return {
+    ...identity,
+    issuedAt: formatIsoDate(identity.issuedAt, fmt),
+    nextReviewAt: formatIsoDate(identity.nextReviewAt, fmt),
+  };
 }
 
 /**
@@ -1798,6 +1829,7 @@ async function buildChangeLog(
   organizationId: string,
   documentId: string,
   uptoCreatedAt: Date,
+  dateFormat: DateFormat = DEFAULT_DATE_FORMAT,
 ): Promise<ChangeLogRow[]> {
   const versions = await getPrisma().documentVersion.findMany({
     where: { documentId, organizationId, createdAt: { lte: uptoCreatedAt } },
@@ -1812,7 +1844,7 @@ async function buildChangeLog(
       (isInitial ? 'Documento nuevo' : 'Cambio sin descripción registrada');
     return {
       version: v.label.replace(/^v/i, ''),
-      date: isoDate(v.publishedAt ?? v.createdAt),
+      date: formatIsoDate(isoDate(v.publishedAt ?? v.createdAt), dateFormat),
       change,
       author: v.author ? (names.get(v.author) ?? '—') : '—',
     };
@@ -1849,14 +1881,22 @@ export async function getStructuredContent(
   });
 
   const content = sanitizeStructuredContent(doc.documentType, version.structuredContent);
-  const identity = buildRenderIdentity(doc, version.label, org.name);
   // DOC-002: resuelve referencias del contenido (datos actuales por id).
   const { refs, resolved } = await resolvedReferencesOf(organizationId, content);
-  // DOC-UX-001/002: presentación (tema + diseño + atribución), control de cambios
-  // (hasta la versión vista §48) y modo de render (published limpio / preview §55).
+  // DOC-UX-001/002/003: presentación (tema + diseño + atribución + formato de fecha),
+  // control de cambios (hasta la versión vista §48) y modo (published/preview §55).
   const presentation = await getDocumentPresentation(organizationId);
   const showC3Attribution = await resolveShowC3AttributionForOrg(organizationId);
-  const changeLog = await buildChangeLog(organizationId, documentId, version.createdAt);
+  const identity = formatIdentityDates(
+    buildRenderIdentity(doc, version.label, org.name),
+    presentation.dateFormat,
+  );
+  const changeLog = await buildChangeLog(
+    organizationId,
+    documentId,
+    version.createdAt,
+    presentation.dateFormat,
+  );
   const mode = version.status === 'published' ? 'published_document' : 'editor_preview';
   const renderedHtml = renderStructuredHtml(doc.documentType, content, identity, {
     resolved,
