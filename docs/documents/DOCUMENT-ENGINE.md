@@ -93,15 +93,16 @@ enriquecido (TASK-005).
 
 ## 9. Roadmap (§43)
 
-| Tarea                        | Alcance                                                                                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| DOC-002 ✅ (implementado)    | Referencias `@` y formatos `//` — ver `SMART-REFERENCES.md`.                                                                                  |
-| DOC-UX-001 ✅ (implementado) | Presentación documental (header/pie/tema/control de cambios) y biblioteca por áreas — ver `DOCUMENT-PRESENTATION.md` y `DOCUMENT-LIBRARY.md`. |
-| DOC-003                      | Programas ejecutables que generan tareas.                                                                                                     |
-| DOC-004                      | Diseñador de formatos/registros.                                                                                                              |
-| DOC-005                      | Importación inteligente (transcripción de documentos externos).                                                                               |
-| DOC-006                      | Asistencia con IA.                                                                                                                            |
-| DOC-007                      | Integración con Microsoft 365 / Google.                                                                                                       |
+| Tarea                        | Alcance                                                                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DOC-002 ✅ (implementado)    | Referencias `@` y formatos `//` — ver `SMART-REFERENCES.md`.                                                                                                  |
+| DOC-UX-001 ✅ (implementado) | Presentación documental (header/pie/tema/control de cambios) y biblioteca por áreas — ver `DOCUMENT-PRESENTATION.md` y `DOCUMENT-LIBRARY.md`.                 |
+| DOC-UX-002 ✅ (implementado) | Toolbar, copias controladas (impresión/PDF con folio + watermark), diseños documentales y entitlement de atribución C3 — ver `DOCUMENT-PRESENTATION.md` §6-9. |
+| DOC-003                      | Programas ejecutables que generan tareas.                                                                                                                     |
+| DOC-004                      | Diseñador de formatos/registros.                                                                                                                              |
+| DOC-005                      | Importación inteligente (transcripción de documentos externos).                                                                                               |
+| DOC-006                      | Asistencia con IA.                                                                                                                                            |
+| DOC-007                      | Integración con Microsoft 365 / Google.                                                                                                                       |
 
 Estas capacidades **no** están implementadas en DOC-001; el motor deja la base
 preparada (esquema versionado, renderer reutilizable, secciones futuras del

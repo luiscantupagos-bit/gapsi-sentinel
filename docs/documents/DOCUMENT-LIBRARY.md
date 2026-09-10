@@ -54,3 +54,10 @@ devuelve `ownerArea`.
 
 Todo se ejecuta bajo `withOrgContext`; los conteos y las áreas están aislados por
 organización (cubierto por `tests/db/document-presentation.test.ts` caso B).
+
+## Ver también
+
+La vista de cada documento (DOC-UX-002) añade una **toolbar** state-aware y
+**copias controladas** de salida (impresión/PDF con folio y marca de agua), además
+de **diseños documentales** y el control de la **atribución de C3**. Ver
+`DOCUMENT-PRESENTATION.md` §6-9 y `docs/tasks/DOC-UX-002-IMPLEMENTATION-NOTES.md`.
