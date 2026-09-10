@@ -10,9 +10,10 @@ acoplada** a Programas: el modelo sirve a cualquier origen.
 `fn_current_org`):
 
 - `organizationId`, `userId` — destinatario.
-- `sourceType` / `sourceId` — origen del aviso. Hoy `program_activity` →
-  `program_activity_instances.id`; el diseño admite `task`, `document_review`,
-  `audit`, `capa`, … a futuro sin cambiar el esquema.
+- `sourceType` / `sourceId` — origen del aviso. **Primer producer**:
+  `program_activity` → `program_activity_instances.id`. El diseño admite a futuro
+  `task`, `document_review`, `audit`, `capa`, `training`, `maintenance`, … **sin
+  cambiar el esquema** (no es program-only).
 - `notificationType` — p. ej. `program_due_soon` / `program_due_today` /
   `program_overdue` (UI en español: «Próxima a vencer» / «Vence hoy» / «Vencida»).
 - `scheduledFor` (DATE) — momento lógico del aviso; parte de la clave de dedup.

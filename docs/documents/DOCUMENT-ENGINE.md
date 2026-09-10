@@ -91,6 +91,23 @@ enriquecido (TASK-005).
   reales; conversión "Próximamente").
 - Los documentos históricos siguen abriéndose sin migración de datos.
 
+## 8b. Programa ejecutable (DOC-003)
+
+El tipo **Programa** ya **no** es una tabla genérica de actividades: tiene un
+**editor especializado** (`_editor/ProgramActivitiesEditor.tsx`) y un **modelo de
+ejecución** propio.
+
+- **Definición** en `structured_content.program` (actividades con `activityId`
+  estable, programación única/rango/recurrente, evidencia, aviso).
+- **Ejecución** materializada al publicar en `program_activity_instances` +
+  **Tareas nativas** (no en el JSON); vista **Documento | Ejecución**.
+- **Relación entre versiones**: la identidad estable `activityId` permite reconciliar
+  la ejecución al publicar una versión nueva (continuidad / sustitución), conservando
+  el histórico por versión.
+
+Detalle en [`EXECUTABLE-PROGRAMS.md`](EXECUTABLE-PROGRAMS.md) y
+[`../tasks/DOC-003-IMPLEMENTATION-NOTES.md`](../tasks/DOC-003-IMPLEMENTATION-NOTES.md).
+
 ## 9. Roadmap (§43)
 
 | Tarea                        | Alcance                                                                                                                                                       |
@@ -98,7 +115,7 @@ enriquecido (TASK-005).
 | DOC-002 ✅ (implementado)    | Referencias `@` y formatos `//` — ver `SMART-REFERENCES.md`.                                                                                                  |
 | DOC-UX-001 ✅ (implementado) | Presentación documental (header/pie/tema/control de cambios) y biblioteca por áreas — ver `DOCUMENT-PRESENTATION.md` y `DOCUMENT-LIBRARY.md`.                 |
 | DOC-UX-002 ✅ (implementado) | Toolbar, copias controladas (impresión/PDF con folio + watermark), diseños documentales y entitlement de atribución C3 — ver `DOCUMENT-PRESENTATION.md` §6-9. |
-| DOC-003                      | Programas ejecutables que generan tareas.                                                                                                                     |
+| DOC-003 ✅ (implementado)    | Programas ejecutables: ocurrencias → tareas nativas, notificaciones internas y reconciliación entre versiones — ver `EXECUTABLE-PROGRAMS.md`.                 |
 | DOC-004                      | Diseñador de formatos/registros.                                                                                                                              |
 | DOC-005                      | Importación inteligente (transcripción de documentos externos).                                                                                               |
 | DOC-006                      | Asistencia con IA.                                                                                                                                            |

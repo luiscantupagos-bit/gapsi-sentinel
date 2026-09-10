@@ -49,6 +49,14 @@ determinista y reproducible (sin IA, sin SPC avanzado todavía). Ver
 `docs/CORE-ALIGN-003-IMPLEMENTATION-NOTES.md` y
 `docs/analytics/DATA-STUDIES-ARCHITECTURE.md`.
 
+**Documentos: motor estructurado y programas ejecutables** (DOC-001…DOC-003):
+plantillas por tipo con código automático, referencias `@`/formatos `//`,
+presentación normalizada, copias controladas y diseños. Los **Programas** (DOC-003)
+son ejecutables: al publicar generan ocurrencias → **tareas nativas**, con vista
+**Documento/Ejecución**, notificaciones internas y reconciliación entre versiones.
+Ver `docs/documents/EXECUTABLE-PROGRAMS.md`. (Pendiente: centro de notificaciones UI,
+scheduler productivo, canales externos.)
+
 ## Principio rector
 
 Cada incremento debe poder demostrarse, probarse y potencialmente venderse.

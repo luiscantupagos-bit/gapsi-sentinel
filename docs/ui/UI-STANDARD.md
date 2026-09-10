@@ -109,6 +109,16 @@ pestañas → contenido**. Una sola acción primaria; secundarias como ghost;
 administrativas/destructivas en "Más acciones". Aplicado en Diagnósticos,
 Documentos y CAPA (Auditorías ya lo usaba).
 
+### Documento / Ejecución (Programas, DOC-003)
+
+Los documentos tipo **Programa** usan las pestañas **Documento | Ejecución**
+(`ProgramTabs`): el render documental canónico y, aparte, la **ejecución operativa**
+(KPIs en tarjetas, barra de progreso, tabla de ocurrencias con estado/responsable/
+evidencia/acción). La tabla operativa es responsive: en tablet/móvil cada fila
+colapsa a **tarjeta** con `data-label` (etiqueta sobre valor) y los filtros se
+apilan; botones táctiles a ancho cómodo. Es el patrón de referencia para vistas
+operativas tabulares densas.
+
 ## Panel (dashboard)
 
 `src/app/dashboard/page.tsx`. **Solo datos reales; sin placeholders.** No se
