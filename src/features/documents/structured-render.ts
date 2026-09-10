@@ -1,22 +1,25 @@
 /**
- * Renderer normalizado de documentos estructurados (DOC-001 §23/§24/§10,
- * DOC-002 §11/§12/§20/§49).
+ * Renderer normalizado de documentos estructurados (DOC-001/002 + DOC-UX-001).
  *
- * Transforma DATOS estructurados (`StructuredContent`) + IDENTIFICACIÓN + las
- * REFERENCIAS resueltas en un HTML limpio y determinista: HEADER + cuerpo por
- * secciones + referencias inline (chips/links) + secciones "Documentos
- * referenciados" y "Formatos y registros". Sin DOM ni dependencias; escapa todo
- * texto. Reutilizable para vista previa y exportación futura.
+ * Transforma DATOS estructurados + IDENTIFICACIÓN + referencias resueltas en un
+ * HTML limpio, determinista y print-friendly:
+ *   ENCABEZADO (branding de la ORGANIZACIÓN + identificación) · cuerpo por
+ *   secciones · referencias/formatos · CONTROL DE CAMBIOS · PIE institucional
+ *   (confidencialidad + atribución discreta a C3 Sentinel).
  *
- * El renderer NO consulta la BD: recibe la identificación y el resolvedor de
- * referencias ya calculados por el servidor. Marca fija "C3 Sentinel" (§45).
+ * Modos (§55): `published_document` (limpio y definitivo: omite secciones/campos
+ * opcionales vacíos) y `editor_preview` (muestra placeholders útiles). Tema
+ * documental por organización aplicado con moderación vía variables CSS. Sin DOM
+ * ni dependencias; escapa todo texto. El branding del CLIENTE va en el
+ * encabezado; C3 Sentinel va en el pie (§12/§58).
  */
 import { getTemplateDefinition } from './template-registry';
 import { extractReferences, type StructuredContent, type RichValue } from './structured-content';
-import { type RefSegment } from './references';
+import { richHasContent, type RefSegment } from './references';
 
 export interface RenderIdentity {
   organizationName?: string | null;
+  organizationLogoUrl?: string | null;
   typeLabel: string;
   code: string;
   versionLabel: string;
@@ -35,13 +38,32 @@ export interface ResolvedReference {
   versionLabel?: string | null;
   statusLabel?: string;
   obsolete?: boolean;
-  /** false → no encontrado o sin permisos: no se exponen datos. */
   available: boolean;
 }
-/** Mapa targetDocumentId → datos actuales. */
 export type ReferenceResolver = Record<string, ResolvedReference>;
 
-const SYSTEM_BRAND = 'C3 Sentinel';
+/** Tema documental por organización (solo colores HEX validados). */
+export interface DocumentTheme {
+  primary: string;
+  secondary: string;
+  accent: string;
+}
+/** Fila del Control de cambios (derivada del versionado, §40/§41). */
+export interface ChangeLogRow {
+  version: string;
+  date: string | null;
+  change: string;
+  author: string;
+}
+export type RenderMode = 'editor_preview' | 'published_document';
+export interface RenderOptions {
+  resolved?: ReferenceResolver;
+  mode?: RenderMode;
+  theme?: DocumentTheme | null;
+  changeLog?: ChangeLogRow[];
+}
+
+const CONFIDENTIAL_URL = 'https://www.c3digital.com.mx';
 const EMPTY = '—';
 
 function esc(s: string): string {
@@ -52,7 +74,15 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** Chip/link de una referencia, resuelto por id (nunca expone datos si no visible). */
+/** Solo colores HEX (#RGB / #RRGGBB); cualquier otra cosa → fallback. */
+function safeHex(value: unknown, fallback: string): string {
+  return typeof value === 'string' && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)
+    ? value
+    : fallback;
+}
+
+// --- Contenido rich (texto + referencias) ------------------------------------
+
 function renderChip(seg: RefSegment, resolved: ReferenceResolver): string {
   const r = resolved[seg.targetDocumentId];
   if (!r || !r.available) {
@@ -71,7 +101,6 @@ function segmentsToHtml(value: Exclude<RichValue, string>, resolved: ReferenceRe
     .join('');
 }
 
-/** Cuerpo de campo (párrafos si es texto plano; flujo con chips si es rich). */
 function richBody(value: RichValue, resolved: ReferenceResolver): string {
   if (typeof value === 'string') {
     const v = value.trim();
@@ -85,7 +114,6 @@ function richBody(value: RichValue, resolved: ReferenceResolver): string {
   return inner ? `<p>${inner}</p>` : `<span class="doc-render__empty">${EMPTY}</span>`;
 }
 
-/** Valor inline (celdas de tabla). */
 function richInline(value: RichValue, resolved: ReferenceResolver): string {
   if (typeof value === 'string') {
     const v = value.trim();
@@ -100,45 +128,71 @@ function inlineText(value: string): string {
   return v ? esc(v) : `<span class="doc-render__empty">${EMPTY}</span>`;
 }
 
+// --- Encabezado (branding de la organización + identificación) ----------------
+
 function metaRow(label: string, value: string): string {
   return `<div class="doc-render__meta-item"><dt>${esc(label)}</dt><dd>${value}</dd></div>`;
 }
 
 function renderHeader(identity: RenderIdentity): string {
-  const org = identity.organizationName?.trim();
+  const org = identity.organizationName?.trim() || 'Organización';
+  const brand = identity.organizationLogoUrl
+    ? `<img class="doc-render__org-logo" src="${esc(identity.organizationLogoUrl)}" alt="${esc(org)}">`
+    : `<span class="doc-render__org-name">${esc(org)}</span>`;
   const rows = [
-    metaRow('Tipo', inlineText(identity.typeLabel)),
     metaRow('Código', inlineText(identity.code)),
     metaRow('Versión', inlineText(identity.versionLabel)),
     metaRow('Área', inlineText(identity.areaLabel ?? '')),
+    metaRow('Tipo', inlineText(identity.typeLabel)),
     metaRow('Fecha de emisión', inlineText(identity.issuedAt ?? '')),
     metaRow('Próxima revisión', inlineText(identity.nextReviewAt ?? '')),
   ].join('');
+  // thead-friendly: en impresión el encabezado se repite por página (CSS print).
   return `
     <header class="doc-render__header">
-      <div class="doc-render__brand">
-        <span class="doc-render__system">${SYSTEM_BRAND}</span>
-        ${org ? `<span class="doc-render__org">${esc(org)}</span>` : ''}
+      <div class="doc-render__org-brand">${brand}</div>
+      <div class="doc-render__docid">
+        <h1 class="doc-render__title">${inlineText(identity.title)}</h1>
+        <dl class="doc-render__meta">${rows}</dl>
       </div>
-      <h1 class="doc-render__title">${inlineText(identity.title)}</h1>
-      <dl class="doc-render__meta">${rows}</dl>
     </header>`;
 }
 
+// --- Pie institucional (confidencialidad + atribución C3) ----------------------
+
+function renderFooter(identity: RenderIdentity): string {
+  const org = identity.organizationName?.trim() || 'la organización';
+  return `
+    <footer class="doc-render__footer">
+      <p class="doc-render__confidential">DOCUMENTO CONTROLADO Y CONFIDENCIAL</p>
+      <p>Prohibida su reproducción total o parcial sin autorización expresa de «${esc(org)}».</p>
+      <p class="doc-render__attribution">Documento administrado mediante <strong>C3 Sentinel</strong> — Sistema inteligente de gestión, cumplimiento y mejora continua. <a href="${CONFIDENTIAL_URL}">www.c3digital.com.mx</a></p>
+    </footer>`;
+}
+
+// --- Cuerpo ------------------------------------------------------------------
+
 function renderFields(
-  fields: { key: string; label: string; kind: string }[],
+  fields: { key: string; label: string; kind: string; required?: boolean }[],
   content: StructuredContent,
   resolved: ReferenceResolver,
+  mode: RenderMode,
 ): string {
   const items = fields
+    .filter((f) => {
+      // Published: omite campos OPCIONALES vacíos (§54). Los obligatorios siempre.
+      if (mode === 'published_document' && !f.required) {
+        return richHasContent(content.fields[f.key] ?? '');
+      }
+      return true;
+    })
     .map((f) => {
       const value = content.fields[f.key] ?? '';
       const body =
         f.kind === 'textarea' ? richBody(value, resolved) : `<p>${richInline(value, resolved)}</p>`;
       return `<div class="doc-render__field"><h3>${esc(f.label)}</h3>${body}</div>`;
-    })
-    .join('');
-  return `<div class="doc-render__fields">${items}</div>`;
+    });
+  return items.length ? `<div class="doc-render__fields">${items.join('')}</div>` : '';
 }
 
 function renderRepeatable(
@@ -171,7 +225,8 @@ function renderRepeatable(
   return `<div class="doc-render__table-wrap"><table class="doc-render__table"><thead><tr>${headCols}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-/** Tabla de una sección de referencias (Documentos referenciados / Formatos). */
+// --- Referencias / formatos ---------------------------------------------------
+
 function renderReferenceTable(refs: RefSegment[], resolved: ReferenceResolver): string {
   const rows = refs
     .map((ref) => {
@@ -186,6 +241,7 @@ function renderReferenceTable(refs: RefSegment[], resolved: ReferenceResolver): 
   return `<div class="doc-render__table-wrap"><table class="doc-render__table"><thead><tr><th>Código</th><th>Documento</th><th>Versión</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+/** Sección de referencias. En published solo se muestra si hay datos (§54). */
 function referenceSection(
   title: string,
   refs: RefSegment[],
@@ -200,16 +256,46 @@ function referenceSection(
   return `<section class="doc-render__section"><h2>${esc(title)}</h2>${renderReferenceTable(refs, resolved)}</section>`;
 }
 
+// --- Control de cambios (§39-48) ---------------------------------------------
+
+function renderChangeLog(rows: ChangeLogRow[]): string {
+  if (rows.length === 0) return '';
+  const body = rows
+    .map(
+      (r) =>
+        `<tr><td class="doc-render__num">${esc(r.version)}</td><td>${esc(r.date ?? EMPTY)}</td><td>${esc(r.change)}</td><td>${esc(r.author)}</td></tr>`,
+    )
+    .join('');
+  return `<section class="doc-render__section"><h2>Control de cambios</h2><div class="doc-render__table-wrap"><table class="doc-render__table"><thead><tr><th>Versión</th><th>Fecha</th><th>Modificación realizada</th><th>Realizado por</th></tr></thead><tbody>${body}</tbody></table></div></section>`;
+}
+
+function richRefFor(
+  targetDocumentId: string,
+  relationType: 'reference' | 'issued_form',
+): RefSegment {
+  return { type: 'ref', relationType, targetDocumentId };
+}
+
+function themeStyle(theme: DocumentTheme | null | undefined): string {
+  if (!theme) return '';
+  const primary = safeHex(theme.primary, '#0f2440');
+  const secondary = safeHex(theme.secondary, '#e3e8ef');
+  const accent = safeHex(theme.accent, '#2563eb');
+  return ` style="--doc-primary:${primary};--doc-secondary:${secondary};--doc-accent:${accent}"`;
+}
+
 /**
- * Renderiza el documento estructurado completo a HTML seguro (header + cuerpo +
- * referencias). `resolved` mapea cada targetDocumentId a sus datos actuales.
+ * Renderiza el documento estructurado completo a HTML seguro.
  */
 export function renderStructuredHtml(
   templateType: string,
   content: StructuredContent,
   identity: RenderIdentity,
-  resolved: ReferenceResolver = {},
+  options: RenderOptions = {},
 ): string {
+  const resolved = options.resolved ?? {};
+  const mode: RenderMode = options.mode ?? 'published_document';
+  const published = mode === 'published_document';
   const def = getTemplateDefinition(templateType);
   const sections: string[] = [renderHeader(identity)];
 
@@ -217,8 +303,10 @@ export function renderStructuredHtml(
     for (const section of def.sections) {
       const body =
         section.kind === 'fields'
-          ? renderFields(section.fields, content, resolved)
+          ? renderFields(section.fields, content, resolved, mode)
           : renderRepeatable(section.repeatable, content, resolved);
+      // Published: omite una sección de campos que quedó totalmente vacía (§54).
+      if (published && section.kind === 'fields' && body === '') continue;
       const desc = section.description
         ? `<p class="doc-render__section-desc">${esc(section.description)}</p>`
         : '';
@@ -227,9 +315,6 @@ export function renderStructuredHtml(
       );
     }
 
-    // Referencias (DOC-002). El Procedimiento muestra siempre las secciones
-    // (con su diagrama de flujo futuro §10); otros tipos, solo si hay referencias.
-    const isProcedure = templateType === 'procedure';
     const referenced = extractReferences(content)
       .filter((r) => r.relationType === 'reference')
       .map((r) => richRefFor(r.targetDocumentId, 'reference'));
@@ -237,36 +322,39 @@ export function renderStructuredHtml(
       .filter((r) => r.relationType === 'issued_form')
       .map((r) => richRefFor(r.targetDocumentId, 'issued_form'));
 
-    if (isProcedure) {
+    // Diagrama de flujo (§53): placeholder solo en preview borrador; se omite en
+    // el documento publicado.
+    if (templateType === 'procedure' && !published) {
       sections.push(
         `<section class="doc-render__section doc-render__section--future"><h2>Diagrama de flujo</h2><p class="doc-render__empty">No generado todavía.</p></section>`,
       );
     }
+    // Secciones de referencias: en preview el procedimiento las muestra siempre
+    // (con placeholder); en published solo si hay datos (§54).
+    const showEmpty = templateType === 'procedure' && !published;
     sections.push(
       referenceSection(
         'Documentos referenciados',
         referenced,
         resolved,
         'Sin documentos referenciados.',
-        isProcedure,
+        showEmpty,
       ),
       referenceSection(
         'Formatos y registros relacionados',
         forms,
         resolved,
         'Sin formatos ni registros asociados.',
-        isProcedure,
+        showEmpty,
       ),
     );
+
+    // Control de cambios al final del documento formal (§46).
+    if (options.changeLog && options.changeLog.length) {
+      sections.push(renderChangeLog(options.changeLog));
+    }
   }
 
-  return `<article class="doc-render">${sections.join('')}</article>`;
-}
-
-/** Construye un RefSegment mínimo (solo id + tipo) para las tablas de sección. */
-function richRefFor(
-  targetDocumentId: string,
-  relationType: 'reference' | 'issued_form',
-): RefSegment {
-  return { type: 'ref', relationType, targetDocumentId };
+  sections.push(renderFooter(identity));
+  return `<article class="doc-render"${themeStyle(options.theme)}>${sections.join('')}</article>`;
 }

@@ -160,14 +160,15 @@ const PROCEDURE: DocumentTemplateDefinition = {
         itemLabel: 'Actividad',
         addLabel: 'Agregar actividad',
         autoNumber: true,
+        // DOC-UX-001 §6: se retiran las columnas Evidencia y Observaciones del
+        // Procedimiento formal. La evidencia/documentos se gestionan con @ y // (y
+        // aparecen en las secciones de referencias/formatos); las observaciones se
+        // integran en la Descripción. Los datos legacy se conservan a nivel de dato
+        // hasta que el documento se vuelve a guardar (sin migración destructiva).
         fields: [
           text('nombre', 'Nombre de la actividad', { required: true }),
           area('descripcion', 'Descripción', { required: true }),
           text('responsable', 'Responsable', { placeholder: 'Opcional' }),
-          text('evidencia', 'Evidencia', {
-            placeholder: 'Registro o evidencia esperada (opcional)',
-          }),
-          area('observaciones', 'Observaciones', { placeholder: 'Opcional' }),
         ],
       },
       'Secuencia de actividades con número automático.',

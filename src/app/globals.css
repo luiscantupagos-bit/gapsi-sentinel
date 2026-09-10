@@ -4728,3 +4728,140 @@ input[type='radio'] {
   color: var(--color-text);
   letter-spacing: 0.01em;
 }
+
+/* =====================================================================
+   DOC-UX-001 — Presentación documental (header/footer/tema + print)
+   ===================================================================== */
+
+/* Tema documental (valores por defecto; el servidor inyecta --doc-* validados). */
+.doc-render {
+  --doc-primary: #0f2440;
+  --doc-secondary: #e3e8ef;
+  --doc-accent: #2563eb;
+}
+
+/* Encabezado: branding de la ORGANIZACIÓN (izq) + identificación (der). */
+.doc-render__header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-4);
+  align-items: center;
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+  border-bottom: 3px solid var(--doc-primary);
+}
+.doc-render__org-brand {
+  min-width: 7rem;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--doc-primary);
+}
+.doc-render__org-logo {
+  max-height: 56px;
+  width: auto;
+}
+.doc-render__docid .doc-render__title {
+  color: var(--doc-primary);
+  font-size: 1.3rem;
+  margin: 0 0 var(--space-2);
+}
+.doc-render__section > h2 {
+  color: var(--doc-primary);
+  border-bottom: 2px solid var(--doc-accent);
+}
+.doc-render__table thead th {
+  background: var(--doc-secondary);
+}
+
+/* Pie institucional: confidencialidad + atribución discreta C3 Sentinel. */
+.doc-render__footer {
+  margin-top: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+.doc-render__confidential {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--doc-primary);
+  margin: 0 0 var(--space-1);
+}
+.doc-render__attribution {
+  margin-top: var(--space-2);
+}
+.doc-render__footer a {
+  color: var(--doc-accent);
+}
+
+/* Impresión / PDF: repetir cabeceras de tabla, evitar cortes feos (§50). El
+   encabezado del documento no se repite por página en HTML normal (limitación
+   del navegador); se prepara para el export PDF futuro. */
+@media print {
+  .doc-render__table {
+    page-break-inside: auto;
+  }
+  .doc-render__table thead {
+    display: table-header-group;
+  }
+  .doc-render__table tr {
+    page-break-inside: avoid;
+  }
+  .doc-render__section > h2 {
+    page-break-after: avoid;
+  }
+  .doc-render__footer {
+    break-before: avoid;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Biblioteca documental (dashboard por áreas y tipos). */
+.doc-lib__folders {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+.doc-lib__folder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.doc-lib__folder:hover,
+.doc-lib__folder:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  outline: none;
+}
+.doc-lib__folder-icon {
+  color: var(--color-primary);
+  flex: none;
+}
+.doc-lib__folder-name {
+  font-weight: 600;
+}
+.doc-lib__folder-count {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.doc-lib__crumb {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  margin-bottom: var(--space-2);
+}

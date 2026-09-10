@@ -37,6 +37,19 @@ model Organization {
   @@map("organizations")
 }
 
+/// DOC-UX-001: tema documental por organización (colores HEX validados). Aplica
+/// SOLO al render de documentos, no al tema global de la app. Uno por organización.
+model DocumentTheme {
+  organizationId String    @id @map("organization_id") @db.Uuid
+  primaryColor   String    @map("primary_color")
+  secondaryColor String    @map("secondary_color")
+  accentColor    String    @map("accent_color")
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("document_themes")
+}
+
 /// Identidad de persona. Global (sin organization_id). No almacena contraseñas.
 model User {
   id          String    @id @default(uuid()) @db.Uuid

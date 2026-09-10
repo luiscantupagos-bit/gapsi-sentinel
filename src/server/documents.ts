@@ -51,7 +51,14 @@ import {
   renderStructuredHtml,
   type RenderIdentity,
   type ReferenceResolver,
+  type ChangeLogRow,
 } from '@/features/documents/structured-render';
+import {
+  sanitizeDocumentTheme,
+  validateDocumentTheme,
+  DEFAULT_DOCUMENT_THEME,
+  type DocumentTheme,
+} from '@/features/documents/document-theme';
 import { REF_RELATION_TYPES, refKey } from '@/features/documents/references';
 import { formatDocumentCode, codeFormatError, normalizeAreaCode } from '@/features/documents/code';
 import { computeNextReviewAt, reviewMonthsOf } from '@/features/documents/dates';
@@ -154,8 +161,12 @@ export interface DocumentFilters {
   search?: string;
   type?: string;
   status?: string;
+  /** Grupo de estado para el listado maestro: activos | all | (estado concreto). */
+  statusGroup?: 'active' | 'all';
   siteId?: string;
   origin?: string;
+  /** Nombre de área (ownerArea). */
+  area?: string;
   sort?: 'code' | 'updated';
 }
 
@@ -170,8 +181,10 @@ export async function listDocuments(organizationId: string, filters: DocumentFil
   }
   if (filters.type) where.documentType = filters.type;
   if (filters.status) where.status = filters.status;
+  else if (filters.statusGroup === 'active') where.status = { in: ['effective', 'in_review'] };
   if (filters.siteId) where.siteId = filters.siteId;
   if (filters.origin) where.origin = filters.origin;
+  if (filters.area) where.ownerArea = filters.area;
 
   const docs = await prisma.document.findMany({
     where,
@@ -198,6 +211,7 @@ export async function listDocuments(organizationId: string, filters: DocumentFil
     status: d.status,
     currentVersionLabel: d.currentVersionLabel,
     siteName: d.siteId ? (siteName.get(d.siteId) ?? null) : null,
+    ownerArea: d.ownerArea,
     responsibleName: d.responsibleUserId ? (names.get(d.responsibleUserId) ?? null) : null,
     issuedAt: isoDate(d.issuedAt),
     nextReviewAt: isoDate(d.nextReviewAt),
@@ -219,6 +233,76 @@ export async function getDocSummary(organizationId: string) {
     obsolete: all.filter((d) => d.status === 'obsolete').length,
     dueSoon: all.filter((d) => isDueSoon(isoDate(d.nextReviewAt), t)).length,
   };
+}
+
+/**
+ * DOC-UX-001: datos de la biblioteca documental — KPIs reales y carpetas por área
+ * (todas las áreas activas, incluso vacías §30) con su conteo de documentos
+ * activos (no archivados). Scoped por organización; sin traer structured_content.
+ */
+export async function getDocumentLibrary(organizationId: string) {
+  const prisma = getPrisma();
+  const [docs, areas] = await Promise.all([
+    prisma.document.findMany({
+      where: { organizationId, archivedAt: null },
+      select: { status: true, nextReviewAt: true, ownerArea: true },
+    }),
+    listDocumentAreas(organizationId),
+  ]);
+  const t = today();
+  const isEffective = (s: string) => s === 'effective';
+  const summary = {
+    effective: docs.filter((d) => isEffective(d.status)).length,
+    inReview: docs.filter((d) => d.status === 'in_review').length,
+    dueSoon: docs.filter((d) => isEffective(d.status) && isDueSoon(isoDate(d.nextReviewAt), t))
+      .length,
+    overdue: docs.filter((d) => isEffective(d.status) && isOverdue(isoDate(d.nextReviewAt), t))
+      .length,
+  };
+  const byArea = new Map<string, number>();
+  for (const d of docs) {
+    const a = (d.ownerArea ?? '').trim();
+    if (a) byArea.set(a, (byArea.get(a) ?? 0) + 1);
+  }
+  const areaFolders = areas.map((a) => ({
+    code: a.code,
+    name: a.name,
+    count: byArea.get(a.name) ?? 0,
+  }));
+  return { summary, areas: areaFolders };
+}
+
+/** Área activa por código corto (o `null`). */
+export async function getAreaByCode(organizationId: string, areaCode: string) {
+  const areas = await listDocumentAreas(organizationId);
+  return areas.find((a) => (a.code ?? '').toUpperCase() === areaCode.toUpperCase()) ?? null;
+}
+
+/**
+ * Conteo de documentos activos por TIPO dentro de un área (por nombre). Devuelve
+ * todos los tipos estructurados principales (incluye 0, §32).
+ */
+export async function getAreaTypeCounts(organizationId: string, areaName: string) {
+  const docs = await getPrisma().document.findMany({
+    where: { organizationId, archivedAt: null, ownerArea: areaName },
+    select: { documentType: true, status: true, nextReviewAt: true },
+  });
+  const t = today();
+  const counts = new Map<string, { total: number; effective: number; dueSoon: number }>();
+  for (const d of docs) {
+    const c = counts.get(d.documentType) ?? { total: 0, effective: 0, dueSoon: 0 };
+    c.total += 1;
+    if (d.status === 'effective') c.effective += 1;
+    if (d.status === 'effective' && isDueSoon(isoDate(d.nextReviewAt), t)) c.dueSoon += 1;
+    counts.set(d.documentType, c);
+  }
+  return DOCUMENT_TYPES.filter((t2) => t2.value !== 'external' && t2.value !== 'annex').map(
+    (t2) => ({
+      type: t2.value,
+      label: t2.label,
+      ...(counts.get(t2.value) ?? { total: 0, effective: 0, dueSoon: 0 }),
+    }),
+  );
 }
 
 export async function listSites(organizationId: string) {
@@ -1255,7 +1339,7 @@ export async function createStructuredDocument(
         organizationId,
         extractReferences(content).map((r) => r.targetDocumentId),
       );
-      const html = renderStructuredHtml(documentType, content, identity, resolved);
+      const html = renderStructuredHtml(documentType, content, identity, { resolved });
 
       const document = await tx.document.create({
         data: {
@@ -1318,6 +1402,79 @@ export async function createStructuredDocument(
   );
 }
 
+/** Tema documental de la organización (o el default de C3 Sentinel). */
+export async function getDocumentTheme(organizationId: string): Promise<DocumentTheme> {
+  const row = await getPrisma().documentTheme.findUnique({
+    where: { organizationId },
+    select: { primaryColor: true, secondaryColor: true, accentColor: true },
+  });
+  if (!row) return DEFAULT_DOCUMENT_THEME;
+  return sanitizeDocumentTheme({
+    primary: row.primaryColor,
+    secondary: row.secondaryColor,
+    accent: row.accentColor,
+  });
+}
+
+/** Guarda el tema documental (solo HEX validado). owner/admin no requerido: config org. */
+export async function setDocumentTheme(
+  organizationId: string,
+  userId: string,
+  input: unknown,
+): Promise<DocumentTheme> {
+  const errors = validateDocumentTheme(input);
+  if (errors.length) throw new DocumentValidationError(errors);
+  const theme = sanitizeDocumentTheme(input);
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.documentTheme.upsert({
+      where: { organizationId },
+      update: {
+        primaryColor: theme.primary,
+        secondaryColor: theme.secondary,
+        accentColor: theme.accent,
+        updatedBy: userId,
+      },
+      create: {
+        organizationId,
+        primaryColor: theme.primary,
+        secondaryColor: theme.secondary,
+        accentColor: theme.accent,
+        updatedBy: userId,
+      },
+    });
+  });
+  return theme;
+}
+
+/**
+ * Construye el Control de cambios (§40-48) desde el versionado: una fila por
+ * versión hasta la versión vista (corte histórico §48), en orden ascendente.
+ */
+async function buildChangeLog(
+  organizationId: string,
+  documentId: string,
+  uptoCreatedAt: Date,
+): Promise<ChangeLogRow[]> {
+  const versions = await getPrisma().documentVersion.findMany({
+    where: { documentId, organizationId, createdAt: { lte: uptoCreatedAt } },
+    orderBy: { createdAt: 'asc' },
+    select: { label: true, changeNotes: true, createdAt: true, publishedAt: true, author: true },
+  });
+  const names = await userNames(versions.map((v) => v.author));
+  return versions.map((v) => {
+    const isInitial = v.label === INITIAL_VERSION_LABEL;
+    const change =
+      v.changeNotes?.trim() ||
+      (isInitial ? 'Documento nuevo' : 'Cambio sin descripción registrada');
+    return {
+      version: v.label.replace(/^v/i, ''),
+      date: isoDate(v.publishedAt ?? v.createdAt),
+      change,
+      author: v.author ? (names.get(v.author) ?? '—') : '—',
+    };
+  });
+}
+
 /** Payload del editor estructurado (contenido + identificación + render). */
 export async function getStructuredContent(
   organizationId: string,
@@ -1351,7 +1508,17 @@ export async function getStructuredContent(
   const identity = buildRenderIdentity(doc, version.label, org.name);
   // DOC-002: resuelve referencias del contenido (datos actuales por id).
   const { refs, resolved } = await resolvedReferencesOf(organizationId, content);
-  const renderedHtml = renderStructuredHtml(doc.documentType, content, identity, resolved);
+  // DOC-UX-001: tema documental, control de cambios (hasta la versión vista §48) y
+  // modo de render (published limpio / preview con placeholders §55).
+  const theme = await getDocumentTheme(organizationId);
+  const changeLog = await buildChangeLog(organizationId, documentId, version.createdAt);
+  const mode = version.status === 'published' ? 'published_document' : 'editor_preview';
+  const renderedHtml = renderStructuredHtml(doc.documentType, content, identity, {
+    resolved,
+    theme,
+    changeLog,
+    mode,
+  });
   const references = refs.map((r) => ({
     relationType: r.relationType,
     ...(resolved[r.targetDocumentId] ?? {
@@ -1423,7 +1590,7 @@ export async function saveStructuredContent(
   });
   const identity = buildRenderIdentity(doc, version.label, org.name);
   const { resolved } = await resolvedReferencesOf(organizationId, content);
-  const html = renderStructuredHtml(doc.documentType, content, identity, resolved);
+  const html = renderStructuredHtml(doc.documentType, content, identity, { resolved });
   const checksum = structuredChecksum(content);
   const valid = new Set(
     Object.values(resolved)
