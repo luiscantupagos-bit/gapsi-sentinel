@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { devSignIn } from '@/features/auth/dev-actions';
 import { getServerSession } from '@/server/session';
 import { redirect } from 'next/navigation';
@@ -22,6 +23,10 @@ export default async function LoginPage({
   return (
     <main className="container">
       <section className="card" style={{ maxWidth: '28rem', margin: '4rem auto' }}>
+        <div className="login__brand">
+          <Image src="/logo.png" alt="" width={48} height={48} priority />
+          <span className="login__brandtext">C3 Sentinel</span>
+        </div>
         <h1>Iniciar sesión</h1>
         <p className="muted">
           Autenticación de desarrollo. No es un proveedor real; crea una sesión de demostración para

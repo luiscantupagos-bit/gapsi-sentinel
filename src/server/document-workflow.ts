@@ -17,6 +17,7 @@ import {
 } from '@/features/documents/workflow-state';
 import { validateStructuredContent } from '@/features/documents/structured-content';
 import { isStructuredType } from '@/features/documents/template-registry';
+import { INITIAL_VERSION_LABEL } from '@/features/documents/versioning';
 
 export class WorkflowPermissionError extends Error {
   constructor(message = 'No tienes permiso para esta acción.') {
@@ -222,7 +223,11 @@ export async function submitForReview(
     errors.push(...validateStructuredContent(doc.documentType, version.structuredContent));
   }
   if (!doc.responsibleUserId) errors.push('Falta el responsable.');
-  if (!version.changeNotes?.trim()) errors.push('Falta la nota de cambio.');
+  // DOC-UX-001 §42/§44: la versión inicial (v1.0) no exige nota de cambio
+  // ("Documento nuevo"); las posteriores sí, para auditabilidad.
+  if (version.label !== INITIAL_VERSION_LABEL && !version.changeNotes?.trim()) {
+    errors.push('Describe brevemente los cambios realizados en esta versión.');
+  }
   if (!steps.some((s) => s.role === 'reviewer')) errors.push('Falta asignar un revisor.');
   if (!steps.some((s) => s.role === 'approver')) errors.push('Falta asignar un aprobador.');
   if (errors.length) throw new WorkflowValidationError(errors);

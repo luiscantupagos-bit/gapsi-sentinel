@@ -1067,7 +1067,7 @@ async function seedSmartReferences(): Promise<void> {
       title: 'Control de producto no conforme',
       areaLabel: 'Calidad',
     },
-    resolved,
+    { resolved },
   );
   await prisma.documentVersion.update({
     where: { id: PR_VER },
@@ -3483,6 +3483,18 @@ async function main(): Promise<void> {
   await seedEditorDocuments();
   await seedStructuredDocuments();
   await seedSmartReferences();
+  // DOC-UX-001: tema documental demo (colores HEX) para la organización A.
+  await prisma.documentTheme.upsert({
+    where: { organizationId: ORG_A },
+    update: {},
+    create: {
+      organizationId: ORG_A,
+      primaryColor: '#0f2440',
+      secondaryColor: '#e5e7eb',
+      accentColor: '#2563eb',
+      updatedBy: USER_A,
+    },
+  });
   await seedControlDocuments();
   await seedCapa();
   await seedQualityAnalysis();

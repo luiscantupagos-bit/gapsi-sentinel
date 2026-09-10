@@ -7,3 +7,4 @@
 
 # Binarios: nunca convertir finales de línea.
 *.png binary
+*.ico binary

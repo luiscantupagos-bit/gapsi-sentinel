@@ -8,7 +8,7 @@ export default function HomePage() {
   return (
     <main className="container">
       <section className="hero">
-        <p className="muted">GAPSI Sentinel</p>
+        <p className="muted">C3 Sentinel</p>
         <h1>Diagnóstico Digital de calidad e inocuidad alimentaria</h1>
         <p className="lead">
           Convierte un cuestionario estructurado y sus evidencias en una evaluación clara de

@@ -281,7 +281,7 @@ describe('renderer normalizado (§23/§10)', () => {
     expect(html).toContain('Identificar');
   });
 
-  it('numera las actividades y muestra secciones futuras del procedimiento (§10)', () => {
+  it('en preview borrador muestra secciones futuras del procedimiento (§10/§53)', () => {
     const content = sanitizeStructuredContent('procedure', {
       fields: { objetivo: 'O', alcance: 'A' },
       repeatables: {
@@ -291,10 +291,39 @@ describe('renderer normalizado (§23/§10)', () => {
         ],
       },
     });
-    const html = renderStructuredHtml('procedure', content, identity);
+    const html = renderStructuredHtml('procedure', content, identity, { mode: 'editor_preview' });
     expect(html).toContain('Diagrama de flujo');
     expect(html).toContain('No generado todavía.');
     expect(html).toContain('Documentos referenciados');
+  });
+
+  it('en documento publicado omite las secciones opcionales vacías (§53/§54)', () => {
+    const content = sanitizeStructuredContent('procedure', {
+      fields: { objetivo: 'O', alcance: 'A' },
+      repeatables: { activities: [{ nombre: 'Uno', descripcion: 'a' }] },
+    });
+    const html = renderStructuredHtml('procedure', content, identity, {
+      mode: 'published_document',
+    });
+    expect(html).not.toContain('Diagrama de flujo');
+    expect(html).not.toContain('No generado todavía.');
+    expect(html).not.toContain('Documentos referenciados'); // sin referencias → omitido
+  });
+
+  it('incluye pie institucional y control de cambios cuando se provee', () => {
+    const content = sanitizeStructuredContent('procedure', {
+      fields: { objetivo: 'O', alcance: 'A' },
+      repeatables: { activities: [{ nombre: 'Uno', descripcion: 'a' }] },
+    });
+    const html = renderStructuredHtml('procedure', content, identity, {
+      changeLog: [
+        { version: 'v1.0', date: '2026-06-01', change: 'Documento nuevo', author: 'Ana' },
+      ],
+    });
+    expect(html).toContain('DOCUMENTO CONTROLADO Y CONFIDENCIAL');
+    expect(html).toContain('C3 Sentinel');
+    expect(html).toContain('Control de cambios');
+    expect(html).toContain('Documento nuevo');
   });
 
   it('escapa el HTML del contenido (sin inyección)', () => {

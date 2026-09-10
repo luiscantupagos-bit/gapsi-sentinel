@@ -20,15 +20,15 @@ El HTML se deriva de los datos (`contentHtml` es caché de presentación).
 
 ## 2. Piezas (todas puras salvo el servidor)
 
-| Módulo                                          | Responsabilidad                                                                                                                                                                                                       |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/features/documents/template-registry.ts`   | Registro central por tipo: prefijo de código, periodo de revisión, portada y **esquema** de secciones (campos + repetibles). Fuente única; el editor, el renderer, el validador y el generador de código lo consumen. |
-| `src/features/documents/structured-content.ts`  | Modelo `StructuredContent` (`schemaVersion`, `templateType`, `fields`, `repeatables`) + saneo _allowlist_ + validación de obligatorios. **Puro y seguro para cliente** (sin builtins de Node).                        |
-| `src/features/documents/structured-checksum.ts` | `structuredChecksum` / `structuredByteSize` (usan `node:crypto`/`Buffer`). **Solo servidor.**                                                                                                                         |
-| `src/features/documents/code.ts`                | Formato y validación del código `[TIPO]-[ÁREA]-[###]` (§5/§30).                                                                                                                                                       |
-| `src/features/documents/dates.ts`               | Cálculo de la próxima revisión = emisión + periodo (§8).                                                                                                                                                              |
-| `src/features/documents/structured-render.ts`   | Renderer normalizado: encabezado C3 Sentinel + identificación + cuerpo por secciones (§23) y secciones futuras del procedimiento (§10). Seguro (escapa HTML), determinista.                                           |
-| `src/server/documents.ts` (DOC-001)             | `createStructuredDocument`, `getStructuredContent`, `saveStructuredContent`, `proposeDocumentCode`, `listDocumentAreas` + reserva atómica del consecutivo.                                                            |
+| Módulo                                          | Responsabilidad                                                                                                                                                                                                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/features/documents/template-registry.ts`   | Registro central por tipo: prefijo de código, periodo de revisión, portada y **esquema** de secciones (campos + repetibles). Fuente única; el editor, el renderer, el validador y el generador de código lo consumen.                                                          |
+| `src/features/documents/structured-content.ts`  | Modelo `StructuredContent` (`schemaVersion`, `templateType`, `fields`, `repeatables`) + saneo _allowlist_ + validación de obligatorios. **Puro y seguro para cliente** (sin builtins de Node).                                                                                 |
+| `src/features/documents/structured-checksum.ts` | `structuredChecksum` / `structuredByteSize` (usan `node:crypto`/`Buffer`). **Solo servidor.**                                                                                                                                                                                  |
+| `src/features/documents/code.ts`                | Formato y validación del código `[TIPO]-[ÁREA]-[###]` (§5/§30).                                                                                                                                                                                                                |
+| `src/features/documents/dates.ts`               | Cálculo de la próxima revisión = emisión + periodo (§8).                                                                                                                                                                                                                       |
+| `src/features/documents/structured-render.ts`   | Renderer normalizado: encabezado con marca de la organización + identificación + cuerpo por secciones (§23), pie de confidencialidad con atribución C3, tema documental y control de cambios (DOC-UX-001, ver `DOCUMENT-PRESENTATION.md`). Seguro (escapa HTML), determinista. |
+| `src/server/documents.ts` (DOC-001)             | `createStructuredDocument`, `getStructuredContent`, `saveStructuredContent`, `proposeDocumentCode`, `listDocumentAreas` + reserva atómica del consecutivo.                                                                                                                     |
 
 ## 3. Registro de plantillas
 
@@ -93,14 +93,15 @@ enriquecido (TASK-005).
 
 ## 9. Roadmap (§43)
 
-| Tarea                     | Alcance                                                         |
-| ------------------------- | --------------------------------------------------------------- |
-| DOC-002 ✅ (implementado) | Referencias `@` y formatos `//` — ver `SMART-REFERENCES.md`.    |
-| DOC-003                   | Programas ejecutables que generan tareas.                       |
-| DOC-004                   | Diseñador de formatos/registros.                                |
-| DOC-005                   | Importación inteligente (transcripción de documentos externos). |
-| DOC-006                   | Asistencia con IA.                                              |
-| DOC-007                   | Integración con Microsoft 365 / Google.                         |
+| Tarea                        | Alcance                                                                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| DOC-002 ✅ (implementado)    | Referencias `@` y formatos `//` — ver `SMART-REFERENCES.md`.                                                                                  |
+| DOC-UX-001 ✅ (implementado) | Presentación documental (header/pie/tema/control de cambios) y biblioteca por áreas — ver `DOCUMENT-PRESENTATION.md` y `DOCUMENT-LIBRARY.md`. |
+| DOC-003                      | Programas ejecutables que generan tareas.                                                                                                     |
+| DOC-004                      | Diseñador de formatos/registros.                                                                                                              |
+| DOC-005                      | Importación inteligente (transcripción de documentos externos).                                                                               |
+| DOC-006                      | Asistencia con IA.                                                                                                                            |
+| DOC-007                      | Integración con Microsoft 365 / Google.                                                                                                       |
 
 Estas capacidades **no** están implementadas en DOC-001; el motor deja la base
 preparada (esquema versionado, renderer reutilizable, secciones futuras del
