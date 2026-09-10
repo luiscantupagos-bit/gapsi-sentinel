@@ -109,3 +109,59 @@ Tareas/CAPA/Auditorías.
 
 CSS `@media print` en `globals.css`: repetición de `thead`, control de
 `page-break`, encabezado/pie legibles. Sin dependencia de JS para imprimir.
+
+## 6. Diseños documentales (DOC-UX-002 §91-102)
+
+Un **diseño** define cómo se VE un documento (estructura, densidad, estilo de
+encabezado/tablas), separado del CONTENIDO (plantilla de tipo) y del TEMA
+(colores). `src/features/documents/document-design.ts` registra 4 diseños:
+`c3-modern` (por defecto), `corporate`, `technical`, `minimal`. Un **solo**
+renderer aplica el diseño mediante la clase raíz `doc-render--design-<id>` (§94);
+un id desconocido cae al diseño por defecto (`sanitizeDesignId`, §98). El tema
+añade dos colores más: **texto** (`--doc-text`) y **texto de encabezados**
+(`--doc-heading`), validados HEX como los demás.
+
+El diseño/tema es **preferencia de la organización, no snapshot por versión**
+(§102): si la organización cambia de diseño, los documentos históricos se
+re-renderizan con el nuevo estilo en pantalla. Un snapshot de estilo al publicar
+queda como trabajo futuro.
+
+## 7. Atribución de C3 y entitlement (DOC-UX-002 §83-90)
+
+El pie incluye la atribución «Documento administrado mediante C3 Sentinel …». Su
+visibilidad se controla con una preferencia (`show_c3_attribution` en
+`document_themes`) **más** un entitlement comercial. `entitlements.ts` centraliza
+la regla (provisional): se puede ocultar si la suscripción es **anual** o el plan
+es **Intermedio/Industrial**. Sin suscripción → no se puede ocultar (§87). El
+servidor resuelve la atribución EFECTIVA (`resolveShowC3Attribution`): si la org no
+es elegible, la atribución se fuerza visible sin importar lo que envíe el cliente
+(guard §84/§110). Ocultar la atribución **nunca** oculta la leyenda de
+confidencialidad ni las marcas de copia/folio (§90).
+
+## 8. Copias controladas de salida (DOC-UX-002 §67-82)
+
+Imprimir o exportar a PDF una versión **publicada** genera una **copia controlada**
+con trazabilidad: registro en `document_controlled_copies` (columnas de salida
+reutilizadas), **folio** humano `CC-<código>-####` (contador atómico
+`document_copy_counters`, no recicla), destino (impresión) o motivo (PDF), autor y
+fecha. El render usa el modo `controlled_copy`: watermark diagonal "COPIA
+CONTROLADA" con estilo propio (no el tema del cliente, §104) + bloque de copia.
+El documento almacenado no se altera (§73).
+
+- **Impresión** pide el **área destino** (catálogo de áreas del tenant, §71).
+- **PDF** pide el **motivo de descarga** (§74). No hay infraestructura PDF: la
+  ruta `/copy` abre el diálogo del navegador y la UX indica «Guardar como PDF»
+  (§76). El registro se marca como **generado**, no impreso (§78).
+- **Borrador** → marca `BORRADOR — NO CONTROLADO`, sin folio ni registro (§81).
+- **Obsoleto** → advertencia + marca `DOCUMENTO OBSOLETO — COPIA NO CONTROLADA`,
+  sin folio (§82).
+
+El historial de copias de salida vive en el panel «Control documental» del
+documento (`getControlledCopyHistory`).
+
+## 9. Toolbar documental (DOC-UX-002 §63-66)
+
+La vista del documento tiene una toolbar state-aware con grupos **Edición**
+(editar contenido/metadatos), **Salida** (Imprimir / Guardar como PDF) y
+**Administración** (Panel del documento). Las transiciones de workflow se
+**reutilizan** en el panel «Control documental» (no se reinventan, §64).

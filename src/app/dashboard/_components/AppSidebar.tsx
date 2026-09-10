@@ -13,16 +13,18 @@ export function AppSidebar() {
 
   return (
     <nav className="sidebar" aria-label="Navegación principal">
-      <div className="sidebar__brand">
-        <Image
-          className="sidebar__logo-img"
-          src="/logo.png"
-          alt=""
-          width={34}
-          height={34}
-          priority
-        />
-        <span className="sidebar__brandtext">C3 Sentinel</span>
+      <div className="sidebar__brand sidebar__brand--logo-only">
+        <Link href="/dashboard" aria-label="C3 Sentinel — inicio">
+          <Image
+            className="sidebar__logo-img"
+            src="/logo.png"
+            alt="C3 Sentinel"
+            width={240}
+            height={66}
+            style={{ width: 'auto', height: 66 }}
+            priority
+          />
+        </Link>
       </div>
 
       <div className="sidebar__scroll">

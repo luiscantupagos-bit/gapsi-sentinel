@@ -258,6 +258,29 @@ internos no disparan la navegación del contenedor.
 - **Procedimiento**: la tabla formal muestra #/Actividad/Descripción/Responsable
   (sin Evidencia/Observaciones); la evidencia sigue viva en Tareas/CAPA/Auditorías.
 
+## Toolbar, copias controladas y diseños documentales (DOC-UX-002)
+
+- **Toolbar documental** (`.doc-toolbar`): barra state-aware en la vista del
+  documento, con grupos **Edición** / **Salida** / **Administración**. Solo
+  aparecen las acciones relevantes al estado/versión/permisos. Las transiciones de
+  workflow se **reutilizan** en el panel «Control documental» (no se duplican).
+- **Copias controladas** (`Imprimir` / `Guardar como PDF`): abren un diálogo
+  (`.modal`) que pide **área destino** (impresión) o **motivo** (PDF), generan un
+  **folio** `CC-<código>-####` y renderizan en modo copia controlada con **marca
+  de agua** «COPIA CONTROLADA» (`.doc-copy__watermark`, estilo propio para
+  contraste). Borrador → `BORRADOR — NO CONTROLADO` sin folio; obsoleto →
+  advertencia + `DOCUMENTO OBSOLETO`. El diálogo del navegador exporta el PDF
+  («Guardar como PDF»); la UX lo explica.
+- **Historial de copias**: sección «Copias controladas (salidas)» en el panel del
+  documento (folio/tipo/versión/destino-motivo/autor/fecha, datos reales).
+- **Diseños documentales** (`.design-cards`): cards seleccionables con mini-preview
+  real (C3 Moderno / Corporativo / Técnico / Minimalista). El diseño cambia la
+  clase raíz `doc-render--design-<id>`; el tema (5 colores) es independiente.
+- **Atribución C3** (`Configuración documental` → Marca): toggle «Mostrar
+  atribución de C3 Sentinel»; **bloqueado** con badge «Función premium» si la
+  organización no es elegible (facturación anual o planes superiores). El guard es
+  server-side: nunca se oculta la confidencialidad ni las marcas de copia.
+
 ## Herramientas de análisis y Estudios de datos (CORE-ALIGN-003)
 
 - **Gráficos interactivos**: los puntos/segmentos exponen su valor y contexto en

@@ -508,6 +508,23 @@ a:focus-visible {
   margin-bottom: var(--space-2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
+/* DOC-UX-003 §13/§1B: solo el logotipo de Sentinel (sin texto), centrado y con
+   presencia visual. El wordmark se escala por alto; azulejo blanco para contraste
+   sobre el sidebar oscuro (el logotipo es azul marino sobre fondo claro). El asset
+   tiene margen interno transparente: se compensa con padding reducido para que el
+   contenido útil gane tamaño sin recortarse. */
+.sidebar__brand--logo-only {
+  justify-content: center;
+}
+.sidebar__brand--logo-only .sidebar__logo-img {
+  width: auto;
+  height: 66px;
+  max-width: 100%;
+  border-radius: 10px;
+  background: #fff;
+  padding: 2px 10px;
+  object-fit: contain;
+}
 .sidebar__logo {
   display: inline-flex;
   align-items: center;
@@ -4564,6 +4581,16 @@ input[type='radio'] {
   width: 2.5rem;
   text-align: center;
 }
+/* DOC-UX-003 §11: los códigos se muestran completos, sin corte a varias líneas. */
+.doc-render__code {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  min-width: 7rem;
+}
+.tbl-linkable td.mono,
+table td.mono {
+  white-space: nowrap;
+}
 
 /* =====================================================================
    DOC-002 — Referencias inteligentes (@) y formatos emitidos (//)
@@ -4738,6 +4765,9 @@ input[type='radio'] {
   --doc-primary: #0f2440;
   --doc-secondary: #e3e8ef;
   --doc-accent: #2563eb;
+  --doc-text: #1f2937;
+  --doc-heading: #0f2440;
+  color: var(--doc-text);
 }
 
 /* Encabezado: branding de la ORGANIZACIÓN (izq) + identificación (der). */
@@ -4761,16 +4791,21 @@ input[type='radio'] {
   width: auto;
 }
 .doc-render__docid .doc-render__title {
-  color: var(--doc-primary);
+  color: var(--doc-heading);
   font-size: 1.3rem;
   margin: 0 0 var(--space-2);
 }
 .doc-render__section > h2 {
-  color: var(--doc-primary);
+  color: var(--doc-heading);
   border-bottom: 2px solid var(--doc-accent);
+}
+.doc-render__field h3 {
+  color: var(--doc-heading);
 }
 .doc-render__table thead th {
   background: var(--doc-secondary);
+  /* DOC-UX-003 §10: texto legible aunque el color secundario sea oscuro. */
+  color: var(--doc-table-head-text, inherit);
 }
 
 /* Pie institucional: confidencialidad + atribución discreta C3 Sentinel. */
@@ -4817,6 +4852,308 @@ input[type='radio'] {
   .no-print {
     display: none !important;
   }
+  /* La marca de agua de copia controlada se fija por página al imprimir. */
+  .doc-copy__watermark {
+    position: fixed;
+  }
+}
+
+/* ============================================================
+   DOC-UX-002 — Diseños documentales (un solo renderer; los diseños
+   solo cambian clases/tokens/estructura visual, no el contenido §94).
+   ============================================================ */
+
+/* 1. C3 Moderno — limpio, líneas finas, aire generoso (base; equivale al default). */
+.doc-render--design-c3-modern .doc-render__header {
+  border-bottom-width: 3px;
+}
+
+/* 2. Corporativo — encabezado enmarcado, metadata compacta, líneas marcadas (ISO/QMS). */
+.doc-render--design-corporate .doc-render__header {
+  border: 1.5px solid var(--doc-primary);
+  border-radius: 0;
+  padding: var(--space-3);
+}
+.doc-render--design-corporate .doc-render__meta {
+  gap: 0.15rem 1rem;
+  font-size: 0.78rem;
+}
+.doc-render--design-corporate .doc-render__section > h2 {
+  background: var(--doc-secondary);
+  border-bottom: 1.5px solid var(--doc-primary);
+  padding: 0.25rem 0.5rem;
+}
+.doc-render--design-corporate .doc-render__table,
+.doc-render--design-corporate .doc-render__table th,
+.doc-render--design-corporate .doc-render__table td {
+  border: 1px solid var(--doc-primary);
+  border-collapse: collapse;
+}
+
+/* 3. Técnico — alta densidad, tablas estructuradas (manufactura/pharma/ingeniería). */
+.doc-render--design-technical {
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.doc-render--design-technical .doc-render__header {
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.doc-render--design-technical .doc-render__section {
+  margin-bottom: var(--space-2);
+}
+.doc-render--design-technical .doc-render__table th,
+.doc-render--design-technical .doc-render__table td {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--color-border);
+}
+.doc-render--design-technical .doc-render__section > h2 {
+  font-size: 0.95rem;
+}
+
+/* 4. Minimalista — poco color, encabezado simple, impresión económica. */
+.doc-render--design-minimal .doc-render__header {
+  border-bottom: 1px solid var(--color-border);
+}
+.doc-render--design-minimal .doc-render__section > h2 {
+  border-bottom: none;
+  color: var(--doc-heading);
+  font-size: 1.05rem;
+}
+.doc-render--design-minimal .doc-render__table thead th {
+  background: transparent;
+  border-bottom: 2px solid var(--color-border);
+}
+.doc-render--design-minimal .doc-render__title {
+  font-weight: 600;
+}
+
+/* ============================================================
+   DOC-UX-002 — Copia controlada: marca de agua + bloque de copia (§72/§77).
+   Estilo propio (no usa el tema del cliente) para garantizar contraste (§104).
+   ============================================================ */
+.doc-render--controlled-copy {
+  position: relative;
+}
+/* DOC-UX-003 §8: la marca de agua va POR ENCIMA del contenido (z-index alto) con
+   baja opacidad para no impedir la lectura; no captura eventos. */
+.doc-copy__watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 20;
+}
+.doc-copy__watermark span {
+  transform: rotate(-32deg);
+  font-size: clamp(2.5rem, 9vw, 5.5rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(90, 90, 90, 0.14);
+  text-shadow: 0 0 1px rgba(90, 90, 90, 0.1);
+  white-space: nowrap;
+  user-select: none;
+}
+.doc-copy__watermark--obsolete span {
+  color: rgba(185, 28, 28, 0.16);
+}
+.doc-render--controlled-copy .doc-render__header,
+.doc-render--controlled-copy .doc-render__section,
+.doc-render--controlled-copy .doc-copy__info,
+.doc-render--controlled-copy .doc-render__footer {
+  position: relative;
+  z-index: 1;
+}
+@media print {
+  .doc-copy__watermark {
+    z-index: 20;
+  }
+}
+.doc-copy__info {
+  margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  font-size: 0.78rem;
+}
+.doc-copy__banner {
+  margin: var(--space-2) 0 0;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #92400e;
+}
+.doc-copy__banner--obsolete {
+  color: #b91c1c;
+}
+
+/* Toolbar documental state-aware (DOC-UX-002 §63). */
+.doc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) 0 var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-3);
+}
+.doc-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--color-border);
+}
+.doc-toolbar__group:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+/* DOC-UX-003: todos los botones de la toolbar con la MISMA altura y alineación. */
+.doc-toolbar form {
+  display: inline-flex;
+  margin: 0;
+}
+.doc-toolbar .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* DOC-UX-003 §3: la vista canónica muestra el render como contenido principal. */
+/* DOC-UX-003: la vista canónica se muestra como una HOJA real (ancho tipo carta),
+   centrada, con aire y sombra de papel; no ocupa todo el ancho en desktop. En
+   pantallas pequeñas usa el ancho disponible. Fondo blanco = fondo base del
+   documento (coincide con la validación de contraste). */
+.doc-view {
+  max-width: 900px;
+  margin: var(--space-4) auto 0;
+  padding: var(--space-6) clamp(var(--space-4), 5vw, var(--space-6));
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 14px rgba(15, 36, 64, 0.08);
+}
+@media (max-width: 960px) {
+  .doc-view {
+    max-width: 100%;
+    padding: var(--space-4);
+  }
+}
+
+/* Cards de diseño documental con mini-preview (DOC-UX-002 §97). */
+.design-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-2) 0 var(--space-4);
+}
+.design-card {
+  display: block;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  background: var(--color-surface);
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.design-card--active {
+  border-color: var(--color-accent, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+}
+.design-card__radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.design-card__preview {
+  display: block;
+  height: 84px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.design-card__pv-head {
+  display: block;
+  height: 10px;
+  background: #0f2440;
+  margin-bottom: 6px;
+}
+.design-card__pv-line {
+  display: block;
+  height: 5px;
+  background: #cbd5e1;
+  margin-bottom: 5px;
+}
+.design-card__pv-line--short {
+  width: 60%;
+}
+.design-card__pv-table {
+  display: block;
+  height: 22px;
+  background: repeating-linear-gradient(to bottom, #e2e8f0, #e2e8f0 5px, #fff 5px, #fff 10px);
+  border: 1px solid #cbd5e1;
+}
+.design-card__preview--corporate .design-card__pv-head {
+  background: #fff;
+  border: 1.5px solid #0f2440;
+  height: 16px;
+}
+.design-card__preview--technical .design-card__pv-line {
+  height: 3px;
+  margin-bottom: 3px;
+}
+.design-card__preview--technical .design-card__pv-table {
+  height: 30px;
+}
+.design-card__preview--minimal .design-card__pv-head {
+  background: #64748b;
+  height: 6px;
+}
+.design-card__preview--minimal .design-card__pv-table {
+  background: none;
+  border: none;
+  border-top: 2px solid #cbd5e1;
+  height: 14px;
+}
+.design-card__label {
+  display: block;
+  font-weight: 700;
+  margin-top: 0.4rem;
+}
+.design-card__desc {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+/* Página de salida controlada (impresión / PDF). */
+.copy-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.copy-controls__actions {
+  display: flex;
+  gap: 0.4rem;
 }
 
 /* Biblioteca documental (dashboard por áreas y tipos). */

@@ -40,9 +40,16 @@ describe('tema documental (§18-22)', () => {
 
   it('validateDocumentTheme reporta colores inválidos', () => {
     expect(
-      validateDocumentTheme({ primary: '#005BAA', secondary: '#E5E7EB', accent: '#F59E0B' }),
+      validateDocumentTheme({
+        primary: '#005BAA',
+        secondary: '#E5E7EB',
+        accent: '#F59E0B',
+        text: '#1f2937',
+        heading: '#0f2440',
+      }),
     ).toEqual([]);
-    expect(validateDocumentTheme({ primary: 'x', secondary: 'y', accent: 'z' })).toHaveLength(3);
+    // DOC-UX-002: el tema valida 5 colores (principal/secundario/acento/texto/encabezado).
+    expect(validateDocumentTheme({ primary: 'x', secondary: 'y', accent: 'z' })).toHaveLength(5);
   });
 
   it('el renderer aplica solo HEX validado como variables CSS (sin inyección)', () => {
@@ -55,7 +62,13 @@ describe('tema documental (§18-22)', () => {
       content,
       { ...identity, typeLabel: 'Política' },
       {
-        theme: { primary: '#005baa', secondary: '#e5e7eb', accent: '#f59e0b' },
+        theme: {
+          primary: '#005baa',
+          secondary: '#e5e7eb',
+          accent: '#f59e0b',
+          text: '#1f2937',
+          heading: '#0f2440',
+        },
       },
     );
     expect(html).toContain('--doc-primary:#005baa');
@@ -65,7 +78,13 @@ describe('tema documental (§18-22)', () => {
       content,
       { ...identity, typeLabel: 'Política' },
       {
-        theme: { primary: 'red;} body{display:none', secondary: '#fff', accent: '#000' },
+        theme: {
+          primary: 'red;} body{display:none',
+          secondary: '#fff',
+          accent: '#000',
+          text: '#111',
+          heading: '#222',
+        },
       },
     );
     expect(evil).not.toContain('display:none');

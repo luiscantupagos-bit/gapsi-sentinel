@@ -217,6 +217,10 @@ export async function recoverCopyForm(formData: FormData): Promise<void> {
 export async function acknowledgeReadForm(formData: FormData): Promise<void> {
   await acknowledgeReadAction(null, formData);
 }
+/** DOC-UX-003: wrapper `void` para usar «Enviar a revisión» como acción de form. */
+export async function submitReviewForm(formData: FormData): Promise<void> {
+  await submitReviewAction(null, formData);
+}
 
 export async function addCommentAction(_p: FormState | null, fd: FormData): Promise<FormState> {
   const session = await requireServerSession();

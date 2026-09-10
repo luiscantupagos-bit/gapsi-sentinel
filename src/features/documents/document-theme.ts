@@ -6,6 +6,7 @@
  * cabeceras de tabla, acentos), no al tema global de la app.
  */
 import type { DocumentTheme } from './structured-render';
+import { hasSufficientContrast, DOCUMENT_BACKGROUND } from './contrast';
 
 export type { DocumentTheme };
 
@@ -14,6 +15,8 @@ export const DEFAULT_DOCUMENT_THEME: DocumentTheme = {
   primary: '#0f2440',
   secondary: '#e3e8ef',
   accent: '#2563eb',
+  text: '#1f2937',
+  heading: '#0f2440',
 };
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -34,6 +37,8 @@ export function sanitizeDocumentTheme(input: unknown): DocumentTheme {
     primary: normalizeHex(t.primary, DEFAULT_DOCUMENT_THEME.primary),
     secondary: normalizeHex(t.secondary, DEFAULT_DOCUMENT_THEME.secondary),
     accent: normalizeHex(t.accent, DEFAULT_DOCUMENT_THEME.accent),
+    text: normalizeHex(t.text, DEFAULT_DOCUMENT_THEME.text),
+    heading: normalizeHex(t.heading, DEFAULT_DOCUMENT_THEME.heading),
   };
 }
 
@@ -47,5 +52,21 @@ export function validateDocumentTheme(input: unknown): string[] {
   check(t.primary, 'principal');
   check(t.secondary, 'secundario');
   check(t.accent, 'de acento');
+  check(t.text, 'del texto');
+  check(t.heading, 'del texto en encabezados');
+
+  // DOC-UX-003 §9/§12/§14: el texto del cuerpo y los encabezados deben tener
+  // contraste WCAG suficiente contra el fondo del documento (autoridad server-side;
+  // no se autocorrige el color elegido).
+  if (isHexColor(t.text) && !hasSufficientContrast(t.text as string, DOCUMENT_BACKGROUND)) {
+    errors.push(
+      'El color de texto seleccionado no tiene suficiente contraste con el fondo del documento.',
+    );
+  }
+  if (isHexColor(t.heading) && !hasSufficientContrast(t.heading as string, DOCUMENT_BACKGROUND)) {
+    errors.push(
+      'El color del texto en encabezados no tiene suficiente contraste con el fondo del documento.',
+    );
+  }
   return errors;
 }

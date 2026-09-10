@@ -3483,7 +3483,7 @@ async function main(): Promise<void> {
   await seedEditorDocuments();
   await seedStructuredDocuments();
   await seedSmartReferences();
-  // DOC-UX-001: tema documental demo (colores HEX) para la organización A.
+  // DOC-UX-001/002: tema/diseño documental demo para la organización A.
   await prisma.documentTheme.upsert({
     where: { organizationId: ORG_A },
     update: {},
@@ -3492,6 +3492,23 @@ async function main(): Promise<void> {
       primaryColor: '#0f2440',
       secondaryColor: '#e5e7eb',
       accentColor: '#2563eb',
+      textColor: '#1f2937',
+      headingColor: '#0f2440',
+      designId: 'c3-modern',
+      showC3Attribution: true,
+      updatedBy: USER_A,
+    },
+  });
+  // DOC-UX-002: suscripción demo (provisional, sin billing real). La organización A
+  // usa plan Intermedio anual → puede ocultar la atribución de C3 (elegible). La
+  // organización B queda sin suscripción → atribución siempre visible.
+  await prisma.organizationSubscription.upsert({
+    where: { organizationId: ORG_A },
+    update: {},
+    create: {
+      organizationId: ORG_A,
+      plan: 'intermediate',
+      billingCadence: 'annual',
       updatedBy: USER_A,
     },
   });

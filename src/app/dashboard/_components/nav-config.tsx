@@ -10,6 +10,7 @@ import {
   IconPanel,
   IconProjects,
   IconReport,
+  IconSettings,
   IconTasks,
 } from './icons';
 
@@ -52,6 +53,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/kpis', label: 'Indicadores', icon: IconReport },
       { href: '/dashboard/analytics', label: 'Analítica', icon: IconChart },
     ],
+  },
+  {
+    title: 'Administración',
+    items: [{ href: '/dashboard/settings', label: 'Configuración', icon: IconSettings }],
   },
 ];
 
