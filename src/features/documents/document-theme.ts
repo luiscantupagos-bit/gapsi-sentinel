@@ -6,6 +6,7 @@
  * cabeceras de tabla, acentos), no al tema global de la app.
  */
 import type { DocumentTheme } from './structured-render';
+import { hasSufficientContrast, DOCUMENT_BACKGROUND } from './contrast';
 
 export type { DocumentTheme };
 
@@ -53,5 +54,19 @@ export function validateDocumentTheme(input: unknown): string[] {
   check(t.accent, 'de acento');
   check(t.text, 'del texto');
   check(t.heading, 'del texto en encabezados');
+
+  // DOC-UX-003 §9/§12/§14: el texto del cuerpo y los encabezados deben tener
+  // contraste WCAG suficiente contra el fondo del documento (autoridad server-side;
+  // no se autocorrige el color elegido).
+  if (isHexColor(t.text) && !hasSufficientContrast(t.text as string, DOCUMENT_BACKGROUND)) {
+    errors.push(
+      'El color de texto seleccionado no tiene suficiente contraste con el fondo del documento.',
+    );
+  }
+  if (isHexColor(t.heading) && !hasSufficientContrast(t.heading as string, DOCUMENT_BACKGROUND)) {
+    errors.push(
+      'El color del texto en encabezados no tiene suficiente contraste con el fondo del documento.',
+    );
+  }
   return errors;
 }

@@ -10,6 +10,7 @@ import { saveDocumentThemeAction, type ThemeState } from '../settings-actions';
 import { SubmitButton } from './SubmitButton';
 import { DOCUMENT_DESIGNS } from '@/features/documents/document-design';
 import { DATE_FORMATS, DATE_FORMAT_LABEL } from '@/features/documents/date-format';
+import { hasSufficientContrast, DOCUMENT_BACKGROUND } from '@/features/documents/contrast';
 
 interface Props {
   initial: {
@@ -113,6 +114,18 @@ export function DocumentThemeForm({ initial, canHideC3Attribution }: Props) {
         {swatch(text, setText, 'text', 'Color del texto')}
         {swatch(heading, setHeading, 'heading', 'Color del texto en encabezados')}
       </div>
+      {HEX_RE.test(text) && !hasSufficientContrast(text, DOCUMENT_BACKGROUND) && (
+        <p role="status" className="msg msg--error">
+          El color de texto no tiene suficiente contraste con el fondo del documento (blanco). No se
+          podrá guardar.
+        </p>
+      )}
+      {HEX_RE.test(heading) && !hasSufficientContrast(heading, DOCUMENT_BACKGROUND) && (
+        <p role="status" className="msg msg--error">
+          El color del texto en encabezados no tiene suficiente contraste con el fondo del
+          documento.
+        </p>
+      )}
 
       <h3>Formato de fecha</h3>
       <div className="field" style={{ maxWidth: '22rem' }}>

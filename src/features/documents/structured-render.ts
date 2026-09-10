@@ -17,6 +17,7 @@ import { getTemplateDefinition } from './template-registry';
 import { extractReferences, type StructuredContent, type RichValue } from './structured-content';
 import { richHasContent, type RefSegment } from './references';
 import { getDocumentDesign } from './document-design';
+import { readableTextColor } from './contrast';
 
 export interface RenderIdentity {
   organizationName?: string | null;
@@ -103,28 +104,6 @@ function safeHex(value: unknown, fallback: string): string {
   return typeof value === 'string' && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)
     ? value
     : fallback;
-}
-
-/**
- * Color de texto legible (blanco u oscuro) sobre un fondo HEX (DOC-UX-003 §10):
- * evita que el texto se pierda si la organización elige un color oscuro para las
- * cabeceras de tabla. Cálculo determinista por luminancia, server-side.
- */
-function contrastText(hex: string): string {
-  const h = hex.replace('#', '');
-  const full =
-    h.length === 3
-      ? h
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : h;
-  const r = parseInt(full.slice(0, 2), 16);
-  const g = parseInt(full.slice(2, 4), 16);
-  const b = parseInt(full.slice(4, 6), 16);
-  if ([r, g, b].some((n) => Number.isNaN(n))) return '#0f2440';
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  return luminance > 150 ? '#0f2440' : '#ffffff';
 }
 
 // --- Contenido rich (texto + referencias) ------------------------------------
@@ -376,8 +355,8 @@ function themeStyle(theme: DocumentTheme | null | undefined): string {
   const accent = safeHex(theme.accent, '#2563eb');
   const text = safeHex(theme.text, '#1f2937');
   const heading = safeHex(theme.heading, '#0f2440');
-  // §10: texto legible sobre el fondo de las cabeceras de tabla (color secundario).
-  const tableHeadText = contrastText(secondary);
+  // §10/§14.B: texto legible (WCAG) sobre el fondo de las cabeceras de tabla.
+  const tableHeadText = readableTextColor(secondary);
   return ` style="--doc-primary:${primary};--doc-secondary:${secondary};--doc-accent:${accent};--doc-text:${text};--doc-heading:${heading};--doc-table-head-text:${tableHeadText}"`;
 }
 

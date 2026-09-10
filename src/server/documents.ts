@@ -218,23 +218,30 @@ export async function listDocuments(organizationId: string, filters: DocumentFil
   const siteName = new Map(sites.map((s) => [s.id, s.name]));
   const names = await userNames(docs.map((d) => d.responsibleUserId));
   const t = today();
+  // DOC-UX-003 §4/§5: los flags dueSoon/overdue usan la fecha RAW (ISO); solo el
+  // texto visible se formatea con el formato de la organización.
+  const { dateFormat } = await getDocumentPresentation(organizationId);
 
-  return docs.map((d) => ({
-    id: d.id,
-    code: d.code,
-    title: d.title,
-    documentType: d.documentType,
-    origin: d.origin,
-    status: d.status,
-    currentVersionLabel: d.currentVersionLabel,
-    siteName: d.siteId ? (siteName.get(d.siteId) ?? null) : null,
-    ownerArea: d.ownerArea,
-    responsibleName: d.responsibleUserId ? (names.get(d.responsibleUserId) ?? null) : null,
-    issuedAt: isoDate(d.issuedAt),
-    nextReviewAt: isoDate(d.nextReviewAt),
-    dueSoon: isDueSoon(isoDate(d.nextReviewAt), t),
-    overdue: isOverdue(isoDate(d.nextReviewAt), t),
-  }));
+  return docs.map((d) => {
+    const rawIssued = isoDate(d.issuedAt);
+    const rawNext = isoDate(d.nextReviewAt);
+    return {
+      id: d.id,
+      code: d.code,
+      title: d.title,
+      documentType: d.documentType,
+      origin: d.origin,
+      status: d.status,
+      currentVersionLabel: d.currentVersionLabel,
+      siteName: d.siteId ? (siteName.get(d.siteId) ?? null) : null,
+      ownerArea: d.ownerArea,
+      responsibleName: d.responsibleUserId ? (names.get(d.responsibleUserId) ?? null) : null,
+      issuedAt: formatIsoDate(rawIssued, dateFormat),
+      nextReviewAt: formatIsoDate(rawNext, dateFormat),
+      dueSoon: isDueSoon(rawNext, t),
+      overdue: isOverdue(rawNext, t),
+    };
+  });
 }
 
 export async function getDocSummary(organizationId: string) {
@@ -344,6 +351,8 @@ export async function listResponsibles(organizationId: string) {
 export async function getDocumentDetail(organizationId: string, documentId: string) {
   const prisma = getPrisma();
   const doc = await loadScopedDocument(organizationId, documentId);
+  // DOC-UX-003 §6: las fechas visibles del panel usan el formato de la organización.
+  const { dateFormat } = await getDocumentPresentation(organizationId);
 
   const [versions, relations, history] = await Promise.all([
     prisma.documentVersion.findMany({
@@ -387,10 +396,10 @@ export async function getDocumentDetail(organizationId: string, documentId: stri
     siteName: site?.name ?? null,
     responsibleName: doc.responsibleUserId ? (names.get(doc.responsibleUserId) ?? null) : null,
     ownerArea: doc.ownerArea,
-    issuedAt: isoDate(doc.issuedAt),
-    effectiveAt: isoDate(doc.effectiveAt),
-    nextReviewAt: isoDate(doc.nextReviewAt),
-    obsoleteAt: isoDate(doc.obsoleteAt),
+    issuedAt: formatIsoDate(isoDate(doc.issuedAt), dateFormat),
+    effectiveAt: formatIsoDate(isoDate(doc.effectiveAt), dateFormat),
+    nextReviewAt: formatIsoDate(isoDate(doc.nextReviewAt), dateFormat),
+    obsoleteAt: formatIsoDate(isoDate(doc.obsoleteAt), dateFormat),
     archived: Boolean(doc.archivedAt),
     editable: !doc.archivedAt,
     currentFiles: current?.files ?? [],

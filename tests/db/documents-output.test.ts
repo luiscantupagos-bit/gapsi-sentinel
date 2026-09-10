@@ -13,6 +13,8 @@ import {
   setDocumentTheme,
   getDocumentPresentation,
   getOrganizationEntitlements,
+  getDocumentDetail,
+  listDocuments,
   DocumentValidationError,
 } from '@/server/documents';
 
@@ -185,6 +187,67 @@ describe.skipIf(!hasDb)('copias controladas y presentación (DOC-UX-002)', () =>
     expect((await getDocumentPresentation(org.orgId)).dateFormat).toBe('YYYY-MM-DD');
     const h2 = await getControlledCopyHistory(org.orgId, id);
     expect(h2[0]?.issuedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('§4/§6. panel y listado maestro muestran fecha con el formato de la organización; filtro usa raw', async () => {
+    const org = await seedOrgWithPublishedTemplate(db());
+    await db().qualityCatalogValue.create({
+      data: { organizationId: org.orgId, kind: 'area', code: 'CA', name: 'Calidad' },
+    });
+    const id = await createStructuredDocument(org.orgId, org.userId, {
+      documentType: 'procedure',
+      title: 'Con fechas',
+      areaCode: 'CA',
+      structuredContent: { fields: { objetivo: 'O', alcance: 'A' }, repeatables: {} },
+    });
+    // Fechas pasadas NO ambiguas (revisión después de emisión, ambas vencidas).
+    await db().document.update({
+      where: { id },
+      data: {
+        status: 'effective',
+        issuedAt: new Date('2020-01-15T00:00:00Z'),
+        nextReviewAt: new Date('2020-12-31T00:00:00Z'),
+      },
+    });
+
+    // Default DD/MM/AAAA.
+    const detailDefault = await getDocumentDetail(org.orgId, id);
+    expect(detailDefault.issuedAt).toBe('15/01/2020');
+
+    // Cambia a ISO → panel y maestro reflejan el formato.
+    await setDocumentTheme(org.orgId, org.userId, {
+      primary: '#0f2440',
+      secondary: '#e3e8ef',
+      accent: '#2563eb',
+      text: '#1f2937',
+      heading: '#0f2440',
+      designId: 'c3-modern',
+      showC3Attribution: true,
+      dateFormat: 'YYYY-MM-DD',
+    });
+    const detailIso = await getDocumentDetail(org.orgId, id);
+    expect(detailIso.issuedAt).toBe('2020-01-15');
+
+    const rows = await listDocuments(org.orgId, {});
+    const row = rows.find((r) => r.id === id)!;
+    expect(row.issuedAt).toBe('2020-01-15'); // display formateado
+    expect(row.overdue).toBe(true); // §5: el flag usa la fecha RAW, no el string
+  });
+
+  it('§12. rechaza guardar un color de texto sin contraste con el fondo (server-side)', async () => {
+    const org = await seedOrgWithPublishedTemplate(db());
+    await expect(
+      setDocumentTheme(org.orgId, org.userId, {
+        primary: '#0f2440',
+        secondary: '#e3e8ef',
+        accent: '#2563eb',
+        text: '#ffffff', // blanco sobre fondo blanco
+        heading: '#0f2440',
+        designId: 'c3-modern',
+        showC3Attribution: true,
+        dateFormat: 'DD/MM/YYYY',
+      }),
+    ).rejects.toBeInstanceOf(DocumentValidationError);
   });
 
   it('F/G. el diseño y la preferencia de atribución persisten por organización', async () => {
