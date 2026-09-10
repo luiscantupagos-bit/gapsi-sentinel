@@ -76,6 +76,24 @@ model OrganizationProfile {
   @@map("organization_profiles")
 }
 
+/// CORE-UX-005: política del semáforo global de cumplimiento por organización.
+/// Sin fila = defaults 90/80/70 (fallback en servidor). Decimales soportados.
+model OrganizationCompliancePolicy {
+  organizationId String   @id @map("organization_id") @db.Uuid
+  greenMin       Decimal  @default(90) @map("green_min") @db.Decimal(5, 2)
+  yellowMin      Decimal  @default(80) @map("yellow_min") @db.Decimal(5, 2)
+  orangeMin      Decimal  @default(70) @map("orange_min") @db.Decimal(5, 2)
+  greenColor     String   @default("#1f9d55") @map("green_color")
+  yellowColor    String   @default("#c9a227") @map("yellow_color")
+  orangeColor    String   @default("#d97706") @map("orange_color")
+  redColor       String   @default("#c0392b") @map("red_color")
+  updatedBy      String?  @map("updated_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("organization_compliance_policies")
+}
+
 /// DOC-UX-002: suscripción comercial de la organización. PROVISIONAL — sin motor
 /// de billing real; solo alimenta el cálculo de entitlements (p. ej. ocultar la
 /// atribución de C3). Uno por organización; ausencia = sin entitlement.

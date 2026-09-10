@@ -4,6 +4,11 @@
  * props. Sin métricas inventadas: los estados vacíos se muestran explícitamente.
  */
 import Link from 'next/link';
+import {
+  resolveComplianceBand,
+  DEFAULT_RESOLVED_POLICY,
+  type ResolvedCompliancePolicy,
+} from '@/features/compliance/compliance-band';
 
 export type Tone = 'blue' | 'amber' | 'red' | 'green' | 'slate';
 
@@ -154,6 +159,7 @@ export function Gauge({ value, color }: { value: number; color: string }) {
 
 export function SystemStatusCard({
   status,
+  policy = DEFAULT_RESOLVED_POLICY,
 }: {
   status: {
     diagnosticId: string;
@@ -163,6 +169,8 @@ export function SystemStatusCard({
     percentage: number;
     riskLevel: string;
   } | null;
+  /** Política del semáforo global (CORE-UX-005): colorea el % de cumplimiento. */
+  policy?: ResolvedCompliancePolicy;
 }) {
   if (!status) {
     return (
@@ -183,7 +191,10 @@ export function SystemStatusCard({
   const vigente = status.status === 'submitted' || status.status === 'reviewed';
   return (
     <div className="sysstatus">
-      <Gauge value={status.percentage} color={vigente ? riskColor(status.riskLevel) : '#94a3b8'} />
+      <Gauge
+        value={status.percentage}
+        color={vigente ? resolveComplianceBand(status.percentage, policy).color : '#94a3b8'}
+      />
       {vigente ? (
         <p className="sysstatus__risk" style={{ color: riskColor(status.riskLevel) }}>
           Riesgo {riskLabel[status.riskLevel] ?? status.riskLevel}
@@ -208,6 +219,7 @@ export function SystemStatusCard({
 
 export function SchemeBars({
   items,
+  policy = DEFAULT_RESOLVED_POLICY,
 }: {
   items: {
     scheme: string;
@@ -216,6 +228,8 @@ export function SchemeBars({
     diagnosticId: string;
     status: string;
   }[];
+  /** Política del semáforo global (CORE-UX-005): colorea las barras de cumplimiento. */
+  policy?: ResolvedCompliancePolicy;
 }) {
   if (items.length === 0) {
     return <p className="empty-state">Sin evaluaciones disponibles.</p>;
@@ -239,7 +253,9 @@ export function SchemeBars({
                 className="schemebars__fill"
                 style={{
                   width: `${it.percentage}%`,
-                  background: vigente ? riskColor(it.riskLevel) : '#cbd5e1',
+                  background: vigente
+                    ? resolveComplianceBand(it.percentage, policy).color
+                    : '#cbd5e1',
                 }}
               />
             </span>

@@ -11,6 +11,8 @@
  * propia y NO deben usar este helper directamente.
  */
 
+import { isHexColor } from '../documents/document-theme';
+
 /** Nivel semántico del semáforo (no depende solo del color, §40). */
 export type ComplianceLevel = 'green' | 'yellow' | 'orange' | 'red';
 
@@ -149,4 +151,121 @@ export function getComplianceBand(
     min,
     max,
   };
+}
+
+// --- Colores por organización + política resuelta (CORE-UX-005) ---------------
+
+/** Colores por nivel (configurables por organización, §40). Solo HEX seguro. */
+export interface ComplianceColors {
+  green: string;
+  yellow: string;
+  orange: string;
+  red: string;
+}
+
+export const DEFAULT_COMPLIANCE_COLORS: ComplianceColors = {
+  green: DEFAULT_LEVEL_STYLES.green.color,
+  yellow: DEFAULT_LEVEL_STYLES.yellow.color,
+  orange: DEFAULT_LEVEL_STYLES.orange.color,
+  red: DEFAULT_LEVEL_STYLES.red.color,
+};
+
+/** Política completa por organización: umbrales + colores. */
+export interface ResolvedCompliancePolicy extends CompliancePolicy, ComplianceColors {}
+
+export const DEFAULT_RESOLVED_POLICY: ResolvedCompliancePolicy = {
+  ...DEFAULT_COMPLIANCE_POLICY,
+  ...DEFAULT_COMPLIANCE_COLORS,
+};
+
+/** Construye los estilos (label global + color de la organización) desde colores. */
+export function stylesFromColors(
+  colors: ComplianceColors,
+): Record<ComplianceLevel, ComplianceLevelStyle> {
+  return {
+    green: { ...DEFAULT_LEVEL_STYLES.green, color: colors.green },
+    yellow: { ...DEFAULT_LEVEL_STYLES.yellow, color: colors.yellow },
+    orange: { ...DEFAULT_LEVEL_STYLES.orange, color: colors.orange },
+    red: { ...DEFAULT_LEVEL_STYLES.red, color: colors.red },
+  };
+}
+
+/** Separa una política resuelta en umbrales y colores. */
+export function splitResolvedPolicy(p: ResolvedCompliancePolicy): {
+  policy: CompliancePolicy;
+  colors: ComplianceColors;
+} {
+  return {
+    policy: { greenMin: p.greenMin, yellowMin: p.yellowMin, orangeMin: p.orangeMin },
+    colors: { green: p.green, yellow: p.yellow, orange: p.orange, red: p.red },
+  };
+}
+
+/**
+ * Resuelve la banda usando una política COMPLETA de organización (umbrales + colores).
+ * Punto único que consumen los componentes de UI (no repetir `if value >= 90`).
+ */
+export function resolveComplianceBand(
+  value: number,
+  resolved: ResolvedCompliancePolicy = DEFAULT_RESOLVED_POLICY,
+): ComplianceBand {
+  const { policy, colors } = splitResolvedPolicy(resolved);
+  return getComplianceBand(value, policy, stylesFromColors(colors));
+}
+
+/** Valida los colores (solo HEX seguro, §6/§23). Devuelve mensajes en español. */
+export function validateComplianceColors(colors: ComplianceColors): string[] {
+  const errors: string[] = [];
+  const labels: Record<keyof ComplianceColors, string> = {
+    green: 'verde',
+    yellow: 'amarillo',
+    orange: 'naranja',
+    red: 'rojo',
+  };
+  (Object.keys(labels) as (keyof ComplianceColors)[]).forEach((k) => {
+    if (!isHexColor(colors[k])) {
+      errors.push(`El color ${labels[k]} debe ser un HEX válido (p. ej. #1f9d55).`);
+    }
+  });
+  return errors;
+}
+
+/** Valida una política completa (umbrales + colores). */
+export function validateResolvedPolicy(resolved: ResolvedCompliancePolicy): string[] {
+  const { policy, colors } = splitResolvedPolicy(resolved);
+  return [...validateCompliancePolicy(policy), ...validateComplianceColors(colors)];
+}
+
+// --- Semántica de métrica (§10/§37) ------------------------------------------
+
+/**
+ * Dirección semántica de una métrica. El semáforo global aplica AUTOMÁTICAMENTE solo
+ * a `higher_is_better`. Las métricas `lower_is_better` (riesgo, storage utilizado,
+ * % de errores, vencimientos, incidencias, utilización) tienen semántica propia y
+ * NO deben colorearse con este resolver.
+ */
+export type MetricDirection = 'higher_is_better' | 'lower_is_better';
+
+/** Ejemplos de métricas «mayor = mejor» (documentativo). */
+export const HIGHER_IS_BETTER_METRICS = [
+  'cumplimiento',
+  'conformidad',
+  'efectividad',
+  'implementacion',
+  'avance',
+] as const;
+
+/** Ejemplos de métricas «mayor = peor» — NO usar el semáforo (documentativo). */
+export const INVERSE_METRICS = [
+  'riesgo',
+  'storage_utilizado',
+  'errores',
+  'vencimientos',
+  'incidencias',
+  'utilizacion',
+] as const;
+
+/** ¿Debe una métrica usar el semáforo global de cumplimiento? */
+export function usesComplianceBand(direction: MetricDirection): boolean {
+  return direction === 'higher_is_better';
 }
