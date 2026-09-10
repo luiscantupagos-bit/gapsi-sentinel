@@ -8,6 +8,7 @@ import {
   listNativeTasksBrief,
 } from '@/server/tasks';
 import { listOrgMembers } from '@/server/projects';
+import { getTaskProgramOrigin } from '@/server/programs';
 import { type TaskStatus } from '@/features/tasks/task-state';
 import { PageHeader, SectionCard } from '../../_components/ui';
 import { TaskPriorityBadge, TaskStatusBadge, taskTypeLabel } from '../_components/TaskBits';
@@ -32,6 +33,11 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ tas
     listNativeTasksBrief(session.organizationId, taskId),
   ]);
   const t = detail.task;
+  // DOC-003: si la tarea proviene de un Programa, resolvemos su origen navegable.
+  const programOrigin =
+    t.sourceType === 'program_activity' && t.sourceId
+      ? await getTaskProgramOrigin(session.organizationId, t.sourceId)
+      : null;
 
   return (
     <main className="container">
@@ -142,11 +148,37 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ tas
 
         <div>
           <SectionCard title="Origen y trazabilidad">
+            {programOrigin && (
+              <div className="task-origin">
+                <p>
+                  <span className="task-origin__label">Programa</span>{' '}
+                  <Link href={`/dashboard/documents/${programOrigin.documentId}`}>
+                    {programOrigin.code} — {programOrigin.title}
+                  </Link>
+                </p>
+                <p>
+                  <span className="task-origin__label">Actividad</span> {programOrigin.activityName}
+                </p>
+                <p>
+                  <span className="task-origin__label">Ocurrencia</span>{' '}
+                  {programOrigin.occurrenceLabel}
+                  {programOrigin.scheduleLabel ? ` · ${programOrigin.scheduleLabel}` : ''}
+                </p>
+                <p>
+                  <Link
+                    className="button button--ghost"
+                    href={`/dashboard/documents/${programOrigin.documentId}/execution`}
+                  >
+                    Ver ejecución
+                  </Link>
+                </p>
+              </div>
+            )}
             {detail.relations.length === 0 && !t.sourceType ? (
               <p className="empty-state">Tarea nativa sin origen externo.</p>
             ) : (
               <ul className="rel-list">
-                {t.sourceType && (
+                {t.sourceType && !programOrigin && (
                   <li>
                     <span className="badge badge--soft">{taskTypeLabel(t.taskType)}</span> origen:{' '}
                     {t.sourceType}
