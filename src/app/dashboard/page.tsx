@@ -7,6 +7,7 @@ import { getCapaAlerts, getCapaDashboard } from '@/server/capa';
 import { getTaskSummary, listGlobalTasks } from '@/server/tasks';
 import { getProjectSummary, listMilestones } from '@/server/projects';
 import { getAuditSummary } from '@/server/audits';
+import { getOrganizationCompliancePolicy } from '@/server/compliance';
 import {
   getActiveSchemes,
   getGanttRows,
@@ -79,6 +80,7 @@ export default async function DashboardPage() {
     schemeCompliance,
     ganttRows,
     trend,
+    compliancePolicy,
   ] = await Promise.all([
     getDiagnosticSummary(org),
     getDocSummary(org),
@@ -98,6 +100,7 @@ export default async function DashboardPage() {
     getSchemeCompliance(org),
     getGanttRows(org),
     getQualityTrend(org),
+    getOrganizationCompliancePolicy(org),
   ]);
 
   const daysToAudit = nextAudit ? daysUntil(nextAudit.date, todayStr) : null;
@@ -258,11 +261,11 @@ export default async function DashboardPage() {
       {/* Fila A */}
       <div className="exec-grid exec-grid--3">
         <SectionCard title="Estado del sistema">
-          <SystemStatusCard status={systemStatus} />
+          <SystemStatusCard status={systemStatus} policy={compliancePolicy} />
         </SectionCard>
 
         <SectionCard title="Cumplimiento por esquema">
-          <SchemeBars items={schemeCompliance} />
+          <SchemeBars items={schemeCompliance} policy={compliancePolicy} />
         </SectionCard>
 
         <SectionCard

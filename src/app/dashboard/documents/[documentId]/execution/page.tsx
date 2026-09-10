@@ -4,6 +4,8 @@ import { requireServerSession } from '@/server/session';
 import { getDocumentDetail, DocumentNotFoundError } from '@/server/documents';
 import { getProgramExecution, type ExecutionRow } from '@/server/programs';
 import { EXECUTION_STATUS_LABEL, type ExecutionStatus } from '@/features/documents/program-status';
+import { getOrganizationCompliancePolicy } from '@/server/compliance';
+import { resolveComplianceBand } from '@/features/compliance/compliance-band';
 import { ProgramTabs } from '../ProgramTabs';
 
 /**
@@ -32,6 +34,9 @@ export default async function ProgramExecutionPage({
   if (doc.documentType !== 'program') notFound();
 
   const exec = await getProgramExecution(session.organizationId, documentId);
+  // CORE-UX-005: el % de cumplimiento del programa (mayor = mejor) usa el semáforo.
+  const compliancePolicy = await getOrganizationCompliancePolicy(session.organizationId);
+  const progressColor = resolveComplianceBand(exec.progress.percent, compliancePolicy).color;
 
   // Filtros (§35): estado, responsable, actividad, rango de fechas.
   const fStatus = sp.status ?? '';
@@ -105,7 +110,10 @@ export default async function ProgramExecutionPage({
             </strong>{' '}
             completadas ({exec.progress.percent}%)
             <span className="prog-bar" aria-hidden>
-              <span className="prog-bar__fill" style={{ width: `${exec.progress.percent}%` }} />
+              <span
+                className="prog-bar__fill"
+                style={{ width: `${exec.progress.percent}%`, background: progressColor }}
+              />
             </span>
           </p>
 
