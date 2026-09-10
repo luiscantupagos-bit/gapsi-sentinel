@@ -158,6 +158,35 @@ describe.skipIf(!hasDb)('copias controladas y presentación (DOC-UX-002)', () =>
     expect(historyB).toHaveLength(0);
   });
 
+  it('§9. el formato de fecha configurado se aplica y persiste (default DD/MM/AAAA)', async () => {
+    const org = await seedOrgWithPublishedTemplate(db());
+    const { id, versionId } = await publishedProcedure(org);
+    // Default sin configurar: DD/MM/AAAA.
+    await createControlledCopyOutput(org.orgId, org.userId, {
+      documentId: id,
+      versionId,
+      copyType: 'pdf',
+      reason: 'Respaldo',
+    });
+    const h1 = await getControlledCopyHistory(org.orgId, id);
+    expect(h1[0]?.issuedAt).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+
+    // Cambia a ISO y persiste; el historial ahora se ve YYYY-MM-DD.
+    await setDocumentTheme(org.orgId, org.userId, {
+      primary: '#0f2440',
+      secondary: '#e3e8ef',
+      accent: '#2563eb',
+      text: '#1f2937',
+      heading: '#0f2440',
+      designId: 'c3-modern',
+      showC3Attribution: true,
+      dateFormat: 'YYYY-MM-DD',
+    });
+    expect((await getDocumentPresentation(org.orgId)).dateFormat).toBe('YYYY-MM-DD');
+    const h2 = await getControlledCopyHistory(org.orgId, id);
+    expect(h2[0]?.issuedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it('F/G. el diseño y la preferencia de atribución persisten por organización', async () => {
     const org = await seedOrgWithPublishedTemplate(db());
     // Suscripción elegible → puede ocultar la atribución.

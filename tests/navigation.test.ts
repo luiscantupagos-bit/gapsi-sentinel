@@ -23,9 +23,13 @@ describe('navegación principal (CORE-ALIGN-001)', () => {
 
   it('no hay módulos futuros deshabilitados en el menú', () => {
     const labels = NAV_ITEMS.map((i) => i.label);
-    for (const future of ['Riesgos', 'Proveedores', 'Capacitación', 'Reportes', 'Configuración']) {
+    for (const future of ['Riesgos', 'Proveedores', 'Capacitación', 'Reportes']) {
       expect(labels).not.toContain(future);
     }
+  });
+
+  it('Configuración general es una ruta real del menú (DOC-UX-003)', () => {
+    expect(hrefs).toContain('/dashboard/settings');
   });
 
   it('todos los ítems apuntan a rutas del dashboard', () => {
@@ -34,7 +38,7 @@ describe('navegación principal (CORE-ALIGN-001)', () => {
 
   it('está agrupado por las secciones definitivas', () => {
     const titles = NAV_GROUPS.map((g) => g.title).filter(Boolean);
-    expect(titles).toEqual(['Cumplimiento', 'Mejora', 'Trabajo', 'Desempeño']);
+    expect(titles).toEqual(['Cumplimiento', 'Mejora', 'Trabajo', 'Desempeño', 'Administración']);
   });
 
   it('resuelve el ítem activo por prefijo más específico', () => {

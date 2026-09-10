@@ -140,7 +140,7 @@ describe('copia controlada: watermark + folio (§72/§77)', () => {
       mode: 'controlled_copy',
       copyMark: { kind: 'draft' },
     });
-    expect(html).toContain('BORRADOR · NO CONTROLADO');
+    expect(html).toContain('BORRADOR — NO CONTROLADO');
     expect(html).not.toContain('CC-');
     expect(html).toContain('doc-copy__banner--draft');
   });
