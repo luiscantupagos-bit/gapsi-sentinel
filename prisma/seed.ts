@@ -37,6 +37,8 @@ import { INITIAL_VERSION_LABEL } from '../src/features/documents/versioning';
 import { getTemplateDefinition } from '../src/features/documents/template-registry';
 import { labelOf, DOCUMENT_TYPES } from '../src/features/documents/catalog';
 import { deviationPercentFormula } from '../src/features/studies/formula';
+// DOC-003: activa el Programa oficial de ejemplo (ocurrencias + tareas nativas).
+import { activateProgram } from '../src/server/programs';
 
 const prisma = new PrismaClient();
 
@@ -666,7 +668,14 @@ interface StructuredDemo {
     fields: Record<string, string>;
     repeatables: Record<string, Record<string, string>[]>;
   };
+  /** DOC-003: bloque ejecutable (solo Programas). Se activa al sembrar publicado. */
+  program?: object;
 }
+
+// DOC-003: IDs de actividad estables del Programa oficial de ejemplo (PG-CA-001).
+const ACT_AUDIT = '00000000-0000-4000-8000-0000000a0001';
+const ACT_REVIEW = '00000000-0000-4000-8000-0000000a0002';
+const ACT_ANNUAL = '00000000-0000-4000-8000-0000000a0003';
 
 const STRUCTURED_DOCS: StructuredDemo[] = [
   {
@@ -719,37 +728,82 @@ const STRUCTURED_DOCS: StructuredDemo[] = [
     },
   },
   {
+    // DOC-003: Programa EJECUTABLE oficial de ejemplo. Publicado → al sembrar genera
+    // ocurrencias + tareas nativas y su vista de Ejecución queda poblada.
     n: 2,
     code: 'PG-CA-001',
     title: 'Programa anual de auditorías internas',
     documentType: 'program',
     areaCode: 'CA',
     areaName: 'Calidad',
+    published: true,
     content: {
       fields: {
         objetivo:
           'Planificar las auditorías internas del año para verificar la conformidad del sistema de gestión.',
         alcance: 'Cubre todos los procesos del sistema de gestión de calidad e inocuidad.',
       },
-      repeatables: {
-        activities: [
-          {
-            actividad: 'Auditoría al sistema de gestión',
-            responsable: 'Auditor líder',
-            periodo: '1er trimestre',
+      repeatables: {},
+    },
+    program: {
+      periodStart: '2026-01-01',
+      periodEnd: '2026-12-31',
+      activities: [
+        {
+          activityId: ACT_AUDIT,
+          name: 'Auditoría BPM Planta Monterrey',
+          description: 'Auditoría de buenas prácticas de manufactura en la planta.',
+          executionEnabled: true,
+          responsibleUserId: USER_A,
+          schedule: {
+            type: 'recurring',
+            startDate: '2026-02-01',
+            dueDate: null,
+            frequency: 'quarterly',
+            interval: 1,
+            endDate: null,
           },
-          {
-            actividad: 'Auditoría a producción',
-            responsable: 'Equipo auditor',
-            periodo: '2do trimestre',
+          expectedEvidence: 'Informe de auditoría',
+          observations: '',
+          notifyBeforeDays: 7,
+        },
+        {
+          activityId: ACT_REVIEW,
+          name: 'Revisión de acciones de auditoría',
+          description: 'Seguimiento mensual a las acciones derivadas de las auditorías.',
+          executionEnabled: true,
+          responsibleUserId: USER_C,
+          schedule: {
+            type: 'recurring',
+            startDate: '2026-09-01',
+            dueDate: null,
+            frequency: 'monthly',
+            interval: 1,
+            endDate: null,
           },
-          {
-            actividad: 'Auditoría a almacén y distribución',
-            responsable: 'Auditor',
-            periodo: '3er trimestre',
+          expectedEvidence: 'Registro de seguimiento',
+          observations: '',
+          notifyBeforeDays: 3,
+        },
+        {
+          activityId: ACT_ANNUAL,
+          name: 'Revisión anual del programa',
+          description: 'Revisión de eficacia del programa de auditorías del año.',
+          executionEnabled: true,
+          responsibleUserId: USER_A,
+          schedule: {
+            type: 'single',
+            startDate: null,
+            dueDate: '2026-12-15',
+            frequency: null,
+            interval: null,
+            endDate: null,
           },
-        ],
-      },
+          expectedEvidence: 'Minuta de revisión',
+          observations: '',
+          notifyBeforeDays: 15,
+        },
+      ],
     },
   },
   {
@@ -832,6 +886,7 @@ async function seedStructuredDocuments(): Promise<void> {
       templateType: d.documentType,
       fields: d.content.fields,
       repeatables: d.content.repeatables,
+      program: d.program,
     }) as StructuredContent;
     const issuedAt = d.published ? new Date('2026-06-01T00:00:00.000Z') : null;
     const nextReviewAt = d.published ? new Date('2027-06-01T00:00:00.000Z') : null;
@@ -902,6 +957,24 @@ async function seedStructuredDocuments(): Promise<void> {
       update: { lastSeq: 1 },
       create: { organizationId: ORG_A, codePrefix: prefix, areaCode: d.areaCode, lastSeq: 1 },
     });
+  }
+}
+
+/**
+ * DOC-003: activa la EJECUCIÓN del Programa oficial publicado (PG-CA-001). Debe
+ * correr DESPUÉS de `seedProjectsAndTasks` para que el contador de folios de tareas
+ * ya esté avanzado (las tareas del programa continúan la numeración sin chocar con
+ * los folios fijos del seed). `activateProgram` es idempotente; el guard evita
+ * trabajo repetido al re-sembrar. Genera ocurrencias + tareas nativas como en
+ * producción, dejando poblada la vista de Ejecución.
+ */
+async function seedProgramExecution(): Promise<void> {
+  for (const d of STRUCTURED_DOCS) {
+    if (!(d.published && d.documentType === 'program')) continue;
+    const documentId = stUuid('c', d.n);
+    const already = await prisma.programActivityInstance.count({ where: { documentId } });
+    if (already > 0) continue;
+    await activateProgram(ORG_A, USER_A, documentId, stUuid('d', d.n));
   }
 }
 
@@ -3516,6 +3589,8 @@ async function main(): Promise<void> {
   await seedCapa();
   await seedQualityAnalysis();
   await seedProjectsAndTasks();
+  // DOC-003: tras las tareas fijas (folios avanzados), activa el Programa oficial.
+  await seedProgramExecution();
   await seedAudits();
   await seedEventsAndKpis();
   await seedDataStudy();

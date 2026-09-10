@@ -261,6 +261,98 @@ function occurrenceKey(frequency: ProgramFrequency, dueAt: string): string {
   return `${frequency}:${dueAt.slice(0, 7)}`; // familia mensual → año-mes
 }
 
+// --- Reconciliación entre versiones (§2-13) ----------------------------------
+
+/**
+ * Ocurrencia DESEADA por la versión nueva (materializable). Se compara contra las
+ * instancias vigentes de la versión anterior para decidir continuidad/sustitución.
+ */
+export interface DesiredOccurrence {
+  activityId: string;
+  occurrenceKey: string;
+  dueAt: string | null;
+  plannedStart: string | null;
+  responsibleUserId: string | null;
+}
+
+/**
+ * Estado de una instancia de la versión ANTERIOR relevante para reconciliar. El
+ * llamador calcula `eligible` (futura, no iniciada y no terminal): solo esas se
+ * reconcilian; el histórico (completadas/vencidas/pasadas) nunca se toca (§3/§4).
+ */
+export interface PriorInstanceState {
+  instanceId: string;
+  activityId: string;
+  occurrenceKey: string;
+  dueAt: string | null;
+  plannedStart: string | null;
+  responsibleUserId: string | null;
+  taskId: string | null;
+  eligible: boolean;
+}
+
+/**
+ * Plan de reconciliación (PURO): decide, por cada instancia futura elegible de la
+ * versión anterior, si se REUTILIZA (carry: misma actividad+ocurrencia y misma
+ * programación/responsable → la tarea continúa en la versión nueva) o se SUSTITUYE
+ * (supersede: la actividad se eliminó o su fecha/responsable cambió). Nunca duplica
+ * ni borra historia.
+ */
+export interface ReconciliationPlan {
+  carry: Array<{
+    instanceId: string;
+    activityId: string;
+    occurrenceKey: string;
+    taskId: string | null;
+  }>;
+  supersede: Array<{ instanceId: string; taskId: string | null }>;
+}
+
+function reconKey(activityId: string, occurrenceKey: string): string {
+  return `${activityId}::${occurrenceKey}`;
+}
+
+/** ¿La ocurrencia anterior y la deseada son EQUIVALENTES (misma fecha/plan/responsable)? */
+function occurrencesEquivalent(prior: PriorInstanceState, desired: DesiredOccurrence): boolean {
+  return (
+    (prior.dueAt ?? null) === (desired.dueAt ?? null) &&
+    (prior.plannedStart ?? null) === (desired.plannedStart ?? null) &&
+    (prior.responsibleUserId ?? null) === (desired.responsibleUserId ?? null)
+  );
+}
+
+/**
+ * Calcula el plan de reconciliación (§3-6). Determinista y sin BD. Solo considera
+ * instancias `eligible` (futuras no iniciadas); el resto es histórico intocable.
+ */
+export function planReconciliation(
+  priors: PriorInstanceState[],
+  desired: DesiredOccurrence[],
+): ReconciliationPlan {
+  const desiredMap = new Map(desired.map((d) => [reconKey(d.activityId, d.occurrenceKey), d]));
+  const plan: ReconciliationPlan = { carry: [], supersede: [] };
+  for (const pi of priors) {
+    if (!pi.eligible) continue; // histórico: se conserva sin cambios
+    const d = desiredMap.get(reconKey(pi.activityId, pi.occurrenceKey));
+    if (d && occurrencesEquivalent(pi, d)) {
+      plan.carry.push({
+        instanceId: pi.instanceId,
+        activityId: pi.activityId,
+        occurrenceKey: pi.occurrenceKey,
+        taskId: pi.taskId,
+      });
+    } else {
+      plan.supersede.push({ instanceId: pi.instanceId, taskId: pi.taskId });
+    }
+  }
+  return plan;
+}
+
+/** Clave estable de una ocurrencia para el mapa de continuidad (actividad::ocurrencia). */
+export function occurrenceMapKey(activityId: string, occurrenceKey: string): string {
+  return reconKey(activityId, occurrenceKey);
+}
+
 /**
  * Genera las ocurrencias de una actividad EJECUTABLE, acotadas por su `endDate` o
  * el periodo del programa, sin drift acumulativo (cada ocurrencia se ancla en la

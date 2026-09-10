@@ -1911,6 +1911,16 @@ export async function getStructuredContent(
     presentation.dateFormat,
   );
   const mode = version.status === 'published' ? 'published_document' : 'editor_preview';
+  // DOC-003: en Programas, resuelve el nombre del responsable de cada actividad
+  // (el render cae en «Usuario» sin este mapa). Solo para el tipo Programa.
+  let users: Record<string, string> | undefined;
+  if (content.program) {
+    const members = await prisma.membership.findMany({
+      where: { organizationId },
+      select: { userId: true, user: { select: { displayName: true, email: true } } },
+    });
+    users = Object.fromEntries(members.map((m) => [m.userId, m.user.displayName ?? m.user.email]));
+  }
   const renderedHtml = renderStructuredHtml(doc.documentType, content, identity, {
     resolved,
     theme: presentation.theme,
@@ -1918,6 +1928,7 @@ export async function getStructuredContent(
     showC3Attribution,
     changeLog,
     mode,
+    users,
   });
   const references = refs.map((r) => ({
     relationType: r.relationType,

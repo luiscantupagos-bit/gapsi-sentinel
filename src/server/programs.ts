@@ -12,7 +12,12 @@ import {
   generateOccurrences,
   validateProgramForPublish,
   scheduleLabel,
+  planReconciliation,
+  occurrenceMapKey,
   type ProgramBlock,
+  type DesiredOccurrence,
+  type PriorInstanceState,
+  type ReconciliationPlan,
 } from '@/features/documents/program-execution';
 import {
   deriveExecutionStatus,
@@ -37,6 +42,17 @@ export interface ActivationResult {
   activated: boolean;
   instances: number;
   tasks: number;
+  carried: number;
+}
+
+/**
+ * Opciones de activación. `carryTaskByKey` (clave `activityId::occurrenceKey`)
+ * reutiliza la Tarea de una versión anterior para una ocurrencia futura equivalente
+ * (continuidad §3): en vez de crear una tarea nueva, la instancia de la versión
+ * nueva ADOPTA la tarea existente (re-apunta su origen). Evita duplicar operación.
+ */
+export interface ActivateOptions {
+  carryTaskByKey?: Map<string, string>;
 }
 
 /** Ids de miembros de la organización (para validar responsables, §12). */
@@ -86,19 +102,21 @@ export async function activateProgram(
   actorId: string,
   documentId: string,
   versionId: string,
+  options: ActivateOptions = {},
 ): Promise<ActivationResult> {
   const prisma = getPrisma();
+  const carryTaskByKey = options.carryTaskByKey ?? new Map<string, string>();
   const version = await prisma.documentVersion.findFirst({
     where: { id: versionId, documentId, organizationId },
     include: { document: { select: { documentType: true, code: true, title: true } } },
   });
   if (!version || version.document.documentType !== 'program') {
-    return { activated: false, instances: 0, tasks: 0 };
+    return { activated: false, instances: 0, tasks: 0, carried: 0 };
   }
 
   const content = sanitizeStructuredContent('program', version.structuredContent);
   const block: ProgramBlock | undefined = content.program;
-  if (!block) return { activated: false, instances: 0, tasks: 0 };
+  if (!block) return { activated: false, instances: 0, tasks: 0, carried: 0 };
 
   // Validación para publicar (horizonte, fechas, responsable, recurrencia §37).
   const errors = validateProgramForPublish(block);
@@ -117,6 +135,7 @@ export async function activateProgram(
 
   let instances = 0;
   let tasks = 0;
+  let carried = 0;
 
   for (const activity of executable) {
     const occurrences = generateOccurrences(activity, block);
@@ -165,6 +184,25 @@ export async function activateProgram(
           where: { organizationId, sourceType: 'program_activity', sourceId: instanceId.id },
           select: { id: true },
         });
+        // Continuidad (§3): si la ocurrencia equivalente venía de una versión previa,
+        // ADOPTA su tarea (re-apunta el origen) en vez de crear una nueva.
+        const carriedTaskId = existing
+          ? null
+          : (carryTaskByKey.get(occurrenceMapKey(activity.activityId, occ.occurrenceKey)) ?? null);
+        if (carriedTaskId) {
+          await withOrgContext(organizationId, async (tx) => {
+            await tx.task.update({
+              where: { id: carriedTaskId },
+              data: { sourceId: instanceId.id, responsibleUserId: activity.responsibleUserId },
+            });
+            await tx.programActivityInstance.update({
+              where: { id: instanceId.id },
+              data: { taskId: carriedTaskId },
+            });
+          });
+          carried += 1;
+          continue;
+        }
         const taskId =
           existing?.id ??
           (await createTask(organizationId, actorId, {
@@ -189,7 +227,257 @@ export async function activateProgram(
     }
   }
 
-  return { activated: true, instances, tasks };
+  return { activated: true, instances, tasks, carried };
+}
+
+// --- Reconciliación entre versiones (§2-13) ----------------------------------
+
+const TERMINAL_TASK_STATUSES = new Set(['completed', 'cancelled']);
+
+export interface ReconciliationResult {
+  carried: number;
+  superseded: number;
+  cancelledTasks: number;
+}
+
+/**
+ * Al publicar una versión nueva de un Programa, reconcilia la EJECUCIÓN respecto a
+ * las versiones anteriores (§2-13). Las instancias históricas (completadas,
+ * vencidas, iniciadas, pasadas) nunca se tocan. Para cada ocurrencia FUTURA no
+ * iniciada de la versión anterior:
+ *  - si la versión nueva la reproduce EQUIVALENTE (misma fecha/plan/responsable) →
+ *    la Tarea CONTINÚA en la versión nueva (carry) y la instancia previa queda
+ *    `superseded` (sin tarea, solo traza);
+ *  - si cambió (fecha/responsable) o la actividad se eliminó → la instancia previa
+ *    queda `superseded` y su Tarea pasa a estado terminal `cancelled` (§4/§7).
+ *
+ * Devuelve el mapa de continuidad para que `activateProgram` adopte las tareas, y
+ * la lista de instancias a sustituir tras activar. Idempotente: reejecutar no
+ * duplica ni re-sustituye (las previas ya no son `scheduled`).
+ */
+export async function planProgramReconciliation(
+  organizationId: string,
+  documentId: string,
+  newVersionId: string,
+  priorVersionIds: string[],
+  now: string,
+): Promise<{ plan: ReconciliationPlan; carryTaskByKey: Map<string, string> }> {
+  const empty = {
+    plan: { carry: [], supersede: [] } as ReconciliationPlan,
+    carryTaskByKey: new Map<string, string>(),
+  };
+  if (priorVersionIds.length === 0) return empty;
+  const prisma = getPrisma();
+
+  // Ocurrencias deseadas por la versión nueva.
+  const newVersion = await prisma.documentVersion.findFirst({
+    where: { id: newVersionId, documentId, organizationId },
+    select: { structuredContent: true },
+  });
+  const newBlock = newVersion
+    ? sanitizeStructuredContent('program', newVersion.structuredContent).program
+    : undefined;
+  const desired: DesiredOccurrence[] = [];
+  if (newBlock) {
+    for (const activity of newBlock.activities.filter((a) => a.executionEnabled)) {
+      for (const occ of generateOccurrences(activity, newBlock)) {
+        desired.push({
+          activityId: activity.activityId,
+          occurrenceKey: occ.occurrenceKey,
+          dueAt: occ.dueAt,
+          plannedStart: occ.plannedStart,
+          responsibleUserId: activity.responsibleUserId,
+        });
+      }
+    }
+  }
+
+  // Instancias vigentes de las versiones anteriores.
+  const priorInstances = await prisma.programActivityInstance.findMany({
+    where: {
+      organizationId,
+      documentId,
+      documentVersionId: { in: priorVersionIds },
+      status: 'scheduled',
+    },
+    select: {
+      id: true,
+      activityId: true,
+      occurrenceKey: true,
+      dueAt: true,
+      plannedStart: true,
+      responsibleUserId: true,
+      taskId: true,
+    },
+  });
+  const taskIds = priorInstances.map((i) => i.taskId).filter((x): x is string => Boolean(x));
+  const tasks = taskIds.length
+    ? await prisma.task.findMany({
+        where: { organizationId, id: { in: taskIds } },
+        select: { id: true, status: true },
+      })
+    : [];
+  const taskStatus = new Map(tasks.map((t) => [t.id, t.status]));
+
+  const priors: PriorInstanceState[] = priorInstances.map((pi) => {
+    const dueRaw = pi.dueAt ? pi.dueAt.toISOString().slice(0, 10) : null;
+    const startRaw = pi.plannedStart ? pi.plannedStart.toISOString().slice(0, 10) : null;
+    const tStatus = pi.taskId ? (taskStatus.get(pi.taskId) ?? null) : null;
+    // Elegible: futura (o sin fecha) y no terminal → «futura no iniciada» (§3/§4).
+    const isFuture = !dueRaw || dueRaw >= now.slice(0, 10);
+    const eligible = isFuture && !TERMINAL_TASK_STATUSES.has(tStatus ?? '');
+    return {
+      instanceId: pi.id,
+      activityId: pi.activityId,
+      occurrenceKey: pi.occurrenceKey,
+      dueAt: dueRaw,
+      plannedStart: startRaw,
+      responsibleUserId: pi.responsibleUserId,
+      taskId: pi.taskId,
+      eligible,
+    };
+  });
+
+  const plan = planReconciliation(priors, desired);
+  const carryTaskByKey = new Map<string, string>();
+  for (const c of plan.carry) {
+    if (c.taskId) carryTaskByKey.set(occurrenceMapKey(c.activityId, c.occurrenceKey), c.taskId);
+  }
+  return { plan, carryTaskByKey };
+}
+
+/**
+ * Aplica el plan de reconciliación tras activar la versión nueva: marca las
+ * instancias previas como `superseded` y lleva a estado terminal (`cancelled`) las
+ * tareas de las ocurrencias sustituidas (no reutilizadas). Las carry (continuadas)
+ * quedan `superseded` con la tarea ya re-apuntada a la versión nueva (traza), sin
+ * cancelar. Transaccional; idempotente; conserva toda la historia y las tareas.
+ */
+export async function applyProgramReconciliation(
+  organizationId: string,
+  actorId: string,
+  plan: ReconciliationPlan,
+): Promise<ReconciliationResult> {
+  if (plan.carry.length === 0 && plan.supersede.length === 0) {
+    return { carried: 0, superseded: 0, cancelledTasks: 0 };
+  }
+  const carriedIds = new Set(plan.carry.map((c) => c.instanceId));
+  // Ids de tarea de las ocurrencias que se reutilizan (no deben cancelarse).
+  const carriedTaskIds = new Set(
+    plan.carry.map((c) => c.taskId).filter((x): x is string => Boolean(x)),
+  );
+  let cancelledTasks = 0;
+
+  await withOrgContext(organizationId, async (tx) => {
+    // Continuadas: la instancia previa queda como traza «Sustituida», sin tarea
+    // (la tarea ya vive en la versión nueva).
+    if (carriedIds.size) {
+      await tx.programActivityInstance.updateMany({
+        where: { organizationId, id: { in: [...carriedIds] } },
+        data: { status: 'superseded', taskId: null },
+      });
+    }
+    // Sustituidas: instancia «Sustituida» y su tarea futura a terminal `cancelled`.
+    for (const s of plan.supersede) {
+      await tx.programActivityInstance.update({
+        where: { id: s.instanceId },
+        data: { status: 'superseded' },
+      });
+      if (s.taskId && !carriedTaskIds.has(s.taskId)) {
+        const task = await tx.task.findFirst({
+          where: { id: s.taskId, organizationId },
+          select: { status: true },
+        });
+        if (task && !TERMINAL_TASK_STATUSES.has(task.status)) {
+          await tx.task.update({
+            where: { id: s.taskId },
+            data: { status: 'cancelled' },
+          });
+          await tx.taskStatusHistory.create({
+            data: {
+              organizationId,
+              taskId: s.taskId,
+              event: 'task.superseded',
+              fromStatus: task.status,
+              toStatus: 'cancelled',
+              actorUserId: actorId,
+              detail: 'Sustituida por una nueva versión del programa.',
+            },
+          });
+          cancelledTasks += 1;
+        }
+      }
+    }
+  });
+
+  return { carried: plan.carry.length, superseded: plan.supersede.length, cancelledTasks };
+}
+
+/**
+ * Publica la ejecución de un Programa reconciliando contra las versiones previas
+ * (§2-13): calcula continuidad, activa la versión nueva ADOPTANDO las tareas
+ * equivalentes y sustituye las ocurrencias futuras que cambiaron o desaparecieron.
+ * Punto único que usa `publishVersion`. Idempotente.
+ */
+export async function activateProgramWithReconciliation(
+  organizationId: string,
+  actorId: string,
+  documentId: string,
+  newVersionId: string,
+  priorVersionIds: string[],
+  now?: string,
+): Promise<ActivationResult & { superseded: number; cancelledTasks: number }> {
+  const today = now ?? new Date().toISOString().slice(0, 10);
+  const { plan, carryTaskByKey } = await planProgramReconciliation(
+    organizationId,
+    documentId,
+    newVersionId,
+    priorVersionIds,
+    today,
+  );
+  const activation = await activateProgram(organizationId, actorId, documentId, newVersionId, {
+    carryTaskByKey,
+  });
+  const recon = await applyProgramReconciliation(organizationId, actorId, plan);
+  return { ...activation, superseded: recon.superseded, cancelledTasks: recon.cancelledTasks };
+}
+
+/**
+ * Al OBSOLETAR una versión de Programa sin reemplazo (§10/§21): sus ocurrencias
+ * futuras no iniciadas se marcan `superseded` y sus tareas pasan a `cancelled`. El
+ * histórico (completadas/vencidas/iniciadas) permanece. Detiene avisos futuros
+ * (el processor ignora instancias no `scheduled`). Idempotente.
+ */
+export async function supersedeFutureOccurrences(
+  organizationId: string,
+  actorId: string,
+  versionId: string,
+  now?: string,
+): Promise<ReconciliationResult> {
+  const today = (now ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const prisma = getPrisma();
+  const instances = await prisma.programActivityInstance.findMany({
+    where: { organizationId, documentVersionId: versionId, status: 'scheduled' },
+    select: { id: true, dueAt: true, taskId: true },
+  });
+  const taskIds = instances.map((i) => i.taskId).filter((x): x is string => Boolean(x));
+  const tasks = taskIds.length
+    ? await prisma.task.findMany({
+        where: { organizationId, id: { in: taskIds } },
+        select: { id: true, status: true },
+      })
+    : [];
+  const taskStatus = new Map(tasks.map((t) => [t.id, t.status]));
+  const plan: ReconciliationPlan = { carry: [], supersede: [] };
+  for (const inst of instances) {
+    const dueRaw = inst.dueAt ? inst.dueAt.toISOString().slice(0, 10) : null;
+    const tStatus = inst.taskId ? (taskStatus.get(inst.taskId) ?? null) : null;
+    const isFuture = !dueRaw || dueRaw >= today;
+    if (isFuture && !TERMINAL_TASK_STATUSES.has(tStatus ?? '')) {
+      plan.supersede.push({ instanceId: inst.id, taskId: inst.taskId });
+    }
+  }
+  return applyProgramReconciliation(organizationId, actorId, plan);
 }
 
 export interface ProgramInstanceRow {
