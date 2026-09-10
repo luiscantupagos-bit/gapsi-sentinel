@@ -16,9 +16,11 @@ import {
 } from '@/features/documents/template-registry';
 import { STRUCTURED_SCHEMA_VERSION } from '@/features/documents/structured-content';
 import { richPlainText, type RichValue } from '@/features/documents/references';
+import { type ProgramBlock } from '@/features/documents/program-execution';
 import { saveStructuredContentAction } from '../editor-actions';
 import { ReferenceTextEditor, type ResolvedSnapshot } from './ReferenceTextEditor';
 import { IssuedFormDialog } from './IssuedFormDialog';
+import { ProgramActivitiesEditor } from './ProgramActivitiesEditor';
 
 type Item = Record<string, RichValue>;
 
@@ -34,7 +36,12 @@ interface Props {
   initialFields: Record<string, RichValue>;
   initialRepeatables: Record<string, Item[]>;
   resolvedReferences: Record<string, ResolvedSnapshot>;
+  // DOC-003: bloque ejecutable + miembros (solo Programa).
+  initialProgram?: ProgramBlock | null;
+  members?: { id: string; name: string }[];
 }
+
+const EMPTY_PROGRAM: ProgramBlock = { periodStart: null, periodEnd: null, activities: [] };
 
 const asText = (v: RichValue | undefined): string =>
   v === undefined ? '' : typeof v === 'string' ? v : richPlainText(v);
@@ -43,6 +50,7 @@ export function StructuredEditor(props: Props) {
   const def = getTemplateDefinition(props.documentType);
   const [fields, setFields] = useState<Record<string, RichValue>>(props.initialFields);
   const [repeatables, setRepeatables] = useState<Record<string, Item[]>>(props.initialRepeatables);
+  const [program, setProgram] = useState<ProgramBlock>(props.initialProgram ?? EMPTY_PROGRAM);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -90,6 +98,7 @@ export function StructuredEditor(props: Props) {
       templateType: props.documentType,
       fields,
       repeatables,
+      ...(props.documentType === 'program' ? { program } : {}),
     };
     try {
       const res = await saveStructuredContentAction({
@@ -104,7 +113,7 @@ export function StructuredEditor(props: Props) {
     } finally {
       setSaving(false);
     }
-  }, [fields, repeatables, props.documentId, props.versionId, props.documentType]);
+  }, [fields, repeatables, program, props.documentId, props.versionId, props.documentType]);
 
   const sections = useMemo(() => def?.sections ?? [], [def]);
 
@@ -308,6 +317,19 @@ export function StructuredEditor(props: Props) {
               })()}
         </fieldset>
       ))}
+
+      {props.documentType === 'program' && (
+        <ProgramActivitiesEditor
+          value={program}
+          onChange={(b) => {
+            setProgram(b);
+            setDirty(true);
+            setMessage(null);
+          }}
+          members={props.members ?? []}
+          editable={props.editable}
+        />
+      )}
 
       {props.editable && (
         <div className="form-actions">
