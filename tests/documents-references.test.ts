@@ -176,7 +176,7 @@ describe('renderer con referencias (§11/§12/§49)', () => {
         ],
       },
     });
-    const html = renderStructuredHtml('procedure', content, identity, resolved);
+    const html = renderStructuredHtml('procedure', content, identity, { resolved });
     expect(html).toContain(`href="/dashboard/documents/${DOC_A}"`);
     expect(html).toContain('PO-DG-001');
     expect(html).toContain('Documentos referenciados');
