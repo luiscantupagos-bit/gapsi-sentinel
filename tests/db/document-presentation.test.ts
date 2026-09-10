@@ -22,6 +22,8 @@ describe.skipIf(!hasDb)('presentación documental (DOC-UX-001)', () => {
       primary: '#005BAA',
       secondary: '#E5E7EB',
       accent: '#F59E0B',
+      text: '#1f2937',
+      heading: '#0f2440',
     });
     const themeA = await getDocumentTheme(a.orgId);
     expect(themeA.primary).toBe('#005baa');
