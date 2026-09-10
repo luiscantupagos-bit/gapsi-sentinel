@@ -5,7 +5,9 @@ import {
   listOrganizationSites,
   listOrganizationMembers,
 } from '@/server/organization';
+import { getOrganizationCompliancePolicy } from '@/server/compliance';
 import { OrganizationProfileForm } from './_components/OrganizationProfileForm';
+import { ComplianceThresholdsForm } from './_components/ComplianceThresholdsForm';
 
 const ROLE_LABEL: Record<string, string> = {
   owner: 'Propietario',
@@ -20,10 +22,11 @@ const ROLE_LABEL: Record<string, string> = {
  */
 export default async function GeneralSettingsPage() {
   const session = await requireServerSession();
-  const [profile, sites, members] = await Promise.all([
+  const [profile, sites, members, compliancePolicy] = await Promise.all([
     getOrganizationProfile(session.organizationId),
     listOrganizationSites(session.organizationId),
     listOrganizationMembers(session.organizationId),
+    getOrganizationCompliancePolicy(session.organizationId),
   ]);
 
   return (
@@ -51,6 +54,9 @@ export default async function GeneralSettingsPage() {
           logoUrl: profile.logoUrl,
         }}
       />
+
+      <h2>Semáforo de cumplimiento</h2>
+      <ComplianceThresholdsForm initial={compliancePolicy} />
 
       <h2>Sitios</h2>
       {sites.length === 0 ? (

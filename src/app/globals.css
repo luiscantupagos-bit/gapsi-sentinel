@@ -5351,3 +5351,30 @@ table td.mono {
     min-height: 2.6rem;
   }
 }
+
+/* CORE-UX-005: preview del semáforo de cumplimiento (Configuración). */
+.compliance-preview {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.compliance-preview__row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.compliance-preview__dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+.compliance-preview__pct {
+  font-weight: 700;
+  min-width: 3.5rem;
+}
+.compliance-preview__label {
+  color: var(--color-text-muted, #64748b);
+}
