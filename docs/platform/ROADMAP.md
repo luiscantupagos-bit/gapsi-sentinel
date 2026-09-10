@@ -39,20 +39,24 @@ componente Gantt**. `PLATFORM-003` debe ir **antes** de producción real.
 
 ---
 
-## CORE-UX-005 — Semáforo global de cumplimiento (§42)
+## CORE-UX-005 — Semáforo global de cumplimiento (§42) — **Fase 1 implementada**
 
-Base ya implementada en PLATFORM-001: `src/features/compliance/compliance-band.ts`
-(`getComplianceBand`, `validateCompliancePolicy`, `DEFAULT_COMPLIANCE_POLICY` 90/80/70,
-estilos y etiquetas). Pendiente en CORE-UX-005:
+Fase 1 completa (ver `docs/tasks/CORE-UX-005-IMPLEMENTATION-NOTES.md`):
 
-- Persistencia **tenant-scoped** de la política (+ migración, con DETENTE previo).
-- Sección **Administración → Configuración → Semáforo de cumplimiento** (§39): green/
-  yellow/orange min; validación `100 >= greenMin > yellowMin > orangeMin >= 0`; servidor
-  autoridad.
-- Colores/etiquetas ajustables por organización (§40); accesibilidad (no solo color).
-- **Migrar componentes** al resolver central: gauge, KPI cards, progress bars, charts,
-  Programas, Proyectos, Indicadores, Diagnósticos.
-- Tests de límites (100/90/89.99/80/79.99/70/69.99/0) — ya cubiertos en el motor puro.
+- **Persistencia tenant-scoped** `organization_compliance_policies` (migración aditiva
+  `20260916000000_compliance_policy`, 0 DROP, RLS + CHECK), fallback default 90/80/70.
+- **Configuración** `Administración → Configuración → Semáforo de cumplimiento` con
+  colores por organización, validación servidor y **preview reactivo**.
+- **Resolver central** (`resolveComplianceBand`) + servicio (`src/server/compliance.ts`).
+- **Componentes migrados**: Dashboard (Estado del sistema, Cumplimiento por esquema),
+  Ejecución de Programas. Etiqueta «Riesgo» y métricas «mayor = peor» sin cambios.
+
+Pendiente (fases siguientes / follow-up):
+
+- Etiquetas de nivel configurables por organización (hoy globales).
+- Migrar KPIs/Indicadores con dirección `higher_is_better` declarada; Proyectos
+  (PROJECT-002) cuando exista un % de avance/cumplimiento.
+- **UI-FIX** del gauge (geometría) sigue separado.
 
 **Semántica (§37)**: aplica **solo** a métricas «mayor = mejor» (cumplimiento,
 conformidad, avance, efectividad, implementación, cumplimiento de programa). **No** a
