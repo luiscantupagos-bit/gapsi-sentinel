@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
-import { DocumentNotFoundError, getStructuredContent } from '@/server/documents';
+import { DocumentNotFoundError, getStructuredContent, listResponsibles } from '@/server/documents';
 import { StructuredEditor } from '../../_editor/StructuredEditor';
 
 export default async function StructuredEditorPage({
@@ -32,6 +32,10 @@ export default async function StructuredEditorPage({
         : `/dashboard/documents/${documentId}/editor`,
     );
   }
+
+  // DOC-003: miembros para el selector de responsable del editor de Programa.
+  const members =
+    data.documentType === 'program' ? await listResponsibles(session.organizationId) : [];
 
   // Mapa targetDocumentId → snapshot resuelto (para los chips del editor).
   const resolvedReferences: Record<
@@ -64,6 +68,8 @@ export default async function StructuredEditorPage({
         ownerArea={data.ownerArea}
         initialFields={data.structuredContent.fields}
         initialRepeatables={data.structuredContent.repeatables}
+        initialProgram={data.structuredContent.program ?? null}
+        members={members}
         resolvedReferences={resolvedReferences}
       />
     </main>

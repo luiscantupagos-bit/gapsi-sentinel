@@ -62,6 +62,8 @@ import {
   type DocumentTheme,
 } from '@/features/documents/document-theme';
 import { sanitizeDesignId, DEFAULT_DESIGN_ID } from '@/features/documents/document-design';
+import { ensureActivityIds } from '@/features/documents/program-execution';
+import { randomUUID } from 'node:crypto';
 import {
   sanitizeDateFormat,
   formatIsoDate,
@@ -1331,6 +1333,8 @@ export async function createStructuredDocument(
   const nextReviewAt = computeNextReviewAt(issuedAt, months);
 
   const content = sanitizeStructuredContent(documentType, input.structuredContent);
+  // DOC-003: acuña activityId estable para las actividades del Programa (§3/§15).
+  if (content.program) content.program = ensureActivityIds(content.program, () => randomUUID());
   if (structuredByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
 
   return saneCreate(() =>
@@ -1907,6 +1911,16 @@ export async function getStructuredContent(
     presentation.dateFormat,
   );
   const mode = version.status === 'published' ? 'published_document' : 'editor_preview';
+  // DOC-003: en Programas, resuelve el nombre del responsable de cada actividad
+  // (el render cae en «Usuario» sin este mapa). Solo para el tipo Programa.
+  let users: Record<string, string> | undefined;
+  if (content.program) {
+    const members = await prisma.membership.findMany({
+      where: { organizationId },
+      select: { userId: true, user: { select: { displayName: true, email: true } } },
+    });
+    users = Object.fromEntries(members.map((m) => [m.userId, m.user.displayName ?? m.user.email]));
+  }
   const renderedHtml = renderStructuredHtml(doc.documentType, content, identity, {
     resolved,
     theme: presentation.theme,
@@ -1914,6 +1928,7 @@ export async function getStructuredContent(
     showC3Attribution,
     changeLog,
     mode,
+    users,
   });
   const references = refs.map((r) => ({
     relationType: r.relationType,
@@ -1987,6 +2002,9 @@ export async function saveStructuredContent(
     sanitized,
     version.structuredContent,
   );
+  // DOC-003: acuña activityId estable para las actividades del Programa (§3/§15);
+  // conserva los ids existentes al reordenar/editar.
+  if (content.program) content.program = ensureActivityIds(content.program, () => randomUUID());
   if (structuredByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
 
   const org = await getPrisma().organization.findUniqueOrThrow({

@@ -10,6 +10,7 @@ import {
 } from '@/server/documents';
 import { getUserVersionContext } from '@/server/document-workflow';
 import { DocumentToolbar } from './DocumentToolbar';
+import { ProgramTabs } from './ProgramTabs';
 
 /**
  * Vista canónica del documento (DOC-UX-003 §3-4). Es la VISTA PREVIA/render del
@@ -86,6 +87,8 @@ export default async function DocumentViewPage({
         panelHref={panelHref}
         areas={areas}
       />
+
+      {doc.documentType === 'program' && <ProgramTabs documentId={doc.id} active="document" />}
 
       {isExternal ? (
         <div className="external-doc-card">

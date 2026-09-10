@@ -101,6 +101,64 @@ model DocumentCopyCounter {
   @@map("document_copy_counters")
 }
 
+/// DOC-003: OCURRENCIA ejecutable de una actividad de Programa. Cada instancia
+/// nace al PUBLICAR el programa y se enlaza a una Tarea NATIVA (task_id). El estado
+/// operativo se deriva de la Tarea; aquí se conserva la trazabilidad y la clave de
+/// ocurrencia determinista para idempotencia/reconciliación.
+model ProgramActivityInstance {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  documentId        String    @map("document_id") @db.Uuid
+  documentVersionId String    @map("document_version_id") @db.Uuid
+  activityId        String    @map("activity_id")
+  occurrenceKey     String    @map("occurrence_key")
+  activityName      String    @map("activity_name")
+  plannedStart      DateTime? @map("planned_start") @db.Date
+  dueAt             DateTime? @map("due_at") @db.Date
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  taskId            String?   @map("task_id") @db.Uuid
+  expectedEvidence  String?   @map("expected_evidence")
+  /// Días de anticipación del aviso (DOC-003 §6): 0|1|3|7|15|30. Default 7.
+  notifyBeforeDays  Int       @default(7) @map("notify_before_days")
+  /// status: scheduled | superseded | cancelled (el estado operativo real vive en la Tarea).
+  status            String    @default("scheduled")
+  completedAt       DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([documentVersionId, activityId, occurrenceKey])
+  @@index([documentId])
+  @@index([organizationId])
+  @@map("program_activity_instances")
+}
+
+/// DOC-003 (transversal): entrega de una notificación interna de C3 Sentinel. NO
+/// acoplada a Programas: `source_type`/`source_id` permiten avisos futuros de
+/// task/document_review/audit/capa/etc. Canal MVP = dentro del sistema (sin
+/// email/SMS/push). El estado se deriva de delivered_at/read_at (sin status extra).
+model NotificationDelivery {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  /// sourceType: program_activity | (futuros) task | document_review | audit | capa …
+  sourceType       String    @map("source_type")
+  sourceId         String    @map("source_id") @db.Uuid
+  /// notificationType: program_due_soon | program_due_today | program_overdue | …
+  notificationType String    @map("notification_type")
+  scheduledFor     DateTime  @map("scheduled_for") @db.Date
+  title            String
+  message          String
+  payload          Json?
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deliveredAt      DateTime? @map("delivered_at") @db.Timestamptz(6)
+  readAt           DateTime? @map("read_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, userId, sourceType, sourceId, notificationType, scheduledFor])
+  @@index([organizationId, userId, readAt])
+  @@index([sourceType, sourceId])
+  @@map("notification_deliveries")
+}
+
 /// Identidad de persona. Global (sin organization_id). No almacena contraseñas.
 model User {
   id          String    @id @default(uuid()) @db.Uuid

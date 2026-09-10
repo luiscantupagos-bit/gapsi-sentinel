@@ -18,6 +18,11 @@ import {
 import { validateStructuredContent } from '@/features/documents/structured-content';
 import { isStructuredType } from '@/features/documents/template-registry';
 import { INITIAL_VERSION_LABEL } from '@/features/documents/versioning';
+import {
+  activateProgramWithReconciliation,
+  supersedeFutureOccurrences,
+  validateProgramForActivation,
+} from './programs';
 
 export class WorkflowPermissionError extends Error {
   constructor(message = 'No tienes permiso para esta acción.') {
@@ -524,6 +529,18 @@ export async function publishVersion(
     throw new WorkflowValidationError(['Solo una versión aprobada puede publicarse.']);
   assertVersionTransition('approved', 'published');
 
+  // DOC-003: si es un Programa, valida las actividades ejecutables ANTES de publicar
+  // (horizonte, fechas, responsable §37/§12). No publica si hay errores.
+  const programErrors = await validateProgramForActivation(
+    organizationId,
+    version.documentId,
+    versionId,
+  );
+  if (programErrors.length) throw new WorkflowValidationError(programErrors);
+
+  // DOC-003 §2-13: versiones vigentes anteriores que serán reemplazadas (para
+  // reconciliar su ejecución con la versión nueva tras publicar).
+  const priorVersionIds: string[] = [];
   await withOrgContext(organizationId, async (tx) => {
     // Obsoleta la versión vigente anterior (identificada por status=published).
     const prev = await tx.documentVersion.findMany({
@@ -531,6 +548,7 @@ export async function publishVersion(
     });
     for (const p of prev) {
       if (p.id === versionId) continue;
+      priorVersionIds.push(p.id);
       await tx.documentVersion.update({
         where: { id: p.id },
         data: { status: 'obsolete', isCurrent: false },
@@ -584,6 +602,17 @@ export async function publishVersion(
       actorId,
     );
   });
+
+  // DOC-003: tras publicar, un Programa genera sus ocurrencias + tareas nativas y
+  // reconcilia contra las versiones previas (continuidad/sustitución §2-13). La
+  // activación es idempotente; para otros tipos no hace nada.
+  await activateProgramWithReconciliation(
+    organizationId,
+    actorId,
+    version.documentId,
+    versionId,
+    priorVersionIds,
+  );
 }
 
 /** Obsoleta una versión vigente (owner/admin). */
@@ -615,6 +644,11 @@ export async function obsoleteVersion(
       reason,
     );
   });
+
+  // DOC-003 §10/§21: al obsoletar un Programa sin reemplazo, sus ocurrencias futuras
+  // no iniciadas se sustituyen y sus tareas se cancelan; el histórico permanece y no
+  // se generan nuevos avisos. Otros tipos no tienen ocurrencias (no-op).
+  await supersedeFutureOccurrences(organizationId, actorId, versionId);
 }
 
 /** Distribuye el documento vigente a un destino. owner/admin. */

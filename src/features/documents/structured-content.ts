@@ -33,6 +33,7 @@ import {
   type RichValue,
   type RefRelationType,
 } from './references';
+import { sanitizeProgramBlock, type ProgramBlock } from './program-execution';
 
 /** Versión del esquema estructurado. Obligatoria; el renderer soporta esta versión. */
 export const STRUCTURED_SCHEMA_VERSION = 1;
@@ -50,6 +51,8 @@ export interface StructuredContent {
   fields: Record<string, RichValue>;
   /** Bloques repetibles: por clave de bloque, una lista de ítems (subcampo→valor). */
   repeatables: Record<string, Array<Record<string, RichValue>>>;
+  /** DOC-003: bloque ejecutable del Programa (periodo + actividades con id estable). */
+  program?: ProgramBlock;
 }
 
 /** Referencia extraída del contenido (deduplicada por tipo + destino). */
@@ -138,6 +141,12 @@ export function sanitizeStructuredContent(templateType: string, input: unknown):
       }
       if (items.length) out.repeatables[rep.key] = items;
     }
+  }
+
+  // DOC-003: bloque ejecutable del Programa (saneo determinista; el servidor
+  // acuña los activityId faltantes al guardar con `ensureActivityIds`).
+  if (templateType === 'program') {
+    out.program = sanitizeProgramBlock(raw.program);
   }
   return out;
 }
