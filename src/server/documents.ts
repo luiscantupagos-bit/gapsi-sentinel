@@ -53,6 +53,7 @@ import {
   type RenderIdentity,
   type ReferenceResolver,
   type ChangeLogRow,
+  type CopyMark,
 } from '@/features/documents/structured-render';
 import {
   sanitizeDocumentTheme,
@@ -60,6 +61,15 @@ import {
   DEFAULT_DOCUMENT_THEME,
   type DocumentTheme,
 } from '@/features/documents/document-theme';
+import { sanitizeDesignId, DEFAULT_DESIGN_ID } from '@/features/documents/document-design';
+import {
+  computeEntitlements,
+  resolveShowC3Attribution,
+  isSubscriptionPlan,
+  isBillingCadence,
+  type SubscriptionEntitlements,
+  type SubscriptionDescriptor,
+} from '@/features/documents/entitlements';
 import { REF_RELATION_TYPES, refKey } from '@/features/documents/references';
 import { formatDocumentCode, codeFormatError, normalizeAreaCode } from '@/features/documents/code';
 import { computeNextReviewAt, reviewMonthsOf } from '@/features/documents/dates';
@@ -1403,29 +1413,107 @@ export async function createStructuredDocument(
   );
 }
 
-/** Tema documental de la organización (o el default de C3 Sentinel). */
-export async function getDocumentTheme(organizationId: string): Promise<DocumentTheme> {
-  const row = await getPrisma().documentTheme.findUnique({
-    where: { organizationId },
-    select: { primaryColor: true, secondaryColor: true, accentColor: true },
-  });
-  if (!row) return DEFAULT_DOCUMENT_THEME;
-  return sanitizeDocumentTheme({
-    primary: row.primaryColor,
-    secondary: row.secondaryColor,
-    accent: row.accentColor,
-  });
+/** Presentación documental completa de la organización (tema + diseño + atribución). */
+export interface DocumentPresentation {
+  theme: DocumentTheme;
+  designId: string;
+  /** Preferencia guardada (no la efectiva; la efectiva depende del entitlement). */
+  showC3AttributionPref: boolean;
 }
 
-/** Guarda el tema documental (solo HEX validado). owner/admin no requerido: config org. */
+/** Tema + diseño + preferencia de atribución de la organización (o defaults). */
+export async function getDocumentPresentation(
+  organizationId: string,
+): Promise<DocumentPresentation> {
+  const row = await getPrisma().documentTheme.findUnique({
+    where: { organizationId },
+    select: {
+      primaryColor: true,
+      secondaryColor: true,
+      accentColor: true,
+      textColor: true,
+      headingColor: true,
+      designId: true,
+      showC3Attribution: true,
+    },
+  });
+  if (!row) {
+    return {
+      theme: DEFAULT_DOCUMENT_THEME,
+      designId: DEFAULT_DESIGN_ID,
+      showC3AttributionPref: true,
+    };
+  }
+  return {
+    theme: sanitizeDocumentTheme({
+      primary: row.primaryColor,
+      secondary: row.secondaryColor,
+      accent: row.accentColor,
+      text: row.textColor,
+      heading: row.headingColor,
+    }),
+    designId: sanitizeDesignId(row.designId),
+    showC3AttributionPref: row.showC3Attribution,
+  };
+}
+
+/** Tema documental de la organización (o el default de C3 Sentinel). */
+export async function getDocumentTheme(organizationId: string): Promise<DocumentTheme> {
+  return (await getDocumentPresentation(organizationId)).theme;
+}
+
+/** Suscripción comercial de la organización (provisional; o `null` si no definida). */
+export async function getOrganizationSubscription(
+  organizationId: string,
+): Promise<SubscriptionDescriptor | null> {
+  const row = await getPrisma().organizationSubscription.findUnique({
+    where: { organizationId },
+    select: { plan: true, billingCadence: true },
+  });
+  if (!row) return null;
+  if (!isSubscriptionPlan(row.plan) || !isBillingCadence(row.billingCadence)) return null;
+  return { plan: row.plan, cadence: row.billingCadence };
+}
+
+/** Entitlements comerciales efectivos de la organización (DOC-UX-002 §84/§110). */
+export async function getOrganizationEntitlements(
+  organizationId: string,
+): Promise<SubscriptionEntitlements> {
+  const sub = await getOrganizationSubscription(organizationId);
+  return computeEntitlements(sub);
+}
+
+/** Atribución C3 EFECTIVA (preferencia + guard de entitlement en servidor). */
+export async function resolveShowC3AttributionForOrg(organizationId: string): Promise<boolean> {
+  const [presentation, entitlements] = await Promise.all([
+    getDocumentPresentation(organizationId),
+    getOrganizationEntitlements(organizationId),
+  ]);
+  return resolveShowC3Attribution(presentation.showC3AttributionPref, entitlements);
+}
+
+/**
+ * Guarda la presentación documental (tema HEX validado + diseño + atribución).
+ * owner/admin no requerido: config org. La atribución solo puede ocultarse si el
+ * entitlement lo permite (guard server-side §84/§110).
+ */
 export async function setDocumentTheme(
   organizationId: string,
   userId: string,
   input: unknown,
-): Promise<DocumentTheme> {
+): Promise<DocumentPresentation> {
   const errors = validateDocumentTheme(input);
   if (errors.length) throw new DocumentValidationError(errors);
   const theme = sanitizeDocumentTheme(input);
+  const raw = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+  const designId = sanitizeDesignId(raw.designId);
+
+  // Guard de entitlement: si la org no puede ocultar la atribución, la preferencia
+  // se fuerza a true independientemente de lo que envíe el cliente.
+  const entitlements = await getOrganizationEntitlements(organizationId);
+  const requestedShow = raw.showC3Attribution === undefined ? true : Boolean(raw.showC3Attribution);
+  const showC3Attribution = entitlements.canHideC3Attribution ? requestedShow : true;
+
   await withOrgContext(organizationId, async (tx) => {
     await tx.documentTheme.upsert({
       where: { organizationId },
@@ -1433,6 +1521,10 @@ export async function setDocumentTheme(
         primaryColor: theme.primary,
         secondaryColor: theme.secondary,
         accentColor: theme.accent,
+        textColor: theme.text,
+        headingColor: theme.heading,
+        designId,
+        showC3Attribution,
         updatedBy: userId,
       },
       create: {
@@ -1440,11 +1532,262 @@ export async function setDocumentTheme(
         primaryColor: theme.primary,
         secondaryColor: theme.secondary,
         accentColor: theme.accent,
+        textColor: theme.text,
+        headingColor: theme.heading,
+        designId,
+        showC3Attribution,
         updatedBy: userId,
       },
     });
   });
-  return theme;
+  return { theme, designId, showC3AttributionPref: showC3Attribution };
+}
+
+// --- Copias controladas de salida (impresión / PDF) — DOC-UX-002 §67-82 ---------
+
+const REASON_MAX = 300;
+
+export interface ControlledCopyInput {
+  documentId: string;
+  versionId: string;
+  copyType: 'print' | 'pdf';
+  destinationAreaCode?: string | null;
+  reason?: string | null;
+}
+
+export interface ControlledCopyResult {
+  id: string;
+  folio: string;
+  copyType: 'print' | 'pdf';
+  versionLabel: string;
+  destinationLabel: string | null;
+  reason: string | null;
+}
+
+/** Consecutivo atómico de folio de copia por (organización, documento). */
+async function reserveCopyFolioSeq(
+  tx: Tx,
+  organizationId: string,
+  documentId: string,
+): Promise<number> {
+  const rows = await tx.$queryRaw<{ last_seq: number }[]>`
+    INSERT INTO document_copy_counters ("organization_id", "document_id", "last_seq")
+    VALUES (${organizationId}::uuid, ${documentId}::uuid, 1)
+    ON CONFLICT ("organization_id", "document_id")
+    DO UPDATE SET "last_seq" = document_copy_counters."last_seq" + 1
+    RETURNING "last_seq"`;
+  return rows[0]?.last_seq ?? 1;
+}
+
+/**
+ * Genera una COPIA CONTROLADA de salida (impresión o PDF) de una versión
+ * PUBLICADA (§80): reserva folio, valida destino/motivo y registra el evento con
+ * trazabilidad. No se registra para borradores/obsoletos (esos van marcados como
+ * NO CONTROLADOS sin folio, §81/§82). Estado `active`: registramos la GENERACIÓN,
+ * no la impresión física (§78).
+ */
+export async function createControlledCopyOutput(
+  organizationId: string,
+  userId: string,
+  input: ControlledCopyInput,
+): Promise<ControlledCopyResult> {
+  const doc = await loadScopedDocument(organizationId, input.documentId);
+  const version = await loadScopedVersion(organizationId, input.documentId, input.versionId);
+  if (version.status !== 'published') {
+    throw new DocumentValidationError([
+      'Solo las versiones publicadas generan copias controladas formales.',
+    ]);
+  }
+
+  let destinationLabel: string | null = null;
+  let destinationAreaCode: string | null = null;
+  let reason: string | null = null;
+
+  if (input.copyType === 'print') {
+    const code = (input.destinationAreaCode ?? '').trim();
+    if (!code) {
+      throw new DocumentValidationError(['Indica el área a la que se entrega la copia.']);
+    }
+    const area = await getAreaByCode(organizationId, code);
+    if (!area) {
+      throw new DocumentValidationError(['El área destino no es válida para esta organización.']);
+    }
+    destinationAreaCode = area.code;
+    destinationLabel = area.name;
+  } else {
+    const r = (input.reason ?? '').trim();
+    if (!r) {
+      throw new DocumentValidationError(['Indica el motivo de la descarga.']);
+    }
+    reason = r.slice(0, REASON_MAX);
+    destinationLabel = null;
+  }
+
+  const recipient = input.copyType === 'print' ? (destinationLabel ?? 'Área') : 'Descarga PDF';
+  const format = input.copyType === 'print' ? 'printed' : 'digital';
+
+  const created = await saneCreate(() =>
+    withOrgContext(organizationId, async (tx) => {
+      const seq = await reserveCopyFolioSeq(tx, organizationId, input.documentId);
+      const folio = `CC-${doc.code}-${String(seq).padStart(4, '0')}`;
+      return tx.documentControlledCopy.create({
+        data: {
+          organizationId,
+          documentId: input.documentId,
+          versionId: input.versionId,
+          copyNumber: seq,
+          recipient,
+          format,
+          issuedBy: userId,
+          status: 'active',
+          copyType: input.copyType,
+          folio,
+          destinationAreaCode,
+          reason,
+        },
+        select: { id: true, folio: true },
+      });
+    }),
+  );
+
+  return {
+    id: created.id,
+    folio: created.folio ?? '',
+    copyType: input.copyType,
+    versionLabel: version.label,
+    destinationLabel,
+    reason,
+  };
+}
+
+export interface ControlledCopyHistoryRow {
+  id: string;
+  folio: string;
+  copyType: string;
+  versionLabel: string;
+  destinationLabel: string | null;
+  reason: string | null;
+  issuedByName: string | null;
+  issuedAt: string | null;
+}
+
+/** Historial de copias controladas de SALIDA de un documento (para el panel §79). */
+export async function getControlledCopyHistory(
+  organizationId: string,
+  documentId: string,
+): Promise<ControlledCopyHistoryRow[]> {
+  const prisma = getPrisma();
+  const copies = await prisma.documentControlledCopy.findMany({
+    where: { organizationId, documentId, copyType: { not: null } },
+    orderBy: { issuedAt: 'desc' },
+    select: {
+      id: true,
+      folio: true,
+      copyType: true,
+      versionId: true,
+      destinationAreaCode: true,
+      reason: true,
+      issuedBy: true,
+      issuedAt: true,
+    },
+  });
+  if (copies.length === 0) return [];
+
+  const [versions, names, areas] = await Promise.all([
+    prisma.documentVersion.findMany({
+      where: { documentId, organizationId },
+      select: { id: true, label: true },
+    }),
+    userNames(copies.map((c) => c.issuedBy)),
+    listDocumentAreas(organizationId),
+  ]);
+  const versionLabel = new Map(versions.map((v) => [v.id, v.label]));
+  const areaName = new Map(areas.map((a) => [(a.code ?? '').toUpperCase(), a.name]));
+
+  return copies.map((c) => ({
+    id: c.id,
+    folio: c.folio ?? '',
+    copyType: c.copyType ?? '',
+    versionLabel: versionLabel.get(c.versionId) ?? '—',
+    destinationLabel: c.destinationAreaCode
+      ? (areaName.get(c.destinationAreaCode.toUpperCase()) ?? c.destinationAreaCode)
+      : null,
+    reason: c.reason,
+    issuedByName: c.issuedBy ? (names.get(c.issuedBy) ?? null) : null,
+    issuedAt: isoDate(c.issuedAt),
+  }));
+}
+
+/** Resuelve una copia controlada por id → versión + marca de copia para render. */
+export async function getControlledCopyForRender(
+  organizationId: string,
+  copyId: string,
+): Promise<{ documentId: string; versionId: string; copyMark: CopyMark } | null> {
+  const copy = await getPrisma().documentControlledCopy.findFirst({
+    where: { id: copyId, organizationId, copyType: { not: null } },
+    select: {
+      documentId: true,
+      versionId: true,
+      copyType: true,
+      folio: true,
+      destinationAreaCode: true,
+      reason: true,
+      issuedBy: true,
+      issuedAt: true,
+    },
+  });
+  if (!copy) return null;
+  const [names, areas] = await Promise.all([
+    userNames([copy.issuedBy]),
+    listDocumentAreas(organizationId),
+  ]);
+  const areaName = new Map(areas.map((a) => [(a.code ?? '').toUpperCase(), a.name]));
+  const copyMark: CopyMark = {
+    kind: 'controlled',
+    folio: copy.folio,
+    destinationLabel: copy.destinationAreaCode
+      ? (areaName.get(copy.destinationAreaCode.toUpperCase()) ?? copy.destinationAreaCode)
+      : null,
+    reason: copy.reason,
+    issuedByName: copy.issuedBy ? (names.get(copy.issuedBy) ?? null) : null,
+    issuedAt: isoDate(copy.issuedAt),
+  };
+  return { documentId: copy.documentId, versionId: copy.versionId, copyMark };
+}
+
+/**
+ * Renderiza una versión en modo `controlled_copy` (con watermark + bloque de
+ * copia) para la salida (impresión/PDF). Reutiliza tema/diseño/atribución de la
+ * organización. No altera el documento almacenado (§73).
+ */
+export async function renderDocumentControlledCopy(
+  organizationId: string,
+  documentId: string,
+  versionId: string,
+  copyMark: CopyMark,
+): Promise<{ html: string; documentCode: string; documentTitle: string; versionLabel: string }> {
+  const doc = await loadScopedDocument(organizationId, documentId);
+  const version = await loadScopedVersion(organizationId, documentId, versionId);
+  const org = await getPrisma().organization.findUniqueOrThrow({
+    where: { id: organizationId },
+    select: { name: true },
+  });
+  const content = sanitizeStructuredContent(doc.documentType, version.structuredContent);
+  const identity = buildRenderIdentity(doc, version.label, org.name);
+  const { resolved } = await resolvedReferencesOf(organizationId, content);
+  const presentation = await getDocumentPresentation(organizationId);
+  const showC3Attribution = await resolveShowC3AttributionForOrg(organizationId);
+  const changeLog = await buildChangeLog(organizationId, documentId, version.createdAt);
+  const html = renderStructuredHtml(doc.documentType, content, identity, {
+    resolved,
+    theme: presentation.theme,
+    design: presentation.designId,
+    showC3Attribution,
+    changeLog,
+    mode: 'controlled_copy',
+    copyMark,
+  });
+  return { html, documentCode: doc.code, documentTitle: doc.title, versionLabel: version.label };
 }
 
 /**
@@ -1509,14 +1852,17 @@ export async function getStructuredContent(
   const identity = buildRenderIdentity(doc, version.label, org.name);
   // DOC-002: resuelve referencias del contenido (datos actuales por id).
   const { refs, resolved } = await resolvedReferencesOf(organizationId, content);
-  // DOC-UX-001: tema documental, control de cambios (hasta la versión vista §48) y
-  // modo de render (published limpio / preview con placeholders §55).
-  const theme = await getDocumentTheme(organizationId);
+  // DOC-UX-001/002: presentación (tema + diseño + atribución), control de cambios
+  // (hasta la versión vista §48) y modo de render (published limpio / preview §55).
+  const presentation = await getDocumentPresentation(organizationId);
+  const showC3Attribution = await resolveShowC3AttributionForOrg(organizationId);
   const changeLog = await buildChangeLog(organizationId, documentId, version.createdAt);
   const mode = version.status === 'published' ? 'published_document' : 'editor_preview';
   const renderedHtml = renderStructuredHtml(doc.documentType, content, identity, {
     resolved,
-    theme,
+    theme: presentation.theme,
+    design: presentation.designId,
+    showC3Attribution,
     changeLog,
     mode,
   });
