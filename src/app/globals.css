@@ -508,6 +508,21 @@ a:focus-visible {
   margin-bottom: var(--space-2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
+/* DOC-UX-003 §13: solo el logotipo de Sentinel (sin texto), arriba a la izquierda.
+   El wordmark se escala por alto; azulejo blanco para contraste sobre el sidebar
+   oscuro (el logotipo es azul marino sobre fondo claro). */
+.sidebar__brand--logo-only {
+  justify-content: flex-start;
+}
+.sidebar__brand--logo-only .sidebar__logo-img {
+  width: auto;
+  height: 40px;
+  max-width: 100%;
+  border-radius: 8px;
+  background: #fff;
+  padding: 4px 8px;
+  object-fit: contain;
+}
 .sidebar__logo {
   display: inline-flex;
   align-items: center;
@@ -4564,6 +4579,16 @@ input[type='radio'] {
   width: 2.5rem;
   text-align: center;
 }
+/* DOC-UX-003 §11: los códigos se muestran completos, sin corte a varias líneas. */
+.doc-render__code {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  min-width: 7rem;
+}
+.tbl-linkable td.mono,
+table td.mono {
+  white-space: nowrap;
+}
 
 /* =====================================================================
    DOC-002 — Referencias inteligentes (@) y formatos emitidos (//)
@@ -4777,6 +4802,8 @@ input[type='radio'] {
 }
 .doc-render__table thead th {
   background: var(--doc-secondary);
+  /* DOC-UX-003 §10: texto legible aunque el color secundario sea oscuro. */
+  color: var(--doc-table-head-text, inherit);
 }
 
 /* Pie institucional: confidencialidad + atribución discreta C3 Sentinel. */
@@ -4907,6 +4934,8 @@ input[type='radio'] {
 .doc-render--controlled-copy {
   position: relative;
 }
+/* DOC-UX-003 §8: la marca de agua va POR ENCIMA del contenido (z-index alto) con
+   baja opacidad para no impedir la lectura; no captura eventos. */
 .doc-copy__watermark {
   position: absolute;
   inset: 0;
@@ -4915,16 +4944,20 @@ input[type='radio'] {
   justify-content: center;
   pointer-events: none;
   overflow: hidden;
-  z-index: 0;
+  z-index: 20;
 }
 .doc-copy__watermark span {
   transform: rotate(-32deg);
   font-size: clamp(2.5rem, 9vw, 5.5rem);
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: rgba(120, 120, 120, 0.16);
+  color: rgba(90, 90, 90, 0.14);
+  text-shadow: 0 0 1px rgba(90, 90, 90, 0.1);
   white-space: nowrap;
   user-select: none;
+}
+.doc-copy__watermark--obsolete span {
+  color: rgba(185, 28, 28, 0.16);
 }
 .doc-render--controlled-copy .doc-render__header,
 .doc-render--controlled-copy .doc-render__section,
@@ -4932,6 +4965,11 @@ input[type='radio'] {
 .doc-render--controlled-copy .doc-render__footer {
   position: relative;
   z-index: 1;
+}
+@media print {
+  .doc-copy__watermark {
+    z-index: 20;
+  }
 }
 .doc-copy__info {
   margin: var(--space-3) 0;
@@ -4971,6 +5009,15 @@ input[type='radio'] {
 .doc-toolbar__group:last-child {
   border-right: none;
   padding-right: 0;
+}
+
+/* DOC-UX-003 §3: la vista canónica muestra el render como contenido principal. */
+.doc-view {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
 }
 
 /* Cards de diseño documental con mini-preview (DOC-UX-002 §97). */
