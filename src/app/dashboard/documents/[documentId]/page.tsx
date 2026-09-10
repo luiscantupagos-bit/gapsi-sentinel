@@ -8,7 +8,11 @@ import {
   getEditorContent,
   getIssuedFromSources,
   listResponsibles,
+  listDocumentAreas,
+  getControlledCopyHistory,
 } from '@/server/documents';
+import { DocumentToolbar } from './DocumentToolbar';
+import { CopyHistory } from './CopyHistory';
 import { getDocumentControl, getUserVersionContext } from '@/server/document-workflow';
 import {
   VERSION_STATUS_LABEL,
@@ -58,12 +62,15 @@ export default async function DocumentDetailPage({
     throw error;
   }
 
-  const [editor, control, members] = await Promise.all([
+  const [editor, control, members, areas, copyHistory] = await Promise.all([
     getEditorContent(session.organizationId, documentId),
     getDocumentControl(session.organizationId, documentId),
     listResponsibles(session.organizationId),
+    listDocumentAreas(session.organizationId),
+    getControlledCopyHistory(session.organizationId, documentId),
   ]);
   const ctx = await getUserVersionContext(session.organizationId, session.userId, editor.versionId);
+  const currentVersionStatus = doc.versions.find((v) => v.id === editor.versionId)?.status ?? null;
 
   // DOC-001: el editor/preview depende del MODO de la versión vigente, no del tipo:
   // un documento rich_text histórico puede tener un documentType estructurado.
@@ -163,6 +170,24 @@ export default async function DocumentDetailPage({
           )}
         </div>
       </div>
+
+      <DocumentToolbar
+        documentId={doc.id}
+        currentVersionId={isStructured ? editor.versionId : null}
+        currentVersionStatus={currentVersionStatus}
+        documentStatus={doc.status}
+        editable={doc.editable}
+        canEditContent={!isExternal}
+        editorHref={
+          isStructured
+            ? `/dashboard/documents/${doc.id}/structured`
+            : isExternal
+              ? null
+              : `/dashboard/documents/${doc.id}/editor`
+        }
+        metadataHref={`/dashboard/documents/${doc.id}/edit`}
+        areas={areas}
+      />
 
       {isExternal && (
         <div className="external-doc-card">
@@ -307,7 +332,7 @@ export default async function DocumentDetailPage({
       <h2>Acciones</h2>
       <DocumentActions documentId={doc.id} editable={doc.editable} />
 
-      <h2>Control documental</h2>
+      <h2 id="control-documental">Control documental</h2>
       <p>
         Versión activa <strong>{editor.label}</strong>:{' '}
         <span className="badge">{vLabel(editor.versionStatus)}</span>
@@ -447,6 +472,8 @@ export default async function DocumentDetailPage({
           </table>
         </div>
       )}
+
+      <CopyHistory rows={copyHistory} />
 
       <h3>Historial de estados</h3>
       {control.statusHistory.length === 0 ? (
