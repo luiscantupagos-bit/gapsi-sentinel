@@ -16,6 +16,7 @@
 import { getTemplateDefinition } from './template-registry';
 import { extractReferences, type StructuredContent, type RichValue } from './structured-content';
 import { richHasContent, type RefSegment } from './references';
+import { getDocumentDesign } from './document-design';
 
 export interface RenderIdentity {
   organizationName?: string | null;
@@ -47,6 +48,10 @@ export interface DocumentTheme {
   primary: string;
   secondary: string;
   accent: string;
+  /** Color del texto del cuerpo (DOC-UX-002 §96). */
+  text: string;
+  /** Color del texto en encabezados/títulos (DOC-UX-002 §96). */
+  heading: string;
 }
 /** Fila del Control de cambios (derivada del versionado, §40/§41). */
 export interface ChangeLogRow {
@@ -55,12 +60,31 @@ export interface ChangeLogRow {
   change: string;
   author: string;
 }
-export type RenderMode = 'editor_preview' | 'published_document';
+/**
+ * Marca de una salida controlada (DOC-UX-002 §72/§77/§81/§82). `controlled` emite
+ * "COPIA CONTROLADA" + folio; `draft` marca "BORRADOR — NO CONTROLADO" (sin folio);
+ * `obsolete` marca "DOCUMENTO OBSOLETO — COPIA NO CONTROLADA".
+ */
+export interface CopyMark {
+  kind: 'controlled' | 'draft' | 'obsolete';
+  folio?: string | null;
+  destinationLabel?: string | null;
+  reason?: string | null;
+  issuedByName?: string | null;
+  issuedAt?: string | null;
+}
+export type RenderMode = 'editor_preview' | 'published_document' | 'controlled_copy';
 export interface RenderOptions {
   resolved?: ReferenceResolver;
   mode?: RenderMode;
   theme?: DocumentTheme | null;
   changeLog?: ChangeLogRow[];
+  /** Id de diseño documental (DOC-UX-002). Desconocido → fallback seguro. */
+  design?: string | null;
+  /** Atribución C3 EFECTIVA (ya resuelta en servidor con el entitlement). Default: true. */
+  showC3Attribution?: boolean;
+  /** Marca de salida controlada (solo en `controlled_copy`). */
+  copyMark?: CopyMark | null;
 }
 
 const CONFIDENTIAL_URL = 'https://www.c3digital.com.mx';
@@ -160,14 +184,57 @@ function renderHeader(identity: RenderIdentity): string {
 
 // --- Pie institucional (confidencialidad + atribución C3) ----------------------
 
-function renderFooter(identity: RenderIdentity): string {
+function renderFooter(identity: RenderIdentity, showC3Attribution: boolean): string {
   const org = identity.organizationName?.trim() || 'la organización';
+  // §90: ocultar la atribución comercial NUNCA oculta la leyenda de
+  // confidencialidad (marca de seguridad del documento).
+  const attribution = showC3Attribution
+    ? `<p class="doc-render__attribution">Documento administrado mediante <strong>C3 Sentinel</strong> — Sistema inteligente de gestión, cumplimiento y mejora continua. <a href="${CONFIDENTIAL_URL}">www.c3digital.com.mx</a></p>`
+    : '';
   return `
     <footer class="doc-render__footer">
       <p class="doc-render__confidential">DOCUMENTO CONTROLADO Y CONFIDENCIAL</p>
       <p>Prohibida su reproducción total o parcial sin autorización expresa de «${esc(org)}».</p>
-      <p class="doc-render__attribution">Documento administrado mediante <strong>C3 Sentinel</strong> — Sistema inteligente de gestión, cumplimiento y mejora continua. <a href="${CONFIDENTIAL_URL}">www.c3digital.com.mx</a></p>
+      ${attribution}
     </footer>`;
+}
+
+// --- Salida controlada: watermark + bloque de copia (DOC-UX-002 §72/§77) --------
+
+function renderCopyMark(mark: CopyMark): string {
+  // Estilo propio de la marca de agua (§104): NO usa el tema del cliente, para
+  // garantizar contraste/legibilidad. El documento almacenado no se altera (§73).
+  const watermarkText =
+    mark.kind === 'controlled'
+      ? 'COPIA CONTROLADA'
+      : mark.kind === 'draft'
+        ? 'BORRADOR · NO CONTROLADO'
+        : 'DOCUMENTO OBSOLETO';
+  const watermark = `<div class="doc-copy__watermark" aria-hidden="true"><span>${esc(watermarkText)}</span></div>`;
+
+  const rows: string[] = [];
+  if (mark.kind === 'controlled') {
+    if (mark.folio) rows.push(metaRow('Copia', esc(mark.folio)));
+    if (mark.destinationLabel) rows.push(metaRow('Destino', esc(mark.destinationLabel)));
+    if (mark.reason) rows.push(metaRow('Motivo de descarga', esc(mark.reason)));
+  } else {
+    rows.push(
+      metaRow(
+        'Aviso',
+        mark.kind === 'draft'
+          ? 'Borrador sin control formal. No es una copia controlada.'
+          : 'Versión obsoleta. Copia no controlada; verifique la versión vigente.',
+      ),
+    );
+  }
+  if (mark.issuedByName) rows.push(metaRow('Generada por', esc(mark.issuedByName)));
+  if (mark.issuedAt) rows.push(metaRow('Fecha', esc(mark.issuedAt)));
+
+  const banner =
+    mark.kind === 'controlled'
+      ? ''
+      : `<p class="doc-copy__banner doc-copy__banner--${mark.kind}">${esc(watermarkText)}</p>`;
+  return `${watermark}<aside class="doc-copy__info"><dl class="doc-render__meta">${rows.join('')}</dl>${banner}</aside>`;
 }
 
 // --- Cuerpo ------------------------------------------------------------------
@@ -281,7 +348,9 @@ function themeStyle(theme: DocumentTheme | null | undefined): string {
   const primary = safeHex(theme.primary, '#0f2440');
   const secondary = safeHex(theme.secondary, '#e3e8ef');
   const accent = safeHex(theme.accent, '#2563eb');
-  return ` style="--doc-primary:${primary};--doc-secondary:${secondary};--doc-accent:${accent}"`;
+  const text = safeHex(theme.text, '#1f2937');
+  const heading = safeHex(theme.heading, '#0f2440');
+  return ` style="--doc-primary:${primary};--doc-secondary:${secondary};--doc-accent:${accent};--doc-text:${text};--doc-heading:${heading}"`;
 }
 
 /**
@@ -295,9 +364,16 @@ export function renderStructuredHtml(
 ): string {
   const resolved = options.resolved ?? {};
   const mode: RenderMode = options.mode ?? 'published_document';
-  const published = mode === 'published_document';
+  // Documento "limpio" (sin andamiaje de edición): publicado o copia controlada.
+  const clean = mode === 'published_document' || mode === 'controlled_copy';
+  const published = clean;
+  const showC3Attribution = options.showC3Attribution ?? true;
   const def = getTemplateDefinition(templateType);
   const sections: string[] = [renderHeader(identity)];
+  // Salida controlada: marca de agua + bloque de copia justo tras el encabezado.
+  if (mode === 'controlled_copy' && options.copyMark) {
+    sections.push(renderCopyMark(options.copyMark));
+  }
 
   if (def && def.supportsStructuredEditor) {
     for (const section of def.sections) {
@@ -355,6 +431,10 @@ export function renderStructuredHtml(
     }
   }
 
-  sections.push(renderFooter(identity));
-  return `<article class="doc-render"${themeStyle(options.theme)}>${sections.join('')}</article>`;
+  sections.push(renderFooter(identity, showC3Attribution));
+
+  const design = getDocumentDesign(options.design);
+  const classes = ['doc-render', design.cssClass];
+  if (mode === 'controlled_copy') classes.push('doc-render--controlled-copy');
+  return `<article class="${classes.join(' ')}"${themeStyle(options.theme)}>${sections.join('')}</article>`;
 }

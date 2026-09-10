@@ -14,6 +14,8 @@ export const DEFAULT_DOCUMENT_THEME: DocumentTheme = {
   primary: '#0f2440',
   secondary: '#e3e8ef',
   accent: '#2563eb',
+  text: '#1f2937',
+  heading: '#0f2440',
 };
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -34,6 +36,8 @@ export function sanitizeDocumentTheme(input: unknown): DocumentTheme {
     primary: normalizeHex(t.primary, DEFAULT_DOCUMENT_THEME.primary),
     secondary: normalizeHex(t.secondary, DEFAULT_DOCUMENT_THEME.secondary),
     accent: normalizeHex(t.accent, DEFAULT_DOCUMENT_THEME.accent),
+    text: normalizeHex(t.text, DEFAULT_DOCUMENT_THEME.text),
+    heading: normalizeHex(t.heading, DEFAULT_DOCUMENT_THEME.heading),
   };
 }
 
@@ -47,5 +51,7 @@ export function validateDocumentTheme(input: unknown): string[] {
   check(t.primary, 'principal');
   check(t.secondary, 'secundario');
   check(t.accent, 'de acento');
+  check(t.text, 'del texto');
+  check(t.heading, 'del texto en encabezados');
   return errors;
 }
