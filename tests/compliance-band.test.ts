@@ -6,7 +6,14 @@ import {
   getComplianceBand,
   validateCompliancePolicy,
   DEFAULT_COMPLIANCE_POLICY,
+  DEFAULT_RESOLVED_POLICY,
+  resolveComplianceBand,
+  validateComplianceColors,
+  validateResolvedPolicy,
+  stylesFromColors,
+  usesComplianceBand,
   type CompliancePolicy,
+  type ResolvedCompliancePolicy,
 } from '@/features/compliance/compliance-band';
 
 describe('getComplianceBand — límites por defecto (§36)', () => {
@@ -84,5 +91,72 @@ describe('validateCompliancePolicy (§39)', () => {
     expect(
       validateCompliancePolicy({ greenMin: Number.NaN, yellowMin: 80, orangeMin: 70 }).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe('política resuelta (umbrales + colores, CORE-UX-005)', () => {
+  const custom: ResolvedCompliancePolicy = {
+    greenMin: 95,
+    yellowMin: 90,
+    orangeMin: 80,
+    green: '#00aa00',
+    yellow: '#ffcc00',
+    orange: '#ff8800',
+    red: '#cc0000',
+  };
+
+  it('resolveComplianceBand usa umbrales y colores de la organización', () => {
+    const band = resolveComplianceBand(92, custom);
+    expect(band.level).toBe('yellow');
+    expect(band.color).toBe('#ffcc00');
+  });
+
+  it('default resuelto colorea con los colores por defecto', () => {
+    expect(resolveComplianceBand(95, DEFAULT_RESOLVED_POLICY).color).toBe(
+      DEFAULT_RESOLVED_POLICY.green,
+    );
+  });
+
+  it('stylesFromColors conserva las etiquetas globales', () => {
+    const styles = stylesFromColors({
+      green: '#111111',
+      yellow: '#222222',
+      orange: '#333333',
+      red: '#444444',
+    });
+    expect(styles.green.label).toBe('Cumplimiento alto');
+    expect(styles.red.color).toBe('#444444');
+  });
+
+  it('validateComplianceColors exige HEX válido', () => {
+    expect(
+      validateComplianceColors({
+        green: '#1f9d55',
+        yellow: '#c9a227',
+        orange: '#d97706',
+        red: '#c0392b',
+      }),
+    ).toEqual([]);
+    expect(
+      validateComplianceColors({
+        green: 'red',
+        yellow: 'rgb(0,0,0)',
+        orange: 'var(--x)',
+        red: '#zzz',
+      }).length,
+    ).toBe(4);
+  });
+
+  it('validateResolvedPolicy combina umbrales y colores', () => {
+    expect(validateResolvedPolicy(custom)).toEqual([]);
+    const bad: ResolvedCompliancePolicy = { ...custom, yellowMin: 96, red: 'nope' };
+    expect(validateResolvedPolicy(bad).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('semántica de métrica (§10/§37)', () => {
+  it('el semáforo aplica solo a higher_is_better', () => {
+    expect(usesComplianceBand('higher_is_better')).toBe(true);
+    expect(usesComplianceBand('lower_is_better')).toBe(false);
   });
 });
