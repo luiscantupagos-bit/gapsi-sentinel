@@ -5004,6 +5004,7 @@ table td.mono {
 .doc-toolbar__group {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem;
   padding-right: var(--space-3);
   border-right: 1px solid var(--color-border);
@@ -5012,14 +5013,39 @@ table td.mono {
   border-right: none;
   padding-right: 0;
 }
+/* DOC-UX-003: todos los botones de la toolbar con la MISMA altura y alineación. */
+.doc-toolbar form {
+  display: inline-flex;
+  margin: 0;
+}
+.doc-toolbar .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  line-height: 1.1;
+  text-align: center;
+}
 
 /* DOC-UX-003 §3: la vista canónica muestra el render como contenido principal. */
+/* DOC-UX-003: la vista canónica se muestra como una HOJA real (ancho tipo carta),
+   centrada, con aire y sombra de papel; no ocupa todo el ancho en desktop. En
+   pantallas pequeñas usa el ancho disponible. Fondo blanco = fondo base del
+   documento (coincide con la validación de contraste). */
 .doc-view {
-  margin-top: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-surface);
+  max-width: 900px;
+  margin: var(--space-4) auto 0;
+  padding: var(--space-6) clamp(var(--space-4), 5vw, var(--space-6));
+  background: #ffffff;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
+  box-shadow: 0 2px 14px rgba(15, 36, 64, 0.08);
+}
+@media (max-width: 960px) {
+  .doc-view {
+    max-width: 100%;
+    padding: var(--space-4);
+  }
 }
 
 /* Cards de diseño documental con mini-preview (DOC-UX-002 §97). */
