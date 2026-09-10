@@ -143,6 +143,100 @@ export function sanitizeStructuredContent(templateType: string, input: unknown):
 }
 
 /**
+ * Campos LEGACY (retirados del registry) que se PRESERVAN explícitamente al
+ * guardar, para compatibilidad con documentos previos (DOC-UX-001 §14). Mapa
+ * acotado: tipo → bloque repetible → claves legacy conocidas. **No** es un
+ * passthrough genérico: solo estas claves y solo desde el contenido previo
+ * almacenado (el allowlist ya descartó cualquier clave del payload del cliente).
+ */
+export const KNOWN_LEGACY_REPEATABLE_FIELDS: Record<string, Record<string, readonly string[]>> = {
+  procedure: { activities: ['evidencia', 'observaciones'] },
+};
+
+function asPlainText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (
+    value &&
+    typeof value === 'object' &&
+    Array.isArray((value as { segments?: unknown }).segments)
+  ) {
+    return richPlainText(value as RichValue);
+  }
+  return '';
+}
+
+/** Clave de emparejamiento estable de una actividad: su nombre normalizado. */
+function activityMatchKey(item: Record<string, unknown>): string {
+  return asPlainText(item.nombre).trim().toLowerCase();
+}
+
+/**
+ * Fusiona en el contenido saneado los CAMPOS LEGACY conocidos que existían en el
+ * contenido previo almacenado, para que un re-guardado desde la UI actual (que ya
+ * no expone esos campos) no los borre silenciosamente (DOC-UX-001 §14).
+ *
+ * - Fuente = SOLO `previousStored` (nunca el payload del cliente).
+ * - Emparejamiento por NOMBRE de actividad (DOC-001 no tiene activityId): una
+ *   actividad eliminada no reaparece; una actividad nueva no hereda legacy ajeno.
+ * - Los valores se aplanan a TEXTO PLANO: no son claves del registry (el renderer
+ *   no los muestra) y no participan de referencias `@`/`//` (no duplican relaciones).
+ */
+export function preserveLegacyRepeatableFields(
+  templateType: string,
+  sanitized: StructuredContent,
+  previousStored: unknown,
+): StructuredContent {
+  const spec = KNOWN_LEGACY_REPEATABLE_FIELDS[templateType];
+  if (!spec) return sanitized;
+  const prev = (
+    previousStored && typeof previousStored === 'object' ? previousStored : {}
+  ) as Record<string, unknown>;
+  const prevReps = (
+    prev.repeatables && typeof prev.repeatables === 'object' ? prev.repeatables : {}
+  ) as Record<string, unknown>;
+
+  const nextRepeatables = { ...sanitized.repeatables };
+  let changed = false;
+
+  for (const [repKey, legacyKeys] of Object.entries(spec)) {
+    const newItems = sanitized.repeatables[repKey];
+    if (!newItems || newItems.length === 0) continue;
+    const prevItems = Array.isArray(prevReps[repKey]) ? (prevReps[repKey] as unknown[]) : [];
+    if (prevItems.length === 0) continue;
+
+    // Cola de payloads legacy por nombre (determinista ante nombres repetidos).
+    const byName = new Map<string, Array<Record<string, string>>>();
+    for (const raw of prevItems) {
+      if (!raw || typeof raw !== 'object') continue;
+      const item = raw as Record<string, unknown>;
+      const legacy: Record<string, string> = {};
+      for (const k of legacyKeys) {
+        const txt = asPlainText(item[k]).slice(0, DEFAULT_TEXTAREA_MAX);
+        if (txt.trim()) legacy[k] = txt;
+      }
+      if (Object.keys(legacy).length === 0) continue;
+      const key = activityMatchKey(item);
+      const queue = byName.get(key) ?? [];
+      queue.push(legacy);
+      byName.set(key, queue);
+    }
+    if (byName.size === 0) continue;
+
+    const merged: Array<Record<string, RichValue>> = newItems.map((item) => {
+      const queue = byName.get(activityMatchKey(item));
+      if (!queue || queue.length === 0) return item;
+      const legacy = queue.shift() as Record<string, string>;
+      changed = true;
+      return { ...item, ...legacy };
+    });
+    nextRepeatables[repKey] = merged;
+  }
+
+  if (!changed) return sanitized;
+  return { ...sanitized, repeatables: nextRepeatables };
+}
+
+/**
  * Valida obligatorios contra el registro. Devuelve mensajes en español (vacío =
  * válido). Los campos simples obligatorios deben estar presentes; en los ítems
  * repetibles presentes, sus subcampos obligatorios deben estar completos.

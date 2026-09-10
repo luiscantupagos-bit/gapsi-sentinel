@@ -28,12 +28,14 @@ ni las referencias DOC-002):
 `RenderOptions`, header con marca de organización, footer C3, modos
 editor/publicado, `safeHex`, `themeStyle`, `renderChangeLog`),
 `template-registry.ts` (PROCEDURE sin `evidencia`/`observaciones`),
-`document-theme.ts` (nuevo: HEX-only).
+`document-theme.ts` (nuevo: HEX-only), `structured-content.ts`
+(`preserveLegacyRepeatableFields` + `KNOWN_LEGACY_REPEATABLE_FIELDS`, §14).
 
 **Servidor**: `documents.ts` (`getDocumentTheme`, `setDocumentTheme`,
 `buildChangeLog`, `getDocumentLibrary`, `getAreaByCode`, `getAreaTypeCounts`;
-`getStructuredContent` integra tema+changeLog+modo; `listDocuments` amplía
-`DocumentFilters` con `statusGroup`/`area` y devuelve `ownerArea`),
+`getStructuredContent` integra tema+changeLog+modo; `saveStructuredContent`
+preserva campos legacy vía `preserveLegacyRepeatableFields`; `listDocuments`
+amplía `DocumentFilters` con `statusGroup`/`area` y devuelve `ownerArea`),
 `document-workflow.ts` (`change_notes` obligatorio solo si `label !==
 INITIAL_VERSION_LABEL`).
 
@@ -47,10 +49,11 @@ DOC-UX-001).
 `prisma/migrations/20260911000000_document_presentation/`, `prisma/seed.ts`
 (upsert de tema para ORG_A).
 
-**Pruebas**: `tests/documents-presentation.test.ts` (9),
-`tests/db/document-presentation.test.ts` (5, casos A/B/F-G/control de cambios);
-actualizadas `documents-structured.test.ts` y `documents-references.test.ts` por
-la nueva firma del renderer.
+**Pruebas**: `tests/documents-presentation.test.ts` (13, incluye preservación
+legacy §14: conserva/no-resucita/no-hereda, allowlist, render sin legacy),
+`tests/db/document-presentation.test.ts` (6, casos A/B/F-G/§14 re-guardado/control
+de cambios); actualizadas `documents-structured.test.ts` y
+`documents-references.test.ts` por la nueva firma del renderer.
 
 ## Decisiones
 
@@ -66,9 +69,17 @@ la nueva firma del renderer.
 - **Solo HEX validado** (§22): `safeHex`/`sanitizeDocumentTheme` evitan inyección
   CSS; un color inválido cae al default. El tema se aplica **solo al render del
   documento**, no al tema global de la app.
-- **Retrocompat sin migración destructiva** (§7): el saneador descarta
-  `evidencia`/`observaciones` al guardar, pero el dato legacy sobrevive en reposo;
-  lector tolera, renderer no muestra. 0 DROP TABLE/COLUMN.
+- **Retrocompat sin migración destructiva + preservación legacy** (§7/§14):
+  Evidencia/Observaciones se retiran del Procedimiento (no se editan/renderizan/
+  crean). Los datos legacy existentes se **preservan** al guardar:
+  `preserveLegacyRepeatableFields` re-inyecta las claves conocidas
+  (`KNOWN_LEGACY_REPEATABLE_FIELDS = { procedure: { activities:
+['evidencia','observaciones'] } }`) **solo desde el contenido previo almacenado**
+  (nunca desde el payload del cliente), emparejando por **nombre de actividad**
+  (no hay `activityId` en DOC-001): una actividad eliminada no reaparece y una
+  nueva no hereda legacy. No debilita el allowlist; el renderer no las muestra; se
+  guardan como texto plano (no afectan `@`/`//`). Una futura migración podrá
+  retirarlas. 0 DROP TABLE/COLUMN.
 - **`change_notes` obligatorio solo > v1.0** (§44): se relaja el requisito
   siempre-obligatorio de DOC-001 para la versión inicial.
 - **Modos de render** (§50-54): `published_document` omite opcionales vacíos;

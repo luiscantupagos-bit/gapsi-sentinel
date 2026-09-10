@@ -89,11 +89,21 @@ inicial), validado en `src/server/document-workflow.ts`.
 La tabla del procedimiento formal conserva **#/Actividad/Descripción/Responsable**
 y elimina las columnas **Evidencia** y **Observaciones**.
 
-Retrocompatibilidad (§7): **sin migración destructiva**. El saneador de contenido
-descarta `evidencia`/`observaciones` al guardar, pero los datos legacy en
-`structured_content` **sobreviven en reposo** hasta un re-guardado explícito; el
-lector los tolera y el renderer no los muestra. El concepto de evidencia sigue
-vivo globalmente en Tareas/CAPA/Auditorías.
+Retrocompatibilidad (§7/§14): **sin migración destructiva**. Evidencia y
+Observaciones ya **no forman parte** del Procedimiento actual (no se editan, no se
+renderizan, no se crean en documentos nuevos). Los datos legacy existentes se
+**preservan silenciosamente** para compatibilidad: al guardar, el servidor sanea
+el contenido nuevo con el registry vigente y luego re-inyecta, **solo desde el
+contenido previo almacenado**, las claves legacy conocidas
+(`evidencia`/`observaciones`) en las actividades que siguen existiendo. La lista
+de claves preservadas es explícita y acotada (`KNOWN_LEGACY_REPEATABLE_FIELDS`);
+**no** se debilita el allowlist (cualquier otra clave desconocida se descarta y el
+cliente no puede inyectarlas). El emparejamiento es por **nombre de actividad**
+(DOC-001 no tiene `activityId`): una actividad eliminada no reaparece y una nueva
+no hereda legacy ajeno. Los valores se guardan como texto plano — el renderer no
+los muestra y no participan de referencias `@`/`//`. Una futura migración podrá
+retirarlos explícitamente. El concepto de evidencia sigue vivo globalmente en
+Tareas/CAPA/Auditorías.
 
 ## 5. Impresión (§16/§50)
 

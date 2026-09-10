@@ -7,6 +7,7 @@ import { db, hasDb, seedOrgWithPublishedTemplate } from './_helpers';
 import {
   createStructuredDocument,
   getStructuredContent,
+  saveStructuredContent,
   getDocumentTheme,
   setDocumentTheme,
   getDocumentLibrary,
@@ -98,6 +99,85 @@ describe.skipIf(!hasDb)('presentación documental (DOC-UX-001)', () => {
     // A cuenta su documento en el área Calidad; B no ve documentos ni áreas de A.
     expect(libA.areas.find((x) => x.name === 'Calidad')?.count).toBe(1);
     expect(libB.areas.reduce((s, x) => s + x.count, 0)).toBe(0);
+  });
+
+  it('§14. re-guardar un procedimiento con datos legacy no los borra (ni resucita ni hereda)', async () => {
+    const org = await seedOrgWithPublishedTemplate(db());
+    const id = await createStructuredDocument(org.orgId, org.userId, {
+      documentType: 'procedure',
+      title: 'Legacy save',
+      areaCode: 'CA',
+      structuredContent: {
+        fields: { objetivo: 'O', alcance: 'A' },
+        repeatables: {
+          activities: [
+            { nombre: 'Uno', descripcion: 'd1', responsable: 'Ana' },
+            { nombre: 'Dos', descripcion: 'd2', responsable: 'Beto' },
+          ],
+        },
+      },
+    });
+    const { versionId } = await getStructuredContent(org.orgId, id);
+    // Inyecta datos legacy en el contenido ALMACENADO (doc previo a DOC-UX-001).
+    await db().documentVersion.update({
+      where: { id: versionId },
+      data: {
+        structuredContent: {
+          schemaVersion: 1,
+          templateType: 'procedure',
+          fields: { objetivo: 'O', alcance: 'A' },
+          repeatables: {
+            activities: [
+              {
+                nombre: 'Uno',
+                descripcion: 'd1',
+                responsable: 'Ana',
+                evidencia: 'Informe A',
+                observaciones: 'Obs A',
+              },
+              {
+                nombre: 'Dos',
+                descripcion: 'd2',
+                responsable: 'Beto',
+                evidencia: 'Informe B',
+                observaciones: 'Obs B',
+              },
+            ],
+          },
+        },
+      },
+    });
+    // B. Guarda desde la UI actual (SIN campos legacy): edita 'Uno', elimina 'Dos',
+    // agrega 'Tres'.
+    await saveStructuredContent(org.orgId, org.userId, id, versionId, {
+      structuredContent: {
+        fields: { objetivo: 'O2', alcance: 'A' },
+        repeatables: {
+          activities: [
+            { nombre: 'Uno', descripcion: 'editada', responsable: 'Ana' },
+            { nombre: 'Tres', descripcion: 'd3', responsable: 'Caro' },
+          ],
+        },
+      },
+    });
+    // C. Relee el contenido almacenado.
+    const raw = await db().documentVersion.findFirst({ where: { id: versionId } });
+    const acts = (
+      raw?.structuredContent as { repeatables: { activities: Array<Record<string, unknown>> } }
+    ).repeatables.activities;
+    const uno = acts.find((a) => a.nombre === 'Uno')!;
+    const tres = acts.find((a) => a.nombre === 'Tres')!;
+    expect(uno.evidencia).toBe('Informe A'); // conservado
+    expect(uno.observaciones).toBe('Obs A'); // conservado
+    expect(uno.descripcion).toBe('editada'); // edición del usuario aplicada
+    expect(acts.find((a) => a.nombre === 'Dos')).toBeUndefined(); // E: eliminada no reaparece
+    expect(tres.evidencia).toBeUndefined(); // F: nueva no hereda
+    expect(tres.observaciones).toBeUndefined();
+    // D. El render no muestra los campos legacy preservados.
+    const data = await getStructuredContent(org.orgId, id);
+    expect(data.renderedHtml).not.toContain('Informe A');
+    expect(data.renderedHtml).not.toContain('Obs A');
+    expect(data.renderedHtml).not.toContain('Evidencia');
   });
 
   it('el control de cambios de la versión inicial muestra "Documento nuevo"', async () => {

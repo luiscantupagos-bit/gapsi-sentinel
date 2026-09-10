@@ -43,6 +43,7 @@ import { getTemplateDefinition, codePrefixFor } from '@/features/documents/templ
 import {
   STRUCTURED_SCHEMA_VERSION,
   sanitizeStructuredContent,
+  preserveLegacyRepeatableFields,
   extractReferences,
   type StructuredContent,
 } from '@/features/documents/structured-content';
@@ -1581,7 +1582,16 @@ export async function saveStructuredContent(
     ]);
   }
 
-  const content = sanitizeStructuredContent(doc.documentType, payload.structuredContent);
+  const sanitized = sanitizeStructuredContent(doc.documentType, payload.structuredContent);
+  // DOC-UX-001 §14: preserva los campos legacy conocidos (evidencia/observaciones)
+  // presentes en el contenido PREVIO almacenado, para que un re-guardado desde la
+  // UI actual —que ya no los expone— no los borre silenciosamente. La fuente es la
+  // BD, no el payload del cliente (el allowlist ya descartó cualquier clave suya).
+  const content = preserveLegacyRepeatableFields(
+    doc.documentType,
+    sanitized,
+    version.structuredContent,
+  );
   if (structuredByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
 
   const org = await getPrisma().organization.findUniqueOrThrow({

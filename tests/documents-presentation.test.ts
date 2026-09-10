@@ -6,7 +6,11 @@ import {
   DEFAULT_DOCUMENT_THEME,
 } from '@/features/documents/document-theme';
 import { getTemplateDefinition } from '@/features/documents/template-registry';
-import { sanitizeStructuredContent } from '@/features/documents/structured-content';
+import {
+  sanitizeStructuredContent,
+  preserveLegacyRepeatableFields,
+  type StructuredContent,
+} from '@/features/documents/structured-content';
 import { renderStructuredHtml } from '@/features/documents/structured-render';
 
 const identity = {
@@ -91,6 +95,91 @@ describe('procedimiento simplificado (§6)', () => {
     expect(html).not.toContain('Evidencia');
     expect(html).not.toContain('Observaciones');
     expect(html).toContain('Responsable');
+  });
+});
+
+describe('preservación de campos legacy del Procedimiento (§14)', () => {
+  const proc = (activities: Array<Record<string, unknown>>): StructuredContent => ({
+    schemaVersion: 1,
+    templateType: 'procedure',
+    fields: {},
+    repeatables: { activities: activities as StructuredContent['repeatables'][string] },
+  });
+
+  it('conserva evidencia/observaciones de actividades existentes; no resucita ni hereda', () => {
+    const previous = {
+      schemaVersion: 1,
+      templateType: 'procedure',
+      fields: {},
+      repeatables: {
+        activities: [
+          { nombre: 'Uno', descripcion: 'd1', evidencia: 'Informe A', observaciones: 'Obs A' },
+          { nombre: 'Dos', descripcion: 'd2', evidencia: 'Informe B', observaciones: 'Obs B' },
+        ],
+      },
+    };
+    // La UI actual reguarda SIN legacy: edita 'Uno', elimina 'Dos', agrega 'Tres'.
+    const next = proc([
+      { nombre: 'Uno', descripcion: 'editada', responsable: 'Ana' },
+      { nombre: 'Tres', descripcion: 'd3' },
+    ]);
+    const merged = preserveLegacyRepeatableFields('procedure', next, previous);
+    const acts = merged.repeatables.activities as Array<Record<string, unknown>>;
+    const uno = acts.find((a) => a.nombre === 'Uno')!;
+    const tres = acts.find((a) => a.nombre === 'Tres')!;
+    expect(uno.evidencia).toBe('Informe A'); // conservado
+    expect(uno.observaciones).toBe('Obs A'); // conservado
+    expect(uno.descripcion).toBe('editada'); // edición del usuario aplicada
+    expect(acts.find((a) => a.nombre === 'Dos')).toBeUndefined(); // §4: eliminada no reaparece
+    expect(tres.evidencia).toBeUndefined(); // §5: nueva no hereda
+    expect(tres.observaciones).toBeUndefined();
+  });
+
+  it('no preserva claves desconocidas: solo la allowlist legacy (§2/§11)', () => {
+    const previous = {
+      repeatables: { activities: [{ nombre: 'Uno', evidencia: 'E', hackKey: 'x' }] },
+    };
+    const merged = preserveLegacyRepeatableFields(
+      'procedure',
+      proc([{ nombre: 'Uno', descripcion: 'd' }]),
+      previous,
+    );
+    const item = (merged.repeatables.activities as Array<Record<string, unknown>>)[0]!;
+    expect(item.evidencia).toBe('E');
+    expect(item.hackKey).toBeUndefined();
+  });
+
+  it('no toca tipos sin campos legacy conocidos', () => {
+    const next: StructuredContent = {
+      schemaVersion: 1,
+      templateType: 'policy',
+      fields: {},
+      repeatables: {},
+    };
+    expect(preserveLegacyRepeatableFields('policy', next, {})).toBe(next);
+  });
+
+  it('el renderer sigue sin mostrar los campos legacy preservados (§7)', () => {
+    const previous = {
+      repeatables: {
+        activities: [{ nombre: 'Uno', evidencia: 'Informe A', observaciones: 'Obs A' }],
+      },
+    };
+    const merged = preserveLegacyRepeatableFields(
+      'procedure',
+      sanitizeStructuredContent('procedure', {
+        fields: { objetivo: 'O', alcance: 'A' },
+        repeatables: { activities: [{ nombre: 'Uno', descripcion: 'd', responsable: 'Ana' }] },
+      }),
+      previous,
+    );
+    const html = renderStructuredHtml('procedure', merged, identity, {
+      mode: 'published_document',
+    });
+    expect(html).not.toContain('Informe A');
+    expect(html).not.toContain('Obs A');
+    expect(html).not.toContain('Evidencia');
+    expect(html).not.toContain('Observaciones');
   });
 });
 
