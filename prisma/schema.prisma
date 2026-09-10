@@ -37,17 +37,49 @@ model Organization {
   @@map("organizations")
 }
 
-/// DOC-UX-001: tema documental por organización (colores HEX validados). Aplica
-/// SOLO al render de documentos, no al tema global de la app. Uno por organización.
+/// DOC-UX-001/002: tema y diseño documental por organización (colores HEX
+/// validados + diseño + preferencia de atribución). Aplica SOLO al render de
+/// documentos, no al tema global de la app. Uno por organización.
 model DocumentTheme {
+  organizationId    String    @id @map("organization_id") @db.Uuid
+  primaryColor      String    @map("primary_color")
+  secondaryColor    String    @map("secondary_color")
+  accentColor       String    @map("accent_color")
+  textColor         String    @default("#1f2937") @map("text_color")
+  headingColor      String    @default("#0f2440") @map("heading_color")
+  /// designId: c3-modern | corporate | technical | minimal (DOC-UX-002)
+  designId          String    @default("c3-modern") @map("design_id")
+  /// Preferencia de mostrar la atribución de C3 (solo efectiva si el entitlement lo permite).
+  showC3Attribution Boolean   @default(true) @map("show_c3_attribution")
+  updatedBy         String?   @map("updated_by") @db.Uuid
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("document_themes")
+}
+
+/// DOC-UX-002: suscripción comercial de la organización. PROVISIONAL — sin motor
+/// de billing real; solo alimenta el cálculo de entitlements (p. ej. ocultar la
+/// atribución de C3). Uno por organización; ausencia = sin entitlement.
+model OrganizationSubscription {
   organizationId String    @id @map("organization_id") @db.Uuid
-  primaryColor   String    @map("primary_color")
-  secondaryColor String    @map("secondary_color")
-  accentColor    String    @map("accent_color")
+  /// plan: entrepreneur | basic | intermediate | industrial
+  plan           String    @default("entrepreneur")
+  /// billingCadence: monthly | annual
+  billingCadence String    @default("monthly") @map("billing_cadence")
   updatedBy      String?   @map("updated_by") @db.Uuid
   updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@map("document_themes")
+  @@map("organization_subscriptions")
+}
+
+/// DOC-UX-002: consecutivo de folio de copias controladas por documento.
+model DocumentCopyCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  documentId     String @map("document_id") @db.Uuid
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, documentId])
+  @@map("document_copy_counters")
 }
 
 /// Identidad de persona. Global (sin organization_id). No almacena contraseñas.
@@ -748,6 +780,14 @@ model DocumentControlledCopy {
   status         String    @default("active")
   closedAt       DateTime? @map("closed_at") @db.Timestamptz(6)
   notes          String?
+  /// DOC-UX-002 (salidas controladas): copyType print | pdf | null (copia de distribución).
+  copyType            String? @map("copy_type")
+  /// Folio humano de la copia (p. ej. CC-PR-CA-001-0001).
+  folio               String? @map("folio")
+  /// Área destino de una copia impresa (código del catálogo de áreas).
+  destinationAreaCode String? @map("destination_area_code")
+  /// Motivo de descarga de una copia PDF.
+  reason              String? @map("reason")
 
   @@unique([versionId, copyNumber])
   @@index([documentId])
