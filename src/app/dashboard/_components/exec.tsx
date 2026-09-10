@@ -9,6 +9,7 @@ import {
   DEFAULT_RESOLVED_POLICY,
   type ResolvedCompliancePolicy,
 } from '@/features/compliance/compliance-band';
+import { GAUGE, gaugeArc } from '@/features/dashboard/gauge-geometry';
 
 export type Tone = 'blue' | 'amber' | 'red' | 'green' | 'slate';
 
@@ -115,43 +116,42 @@ function riskColor(risk: string): string {
 }
 
 export function Gauge({ value, color }: { value: number; color: string }) {
-  const cx = 90;
-  const cy = 90;
-  const r = 72;
-  const polar = (deg: number) => {
-    const a = (deg * Math.PI) / 180;
-    return [cx + r * Math.cos(a), cy - r * Math.sin(a)];
-  };
-  const [sx, sy] = polar(180);
-  const [ex, ey] = polar(0);
-  const v = Math.max(0, Math.min(100, value));
-  const [vx, vy] = polar(180 - (v / 100) * 180);
-  const large = v > 50 ? 1 : 0;
+  const { clamped, track, progress } = gaugeArc(value);
   return (
     <svg
-      viewBox="0 0 180 108"
+      viewBox={GAUGE.viewBox}
       width="100%"
-      style={{ maxWidth: 220 }}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ maxWidth: 220, display: 'block', overflow: 'visible' }}
       role="img"
-      aria-label={`${value}%`}
+      aria-label={`Cumplimiento ${clamped}%`}
     >
-      <title>Cumplimiento: {value}%</title>
+      <title>Cumplimiento: {clamped}%</title>
       <path
-        d={`M ${sx} ${sy} A ${r} ${r} 0 0 1 ${ex} ${ey}`}
+        d={track}
         fill="none"
         stroke="#eef2f6"
-        strokeWidth="14"
+        strokeWidth={GAUGE.strokeWidth}
         strokeLinecap="round"
       />
-      <path
-        d={`M ${sx} ${sy} A ${r} ${r} 0 ${large} 1 ${vx} ${vy}`}
-        fill="none"
-        stroke={color}
-        strokeWidth="14"
-        strokeLinecap="round"
-      />
-      <text x={cx} y={cy - 4} textAnchor="middle" fontSize="30" fontWeight="700" fill="#16202b">
-        {value}%
+      {progress && (
+        <path
+          d={progress}
+          fill="none"
+          stroke={color}
+          strokeWidth={GAUGE.strokeWidth}
+          strokeLinecap="round"
+        />
+      )}
+      <text
+        x={GAUGE.cx}
+        y={GAUGE.cy - 4}
+        textAnchor="middle"
+        fontSize="30"
+        fontWeight="700"
+        fill="#16202b"
+      >
+        {clamped}%
       </text>
     </svg>
   );
