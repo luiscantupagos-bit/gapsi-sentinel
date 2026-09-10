@@ -105,6 +105,28 @@ function safeHex(value: unknown, fallback: string): string {
     : fallback;
 }
 
+/**
+ * Color de texto legible (blanco u oscuro) sobre un fondo HEX (DOC-UX-003 §10):
+ * evita que el texto se pierda si la organización elige un color oscuro para las
+ * cabeceras de tabla. Cálculo determinista por luminancia, server-side.
+ */
+function contrastText(hex: string): string {
+  const h = hex.replace('#', '');
+  const full =
+    h.length === 3
+      ? h
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : h;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  if ([r, g, b].some((n) => Number.isNaN(n))) return '#0f2440';
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 150 ? '#0f2440' : '#ffffff';
+}
+
 // --- Contenido rich (texto + referencias) ------------------------------------
 
 function renderChip(seg: RefSegment, resolved: ReferenceResolver): string {
@@ -208,9 +230,13 @@ function renderCopyMark(mark: CopyMark): string {
     mark.kind === 'controlled'
       ? 'COPIA CONTROLADA'
       : mark.kind === 'draft'
-        ? 'BORRADOR · NO CONTROLADO'
-        : 'DOCUMENTO OBSOLETO';
-  const watermark = `<div class="doc-copy__watermark" aria-hidden="true"><span>${esc(watermarkText)}</span></div>`;
+        ? 'BORRADOR — NO CONTROLADO'
+        : 'DOCUMENTO OBSOLETO — COPIA NO CONTROLADA';
+  const wmClass =
+    mark.kind === 'obsolete'
+      ? 'doc-copy__watermark doc-copy__watermark--obsolete'
+      : 'doc-copy__watermark';
+  const watermark = `<div class="${wmClass}" aria-hidden="true"><span>${esc(watermarkText)}</span></div>`;
 
   const rows: string[] = [];
   if (mark.kind === 'controlled') {
@@ -302,7 +328,7 @@ function renderReferenceTable(refs: RefSegment[], resolved: ReferenceResolver): 
         return `<tr><td colspan="4" class="doc-render__empty">Referencia no disponible</td></tr>`;
       }
       const status = `${esc(r.statusLabel ?? '')}${r.obsolete ? ' · Obsoleto' : ''}`;
-      return `<tr><td class="doc-render__num">${esc(r.code)}</td><td><a class="doc-ref" href="/dashboard/documents/${esc(r.documentId)}">${esc(r.title)}</a></td><td>${esc(r.versionLabel ?? EMPTY)}</td><td>${status || EMPTY}</td></tr>`;
+      return `<tr><td class="doc-render__code">${esc(r.code)}</td><td><a class="doc-ref" href="/dashboard/documents/${esc(r.documentId)}">${esc(r.title)}</a></td><td>${esc(r.versionLabel ?? EMPTY)}</td><td>${status || EMPTY}</td></tr>`;
     })
     .join('');
   return `<div class="doc-render__table-wrap"><table class="doc-render__table"><thead><tr><th>Código</th><th>Documento</th><th>Versión</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -350,7 +376,9 @@ function themeStyle(theme: DocumentTheme | null | undefined): string {
   const accent = safeHex(theme.accent, '#2563eb');
   const text = safeHex(theme.text, '#1f2937');
   const heading = safeHex(theme.heading, '#0f2440');
-  return ` style="--doc-primary:${primary};--doc-secondary:${secondary};--doc-accent:${accent};--doc-text:${text};--doc-heading:${heading}"`;
+  // §10: texto legible sobre el fondo de las cabeceras de tabla (color secundario).
+  const tableHeadText = contrastText(secondary);
+  return ` style="--doc-primary:${primary};--doc-secondary:${secondary};--doc-accent:${accent};--doc-text:${text};--doc-heading:${heading};--doc-table-head-text:${tableHeadText}"`;
 }
 
 /**
