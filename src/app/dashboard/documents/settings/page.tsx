@@ -29,6 +29,7 @@ export default async function DocumentSettingsPage() {
           heading: presentation.theme.heading,
           designId: presentation.designId,
           showC3Attribution: presentation.showC3AttributionPref,
+          dateFormat: presentation.dateFormat,
         }}
         canHideC3Attribution={entitlements.canHideC3Attribution}
       />

@@ -1,10 +1,11 @@
 'use client';
 
 /**
- * Toolbar documental state-aware (DOC-UX-002 §63-66). Agrupa acciones de EDICIÓN,
- * SALIDA (Imprimir / Guardar como PDF con copia controlada) y ADMINISTRACIÓN
- * (panel). Las transiciones de WORKFLOW (revisión/aprobación/publicación) se
- * reutilizan tal cual en el panel «Control documental» (no se reinventan §64).
+ * Toolbar documental state-aware (DOC-UX-002/003 §63-66/§4). Se muestra ARRIBA de
+ * la vista previa del documento (acción primaria). Agrupa EDICIÓN, WORKFLOW,
+ * SALIDA y ADMINISTRACIÓN. Reutiliza los servicios de workflow/versionado
+ * existentes (no se reinventan §64): «Enviar a revisión» llama a submitReviewAction
+ * y «Nueva versión» abre el control del panel.
  *
  * Solo las versiones publicadas generan copia controlada formal (folio +
  * watermark). Borrador/obsoleto abren una salida marcada NO CONTROLADA sin folio
@@ -14,6 +15,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useActionState, useEffect, useState } from 'react';
 import { prepareControlledCopyAction, type CopyActionState } from './copy-actions';
+import { submitReviewForm } from '../workflow-actions';
 
 interface AreaOption {
   code: string | null;
@@ -27,8 +29,10 @@ interface Props {
   documentStatus: string;
   editable: boolean;
   canEditContent: boolean;
+  canSubmitReview: boolean;
   editorHref: string | null;
   metadataHref: string;
+  panelHref: string;
   areas: AreaOption[];
 }
 
@@ -41,8 +45,10 @@ export function DocumentToolbar({
   documentStatus,
   editable,
   canEditContent,
+  canSubmitReview,
   editorHref,
   metadataHref,
+  panelHref,
   areas,
 }: Props) {
   const router = useRouter();
@@ -62,8 +68,9 @@ export function DocumentToolbar({
   const isPublished = currentVersionStatus === 'published' && documentStatus === 'effective';
   const isObsolete = currentVersionStatus === 'obsolete' || documentStatus === 'obsolete';
   const hasVersion = Boolean(currentVersionId);
+  // «Nueva versión» aplica a una versión vigente/publicada (para iterar el documento).
+  const canNewVersion = isPublished || isObsolete;
 
-  // Salida no controlada (borrador/obsoleto): enlace directo, sin registro.
   const uncontrolledHref = (kind: 'draft' | 'obsolete') =>
     `/dashboard/documents/${documentId}/copy?uncontrolled=${kind}&version=${currentVersionId}`;
 
@@ -82,7 +89,6 @@ export function DocumentToolbar({
       }
       return;
     }
-    // Borrador u otro estado no vigente: salida marcada BORRADOR — NO CONTROLADO.
     router.push(uncontrolledHref('draft'));
   }
 
@@ -100,6 +106,25 @@ export function DocumentToolbar({
           </Link>
         )}
       </div>
+
+      {(canNewVersion || canSubmitReview) && (
+        <div className="doc-toolbar__group" aria-label="Flujo">
+          {canNewVersion && (
+            <Link className="button button--ghost" href={`${panelHref}#nueva-version`}>
+              Nueva versión
+            </Link>
+          )}
+          {canSubmitReview && (
+            <form action={submitReviewForm}>
+              <input type="hidden" name="documentId" value={documentId} />
+              <input type="hidden" name="versionId" value={currentVersionId ?? ''} />
+              <button type="submit" className="button button--ghost">
+                Enviar a revisión
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {hasVersion && (
         <div className="doc-toolbar__group" aria-label="Salida">
@@ -121,9 +146,9 @@ export function DocumentToolbar({
       )}
 
       <div className="doc-toolbar__group" aria-label="Administración">
-        <a className="button button--ghost" href="#control-documental">
+        <Link className="button button--ghost" href={panelHref}>
           Panel del documento
-        </a>
+        </Link>
       </div>
 
       {dialog && (
@@ -131,14 +156,14 @@ export function DocumentToolbar({
           className="modal"
           role="dialog"
           aria-modal="true"
-          aria-label="Preparar copia controlada"
+          aria-label="Registrar copia controlada"
         >
           <div className="modal__card">
-            <h2>{dialog === 'print' ? 'Preparar copia controlada' : 'Guardar como PDF'}</h2>
+            <h2>Registrar copia controlada</h2>
             <p className="muted">
               {dialog === 'print'
                 ? 'Se generará una copia controlada con folio y marca de agua. Indica el área de entrega.'
-                : 'El PDF se emite como copia controlada (folio + marca de agua). Indica el motivo de descarga.'}
+                : 'El PDF se emite como copia controlada (folio + marca de agua). Indica el motivo de descarga. Después se abrirá el diálogo de impresión: elige “Guardar como PDF”.'}
             </p>
             {state && !state.ok && (
               <p role="status" className="msg msg--error">

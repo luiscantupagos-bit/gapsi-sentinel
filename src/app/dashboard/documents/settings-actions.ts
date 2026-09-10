@@ -28,6 +28,7 @@ export async function saveDocumentThemeAction(
       heading: String(formData.get('heading') ?? '').trim(),
       designId: String(formData.get('designId') ?? '').trim(),
       showC3Attribution: formData.get('showC3Attribution') === 'on',
+      dateFormat: String(formData.get('dateFormat') ?? '').trim(),
     });
   } catch (error) {
     if (error instanceof DocumentValidationError) {

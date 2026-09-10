@@ -9,6 +9,7 @@ import { useActionState, useState } from 'react';
 import { saveDocumentThemeAction, type ThemeState } from '../settings-actions';
 import { SubmitButton } from './SubmitButton';
 import { DOCUMENT_DESIGNS } from '@/features/documents/document-design';
+import { DATE_FORMATS, DATE_FORMAT_LABEL } from '@/features/documents/date-format';
 
 interface Props {
   initial: {
@@ -19,6 +20,7 @@ interface Props {
     heading: string;
     designId: string;
     showC3Attribution: boolean;
+    dateFormat: string;
   };
   canHideC3Attribution: boolean;
 }
@@ -38,6 +40,7 @@ export function DocumentThemeForm({ initial, canHideC3Attribution }: Props) {
   const [heading, setHeading] = useState(initial.heading);
   const [designId, setDesignId] = useState(initial.designId);
   const [showC3, setShowC3] = useState(initial.showC3Attribution);
+  const [dateFormat, setDateFormat] = useState(initial.dateFormat);
 
   const swatch = (value: string, onChange: (v: string) => void, id: string, label: string) => (
     <div className="field">
@@ -109,6 +112,26 @@ export function DocumentThemeForm({ initial, canHideC3Attribution }: Props) {
         {swatch(accent, setAccent, 'accent', 'Color de acento')}
         {swatch(text, setText, 'text', 'Color del texto')}
         {swatch(heading, setHeading, 'heading', 'Color del texto en encabezados')}
+      </div>
+
+      <h3>Formato de fecha</h3>
+      <div className="field" style={{ maxWidth: '22rem' }}>
+        <label className="field__label" htmlFor="dateFormat">
+          Formato de fecha en documentos
+        </label>
+        <select
+          id="dateFormat"
+          name="dateFormat"
+          value={dateFormat}
+          onChange={(e) => setDateFormat(e.target.value)}
+        >
+          {DATE_FORMATS.map((f) => (
+            <option key={f} value={f}>
+              {DATE_FORMAT_LABEL[f]}
+            </option>
+          ))}
+        </select>
+        <p className="muted">Aplica a emisión, próxima revisión, control de cambios y copias.</p>
       </div>
 
       <h3>Marca</h3>
