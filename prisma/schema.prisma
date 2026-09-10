@@ -101,6 +101,35 @@ model DocumentCopyCounter {
   @@map("document_copy_counters")
 }
 
+/// DOC-003: OCURRENCIA ejecutable de una actividad de Programa. Cada instancia
+/// nace al PUBLICAR el programa y se enlaza a una Tarea NATIVA (task_id). El estado
+/// operativo se deriva de la Tarea; aquí se conserva la trazabilidad y la clave de
+/// ocurrencia determinista para idempotencia/reconciliación.
+model ProgramActivityInstance {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  documentId        String    @map("document_id") @db.Uuid
+  documentVersionId String    @map("document_version_id") @db.Uuid
+  activityId        String    @map("activity_id")
+  occurrenceKey     String    @map("occurrence_key")
+  activityName      String    @map("activity_name")
+  plannedStart      DateTime? @map("planned_start") @db.Date
+  dueAt             DateTime? @map("due_at") @db.Date
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  taskId            String?   @map("task_id") @db.Uuid
+  expectedEvidence  String?   @map("expected_evidence")
+  /// status: scheduled | superseded | cancelled (el estado operativo real vive en la Tarea).
+  status            String    @default("scheduled")
+  completedAt       DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([documentVersionId, activityId, occurrenceKey])
+  @@index([documentId])
+  @@index([organizationId])
+  @@map("program_activity_instances")
+}
+
 /// Identidad de persona. Global (sin organization_id). No almacena contraseñas.
 model User {
   id          String    @id @default(uuid()) @db.Uuid

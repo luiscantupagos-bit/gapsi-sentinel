@@ -18,6 +18,7 @@ import {
 import { validateStructuredContent } from '@/features/documents/structured-content';
 import { isStructuredType } from '@/features/documents/template-registry';
 import { INITIAL_VERSION_LABEL } from '@/features/documents/versioning';
+import { activateProgram, validateProgramForActivation } from './programs';
 
 export class WorkflowPermissionError extends Error {
   constructor(message = 'No tienes permiso para esta acción.') {
@@ -524,6 +525,15 @@ export async function publishVersion(
     throw new WorkflowValidationError(['Solo una versión aprobada puede publicarse.']);
   assertVersionTransition('approved', 'published');
 
+  // DOC-003: si es un Programa, valida las actividades ejecutables ANTES de publicar
+  // (horizonte, fechas, responsable §37/§12). No publica si hay errores.
+  const programErrors = await validateProgramForActivation(
+    organizationId,
+    version.documentId,
+    versionId,
+  );
+  if (programErrors.length) throw new WorkflowValidationError(programErrors);
+
   await withOrgContext(organizationId, async (tx) => {
     // Obsoleta la versión vigente anterior (identificada por status=published).
     const prev = await tx.documentVersion.findMany({
@@ -584,6 +594,10 @@ export async function publishVersion(
       actorId,
     );
   });
+
+  // DOC-003: tras publicar, un Programa genera sus ocurrencias + tareas nativas
+  // (idempotente). Otros tipos no hacen nada.
+  await activateProgram(organizationId, actorId, version.documentId, versionId);
 }
 
 /** Obsoleta una versión vigente (owner/admin). */

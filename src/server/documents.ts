@@ -62,6 +62,8 @@ import {
   type DocumentTheme,
 } from '@/features/documents/document-theme';
 import { sanitizeDesignId, DEFAULT_DESIGN_ID } from '@/features/documents/document-design';
+import { ensureActivityIds } from '@/features/documents/program-execution';
+import { randomUUID } from 'node:crypto';
 import {
   sanitizeDateFormat,
   formatIsoDate,
@@ -1331,6 +1333,8 @@ export async function createStructuredDocument(
   const nextReviewAt = computeNextReviewAt(issuedAt, months);
 
   const content = sanitizeStructuredContent(documentType, input.structuredContent);
+  // DOC-003: acuña activityId estable para las actividades del Programa (§3/§15).
+  if (content.program) content.program = ensureActivityIds(content.program, () => randomUUID());
   if (structuredByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
 
   return saneCreate(() =>
@@ -1987,6 +1991,9 @@ export async function saveStructuredContent(
     sanitized,
     version.structuredContent,
   );
+  // DOC-003: acuña activityId estable para las actividades del Programa (§3/§15);
+  // conserva los ids existentes al reordenar/editar.
+  if (content.program) content.program = ensureActivityIds(content.program, () => randomUUID());
   if (structuredByteSize(content) > maxContentBytes()) throw new ContentTooLargeError();
 
   const org = await getPrisma().organization.findUniqueOrThrow({
