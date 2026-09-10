@@ -126,6 +126,7 @@ export async function activateProgram(
             dueAt: occ.dueAt ? new Date(occ.dueAt) : null,
             responsibleUserId: activity.responsibleUserId,
             expectedEvidence: activity.expectedEvidence || null,
+            notifyBeforeDays: activity.notifyBeforeDays,
           },
           create: {
             organizationId,
@@ -138,6 +139,7 @@ export async function activateProgram(
             dueAt: occ.dueAt ? new Date(occ.dueAt) : null,
             responsibleUserId: activity.responsibleUserId,
             expectedEvidence: activity.expectedEvidence || null,
+            notifyBeforeDays: activity.notifyBeforeDays,
           },
           select: { id: true, taskId: true },
         });
