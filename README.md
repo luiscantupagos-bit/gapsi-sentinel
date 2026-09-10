@@ -306,11 +306,12 @@ En **Documentos** → **Crear dentro de C3 Sentinel**:
    repetibles** (agregar, reordenar, eliminar). El contenido es la fuente de
    verdad; el servidor lo sanea, valida los obligatorios y deriva el HTML.
 
-**Vista previa** usa el mismo renderer (encabezado C3 Sentinel + identificación +
-cuerpo; base para PDF/DOCX futuro). El **Documento libre** conserva el editor
-enriquecido (TASK-005) y los **documentos externos** se registran sin transcribir
-su contenido. Los documentos estructurados entran al mismo control documental
-(versionado automático, flujo de aprobación) de TASK-005/006.
+**Vista previa** usa el mismo renderer (encabezado con la marca de la organización
+
+- identificación + cuerpo; base para PDF/DOCX futuro). El **Documento libre** conserva el editor
+  enriquecido (TASK-005) y los **documentos externos** se registran sin transcribir
+  su contenido. Los documentos estructurados entran al mismo control documental
+  (versionado automático, flujo de aprobación) de TASK-005/006.
 
 ## Referencias inteligentes y formatos (DOC-002)
 
@@ -326,6 +327,26 @@ sincronizan al guardar; al publicar, quedan **selladas**. El render puebla solo
 las secciones "Documentos referenciados" y "Formatos y registros relacionados".
 Ver `docs/documents/SMART-REFERENCES.md` y
 `docs/tasks/DOC-002-IMPLEMENTATION-NOTES.md`.
+
+## Presentación y biblioteca documental (DOC-UX-001)
+
+Normaliza cómo se **presenta** un documento y reorganiza el módulo como una
+**biblioteca por áreas**. Ver `docs/documents/DOCUMENT-PRESENTATION.md`,
+`docs/documents/DOCUMENT-LIBRARY.md` y
+`docs/tasks/DOC-UX-001-IMPLEMENTATION-NOTES.md`.
+
+- **Marca visible C3 Sentinel** en la app (favicon, sidebar, login, título). El
+  **documento** lleva la marca del **cliente** en el encabezado; C3 Sentinel
+  aparece solo como atribución discreta en el pie, junto a la leyenda
+  `DOCUMENTO CONTROLADO Y CONFIDENCIAL`.
+- **Tema documental por organización** (3 colores HEX validados) aplicado solo al
+  render del documento, configurable en **Documentos → Configuración documental**.
+- **Control de cambios** automático desde el historial de versiones.
+- **Biblioteca** en `/dashboard/documents`: buscador, KPIs, **áreas como
+  carpetas** → tipos, y **listado maestro** con filtros.
+- El **procedimiento** ya no incluye columnas Evidencia/Observaciones (la
+  evidencia sigue en Tareas/CAPA/Auditorías). Retrocompatible: sin migración
+  destructiva.
 
 ## Control documental avanzado (TASK-006)
 

@@ -234,6 +234,30 @@ internos no disparan la navegación del contenedor.
   con folios/títulos clickeables (regla global de clickeables).
 - Marca visible: **C3 Sentinel** en todo texto nuevo.
 
+## Presentación y biblioteca documental (DOC-UX-001)
+
+- **Marca visible**: la app se identifica como **C3 Sentinel** (favicon, marca
+  "S", sidebar, login, título, landing). No hay rename técnico: repo, tablas y
+  variables internas conservan sus nombres.
+- **Render del documento** (`.doc-render`): encabezado con la marca de la
+  **organización** (`.doc-render__org-brand`: logo o nombre), no la de C3. Pie
+  (`.doc-render__footer`) con la leyenda `DOCUMENTO CONTROLADO Y CONFIDENCIAL` y
+  atribución discreta de C3 Sentinel + `www.c3digital.com.mx`. Imprimible
+  (`@media print`: `thead` repetido, control de `page-break`); sin paginación
+  falsa.
+- **Tema documental**: colores por organización (`--doc-primary/-secondary/
+-accent`), **solo HEX validado** (sin inyección CSS), aplicado **solo al render
+  del documento**, no al tema global de la app. Se configura en
+  `/dashboard/documents/settings` con vista previa en vivo.
+- **Control de cambios**: sección automática (Versión/Fecha/Modificación
+  realizada/Realizado por); v1.0 sin notas → "Documento nuevo".
+- **Biblioteca** (`/dashboard/documents`): buscador, KPIs clickeables, **áreas
+  como carpetas** (`.doc-lib__folder`) → tipos, y **listado maestro**
+  (`/dashboard/documents/master`) con filtros. Enlaces a documentos como
+  **CÓDIGO — Nombre** (regla global de clickeables).
+- **Procedimiento**: la tabla formal muestra #/Actividad/Descripción/Responsable
+  (sin Evidencia/Observaciones); la evidencia sigue viva en Tareas/CAPA/Auditorías.
+
 ## Herramientas de análisis y Estudios de datos (CORE-ALIGN-003)
 
 - **Gráficos interactivos**: los puntos/segmentos exponen su valor y contexto en
