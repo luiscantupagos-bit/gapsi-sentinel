@@ -19,9 +19,9 @@ export function AppSidebar() {
             className="sidebar__logo-img"
             src="/logo.png"
             alt="C3 Sentinel"
-            width={150}
-            height={40}
-            style={{ width: 'auto', height: 40 }}
+            width={240}
+            height={66}
+            style={{ width: 'auto', height: 66 }}
             priority
           />
         </Link>

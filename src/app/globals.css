@@ -508,19 +508,21 @@ a:focus-visible {
   margin-bottom: var(--space-2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
-/* DOC-UX-003 §13: solo el logotipo de Sentinel (sin texto), arriba a la izquierda.
-   El wordmark se escala por alto; azulejo blanco para contraste sobre el sidebar
-   oscuro (el logotipo es azul marino sobre fondo claro). */
+/* DOC-UX-003 §13/§1B: solo el logotipo de Sentinel (sin texto), centrado y con
+   presencia visual. El wordmark se escala por alto; azulejo blanco para contraste
+   sobre el sidebar oscuro (el logotipo es azul marino sobre fondo claro). El asset
+   tiene margen interno transparente: se compensa con padding reducido para que el
+   contenido útil gane tamaño sin recortarse. */
 .sidebar__brand--logo-only {
-  justify-content: flex-start;
+  justify-content: center;
 }
 .sidebar__brand--logo-only .sidebar__logo-img {
   width: auto;
-  height: 40px;
+  height: 66px;
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fff;
-  padding: 4px 8px;
+  padding: 2px 10px;
   object-fit: contain;
 }
 .sidebar__logo {
