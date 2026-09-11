@@ -1,10 +1,11 @@
 # C3 Sentinel — Arquitectura de archivos y Object Storage (PLATFORM-001 §7-12/§34)
 
-> **PLATFORM-002 Fase 1 IMPLEMENTADA** (`stored_files` + `file_relations`, proveedores
-> local/S3, servicio `src/server/files.ts`, ruta `/api/files/[fileId]`). Detalle en
-> [`../tasks/PLATFORM-002-IMPLEMENTATION-NOTES.md`](../tasks/PLATFORM-002-IMPLEMENTATION-NOTES.md).
-> Este documento describe el diseño; la fase 2B cubrirá la UI de logo/adjuntos y la
-> migración de uploads legacy.
+> **PLATFORM-002 Fase 1 + 2B IMPLEMENTADAS**. Fase 1: `stored_files` + `file_relations`,
+> proveedores local/S3, servicio `src/server/files.ts`, ruta `/api/files/[fileId]`
+> ([notas](../tasks/PLATFORM-002-IMPLEMENTATION-NOTES.md)). **2B**: logo de organización
+> (`organization_profiles.logo_file_id`), adjuntos reutilizables (`FileAttachments`),
+> logo en el renderer, demo de KPIs ([notas](../tasks/PLATFORM-002B-IMPLEMENTATION-NOTES.md)).
+> Pendiente: migración de uploads legacy.
 
 ## 1. Contrato `StorageProvider` (§7)
 
