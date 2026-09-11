@@ -269,3 +269,89 @@ export const INVERSE_METRICS = [
 export function usesComplianceBand(direction: MetricDirection): boolean {
   return direction === 'higher_is_better';
 }
+
+// --- Métricas «menor es mejor» (demo PLATFORM-002B §7) -----------------------
+
+/**
+ * Umbrales para métricas INVERSAS (menor = mejor). NO es una política tenant
+ * configurable todavía: es una semántica de DEMO para validar el comportamiento
+ * (producto no conforme, tareas vencidas…). No reutiliza 90/80/70.
+ */
+export interface InverseThresholds {
+  /** Máximo (incluido) para VERDE. */
+  greenMax: number;
+  /** Máximo (incluido) para AMARILLO. */
+  yellowMax: number;
+  /** Máximo (incluido) para NARANJA. Por encima = ROJO. */
+  orangeMax: number;
+}
+
+export const INVERSE_DEMO_THRESHOLDS: InverseThresholds = {
+  greenMax: 5,
+  yellowMax: 10,
+  orangeMax: 15,
+};
+
+/** Etiquetas para métricas inversas (no «cumplimiento», sino nivel favorable/crítico). */
+export const INVERSE_LEVEL_LABEL: Record<ComplianceLevel, string> = {
+  green: 'Nivel favorable',
+  yellow: 'Nivel aceptable',
+  orange: 'Requiere atención',
+  red: 'Nivel crítico',
+};
+
+/**
+ * Resuelve la banda de una métrica «menor es mejor»: valores bajos → verde. Usa los
+ * colores por defecto y etiquetas inversas. Determinista; acota a [0, 100].
+ */
+export function resolveInverseBand(
+  value: number,
+  thresholds: InverseThresholds = INVERSE_DEMO_THRESHOLDS,
+  styles: Record<ComplianceLevel, ComplianceLevelStyle> = DEFAULT_LEVEL_STYLES,
+): ComplianceBand {
+  const v = clampPercent(value);
+  let level: ComplianceLevel;
+  let min: number;
+  let max: number;
+  if (v <= thresholds.greenMax) {
+    level = 'green';
+    min = 0;
+    max = thresholds.greenMax;
+  } else if (v <= thresholds.yellowMax) {
+    level = 'yellow';
+    min = thresholds.greenMax;
+    max = thresholds.yellowMax;
+  } else if (v <= thresholds.orangeMax) {
+    level = 'orange';
+    min = thresholds.yellowMax;
+    max = thresholds.orangeMax;
+  } else {
+    level = 'red';
+    min = thresholds.orangeMax;
+    max = 100;
+  }
+  return {
+    level,
+    label: INVERSE_LEVEL_LABEL[level],
+    color: styles[level].color,
+    accessibleText: INVERSE_LEVEL_LABEL[level],
+    min,
+    max,
+  };
+}
+
+/**
+ * Resolver semántico central: enruta según la dirección de la métrica. Cumplimiento
+ * (`higher_is_better`) sigue usando la política de la organización; las inversas usan
+ * su semántica propia. NO rompe `resolveComplianceBand` (autoridad de cumplimiento).
+ */
+export function resolveMetricBand(
+  value: number,
+  direction: MetricDirection,
+  policy: ResolvedCompliancePolicy = DEFAULT_RESOLVED_POLICY,
+  inverse: InverseThresholds = INVERSE_DEMO_THRESHOLDS,
+): ComplianceBand {
+  return direction === 'higher_is_better'
+    ? resolveComplianceBand(value, policy)
+    : resolveInverseBand(value, inverse);
+}
