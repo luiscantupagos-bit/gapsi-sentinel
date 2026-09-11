@@ -39,6 +39,11 @@ import {
   INITIAL_VERSION_LABEL,
   type VersionBump,
 } from '@/features/documents/versioning';
+import {
+  FORMAL_VERSION_STATUSES,
+  IN_PROGRESS_VERSION_STATUSES,
+  changeDescription,
+} from '@/features/documents/change-control';
 import { getTemplateDefinition, codePrefixFor } from '@/features/documents/template-registry';
 import {
   STRUCTURED_SCHEMA_VERSION,
@@ -678,6 +683,18 @@ export async function createVersion(
 ): Promise<void> {
   const doc = await loadScopedDocument(organizationId, documentId);
   if (doc.archivedAt) throw new DocumentNotEditableError();
+
+  // §19: no apilar borradores. Si ya existe una versión EN PREPARACIÓN (borrador o en
+  // flujo, aún no publicada), no se crea otra: el usuario continúa editando esa. La
+  // validación es server-side (no solo en la UI).
+  const inProgress = await getPrisma().documentVersion.findFirst({
+    where: { documentId, organizationId, status: { in: [...IN_PROGRESS_VERSION_STATUSES] } },
+    select: { label: true },
+  });
+  if (inProgress)
+    throw new DocumentValidationError([
+      `Ya existe un borrador ${inProgress.label} en preparación; continúa su edición en lugar de crear otra versión.`,
+    ]);
 
   // Versionado automático: si se indica `bump`, el servidor calcula la etiqueta a
   // partir de la versión actual; si no, se usa la etiqueta explícita (compatible).
@@ -1876,30 +1893,34 @@ function formatIdentityDates(identity: RenderIdentity, fmt: DateFormat): RenderI
  * Construye el Control de cambios (§40-48) desde el versionado: una fila por
  * versión hasta la versión vista (corte histórico §48), en orden ascendente.
  */
-async function buildChangeLog(
+export async function buildChangeLog(
   organizationId: string,
   documentId: string,
   uptoCreatedAt: Date,
   dateFormat: DateFormat = DEFAULT_DATE_FORMAT,
 ): Promise<ChangeLogRow[]> {
+  // Solo versiones FORMALES (publicadas/obsoletas): una fila por versión publicada,
+  // no por cada borrador. Corte histórico por `createdAt` (§48): al ver una versión
+  // antigua no aparecen cambios posteriores.
   const versions = await getPrisma().documentVersion.findMany({
-    where: { documentId, organizationId, createdAt: { lte: uptoCreatedAt } },
+    where: {
+      documentId,
+      organizationId,
+      createdAt: { lte: uptoCreatedAt },
+      status: { in: [...FORMAL_VERSION_STATUSES] },
+    },
     orderBy: { createdAt: 'asc' },
     select: { label: true, changeNotes: true, createdAt: true, publishedAt: true, author: true },
   });
   const names = await userNames(versions.map((v) => v.author));
-  return versions.map((v) => {
-    const isInitial = v.label === INITIAL_VERSION_LABEL;
-    const change =
-      v.changeNotes?.trim() ||
-      (isInitial ? 'Documento nuevo' : 'Cambio sin descripción registrada');
-    return {
-      version: v.label.replace(/^v/i, ''),
-      date: formatIsoDate(isoDate(v.publishedAt ?? v.createdAt), dateFormat),
-      change,
-      author: v.author ? (names.get(v.author) ?? '—') : '—',
-    };
-  });
+  return versions.map((v) => ({
+    version: v.label.replace(/^v/i, ''),
+    // Fecha FORMAL de publicación (no la del borrador). Las versiones formales tienen
+    // `publishedAt`; el fallback a `createdAt` es defensivo.
+    date: formatIsoDate(isoDate(v.publishedAt ?? v.createdAt), dateFormat),
+    change: changeDescription(v.label, v.changeNotes),
+    author: v.author ? (names.get(v.author) ?? '—') : '—',
+  }));
 }
 
 /** Payload del editor estructurado (contenido + identificación + render). */

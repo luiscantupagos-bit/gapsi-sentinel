@@ -5568,3 +5568,21 @@ table td.mono {
     font-size: 0.85rem;
   }
 }
+/* DOC-CHANGE-CONTROL — ayuda del formulario de nueva versión + aviso de borrador */
+.field-help {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin: 4px 0;
+}
+.field-help > summary {
+  cursor: pointer;
+}
+.field-help p {
+  margin: 4px 0;
+}
+.doc-action--draft-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
