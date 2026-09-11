@@ -35,6 +35,7 @@ import { structuredChecksum } from '../src/features/documents/structured-checksu
 import { renderStructuredHtml } from '../src/features/documents/structured-render';
 import { INITIAL_VERSION_LABEL } from '../src/features/documents/versioning';
 import { getTemplateDefinition } from '../src/features/documents/template-registry';
+import { VERSIONED_PROCEDURES, addYear, seqFromCode } from './versioned-procedures';
 import { labelOf, DOCUMENT_TYPES } from '../src/features/documents/catalog';
 import { deviationPercentFormula } from '../src/features/studies/formula';
 // DOC-003: activa el Programa oficial de ejemplo (ocurrencias + tareas nativas).
@@ -958,6 +959,124 @@ async function seedStructuredDocuments(): Promise<void> {
       create: { organizationId: ORG_A, codePrefix: prefix, areaCode: d.areaCode, lastSeq: 1 },
     });
   }
+}
+
+// --- SEED documental: procedimientos completos + versionado real 1.0/2.0/3.0 ---
+// Demo realista para validar documentos estructurados multipágina, control de
+// cambios por versión formal, herencia de contenido entre versiones e
+// inmutabilidad del histórico. Cada versión mayor (x.0) HEREDA el contenido de la
+// anterior y agrega las secciones del cambio (spread en código = herencia literal).
+// Idempotente: guarda por id fijo del primer documento (sufijo `d3`).
+
+/** UUID determinista para los procedimientos versionados de la demo (sufijo `d3`;
+ * `c` = documento, `d` = versión; ambos hex para formar un UUID válido). */
+function vpUuid(kind: 'c' | 'd', n: number): string {
+  return `00000000-0000-4000-8000-00000000d3${kind}${n.toString(16)}`;
+}
+
+/**
+ * SEED: 3 procedimientos estructurados completos con versionado formal real. Cada
+ * versión es una fila `documentVersion` independiente; solo la última queda vigente
+ * (`published` + `isCurrent`) y las anteriores quedan `obsolete`. El documento apunta
+ * su `currentVersionLabel` a la versión vigente. Idempotente por guarda de id fijo.
+ */
+async function seedVersionedProcedures(): Promise<void> {
+  if (await prisma.document.findUnique({ where: { id: vpUuid('c', 1) } })) return;
+
+  const org = await prisma.organization.findUniqueOrThrow({
+    where: { id: ORG_A },
+    select: { name: true },
+  });
+
+  let vSeq = 0;
+  let maxSeq = 1; // PR-CA-001 ya existe en seedStructuredDocuments.
+  for (const d of VERSIONED_PROCEDURES) {
+    const documentId = vpUuid('c', d.n);
+    const vigente = d.versions[d.versions.length - 1]!;
+    const docIssued = new Date(`${vigente.issuedAt}T00:00:00.000Z`);
+    const docReview = new Date(`${addYear(vigente.issuedAt)}T00:00:00.000Z`);
+
+    await prisma.document.create({
+      data: {
+        id: documentId,
+        organizationId: ORG_A,
+        code: d.code,
+        title: d.title,
+        documentType: 'procedure',
+        origin: 'internal',
+        status: 'effective',
+        confidentiality: 'internal',
+        currentVersionLabel: vigente.label,
+        siteId: SITE_A,
+        responsibleUserId: USER_A,
+        ownerArea: d.areaName,
+        issuedAt: docIssued,
+        effectiveAt: docIssued,
+        nextReviewAt: docReview,
+        createdBy: USER_A,
+      },
+    });
+
+    for (const v of d.versions) {
+      vSeq += 1;
+      const content = sanitizeStructuredContent('procedure', {
+        schemaVersion: STRUCTURED_SCHEMA_VERSION,
+        templateType: 'procedure',
+        fields: v.content.fields,
+        repeatables: v.content.repeatables,
+      }) as StructuredContent;
+      const vIssued = new Date(`${v.issuedAt}T00:00:00.000Z`);
+      const isVigente = v.status === 'published';
+      const html = renderStructuredHtml('procedure', content, {
+        organizationName: org.name,
+        typeLabel: labelOf(DOCUMENT_TYPES, 'procedure'),
+        code: d.code,
+        versionLabel: v.label,
+        title: d.title,
+        areaLabel: d.areaName,
+        issuedAt: v.issuedAt,
+        nextReviewAt: isVigente ? addYear(v.issuedAt) : null,
+      });
+      await prisma.documentVersion.create({
+        data: {
+          id: vpUuid('d', vSeq),
+          organizationId: ORG_A,
+          documentId,
+          label: v.label,
+          status: v.status,
+          isCurrent: isVigente,
+          author: USER_A,
+          updatedBy: USER_A,
+          changeNotes: v.changeNotes,
+          createdAt: vIssued,
+          templateKey: 'procedure',
+          contentSchemaVersion: STRUCTURED_SCHEMA_VERSION,
+          structuredContent: content as unknown as object,
+          contentHtml: html,
+          contentChecksum: structuredChecksum(content),
+          publishedAt: vIssued,
+        },
+      });
+    }
+
+    await prisma.documentHistory.create({
+      data: { organizationId: ORG_A, documentId, action: 'document.created', actorUserId: USER_A },
+    });
+    maxSeq = Math.max(maxSeq, seqFromCode(d.code));
+  }
+
+  // Avanza el contador PR/CA al último consecutivo usado (para que la UI proponga el siguiente).
+  await prisma.documentCodeCounter.upsert({
+    where: {
+      organizationId_codePrefix_areaCode: {
+        organizationId: ORG_A,
+        codePrefix: 'PR',
+        areaCode: 'CA',
+      },
+    },
+    update: { lastSeq: maxSeq },
+    create: { organizationId: ORG_A, codePrefix: 'PR', areaCode: 'CA', lastSeq: maxSeq },
+  });
 }
 
 /**
@@ -3555,6 +3674,7 @@ async function main(): Promise<void> {
   await seedDocuments();
   await seedEditorDocuments();
   await seedStructuredDocuments();
+  await seedVersionedProcedures();
   await seedSmartReferences();
   // DOC-UX-001/002: tema/diseño documental demo para la organización A.
   await prisma.documentTheme.upsert({
