@@ -682,8 +682,16 @@ export async function createVersion(
   if (input.bump && !input.changeNotes?.trim())
     throw new DocumentValidationError(['El motivo del cambio es obligatorio.']);
 
+  // Clon JSON-safe (E4): no comparte referencia mutable con la versión fuente.
+  const clone = (v: Prisma.JsonValue | null | undefined) =>
+    v == null ? undefined : (JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue);
+
   await saneCreate(() =>
     withOrgContext(organizationId, async (tx) => {
+      // Versión FUENTE (la vigente) cuyo contenido se hereda a la nueva (E3/E4/E5).
+      const source = await tx.documentVersion.findFirst({
+        where: { documentId, organizationId, isCurrent: true },
+      });
       // Desmarca la vigente antes de crear la nueva (respeta el único parcial).
       await tx.documentVersion.updateMany({
         where: { documentId, organizationId, isCurrent: true },
@@ -698,6 +706,16 @@ export async function createVersion(
           status: 'draft',
           isCurrent: true,
           author: userId,
+          // Hereda el CONTENIDO de la versión fuente para no abrir vacío (E1/E5/E6):
+          // `structured_content` es la fuente de verdad; el modo (estructurado vs.
+          // libre) se preserva copiando ambos. `activityId` se conserva verbatim (E8).
+          templateKey: source?.templateKey ?? undefined,
+          contentSchemaVersion: source?.contentSchemaVersion ?? 1,
+          structuredContent: clone(source?.structuredContent),
+          contentJson: clone(source?.contentJson),
+          pageConfig: clone(source?.pageConfig),
+          contentHtml: source?.contentHtml ?? undefined,
+          contentChecksum: source?.contentChecksum ?? undefined,
         },
       });
       await tx.document.update({

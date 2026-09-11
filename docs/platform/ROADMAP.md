@@ -25,6 +25,16 @@ Registro formal de bloques. Ninguno iniciado salvo PLATFORM-001 (esta fase).
 | **PROGRAM-UX-001** | Centro de Programas + Gantt                         |
 | **PROJECT-002**    | Gestión de Proyectos + Hitos + Dependencias + Gantt |
 
+## Roadmap documental (pre-DOC-004)
+
+Follow-ups registrados (no implementados). Orden recomendado antes de DOC-004:
+
+| ID                              | Nombre                                    | Alcance                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **DOC-UX-PANEL-001**            | Reorganización del Panel del documento    | Panel con tabs (Resumen · Flujo · Versiones · Distribución · Copias · Relaciones · Archivos · Historial); empty states compactos; responsive; clickeables; separar «vista del documento» (contenido/lectura/edición/salida) de «panel» (administración/gobierno/trazabilidad). Incluye la selección **vigente vs. borrador** en la vista (hoy `isCurrent` muestra el borrador; debe preferir la publicada hasta publicar la nueva). |
+| **DOC-CHANGE-CONTROL-FOLLOWUP** | Control de cambios por versiones formales | El control de cambios registra una línea por **versión publicada**, no por cada guardado de borrador; `change_notes` obligatorio > v1.0; v1.0 «Documento nuevo»; histórico inmutable ordenado.                                                                                                                                                                                                                                      |
+| **DOC-OUTPUT-FOLLOWUP**         | Impresión / PDF / copia controlada        | Vista `/copy` tipo hoja A4/carta; `@media print` con márgenes reales; copia controlada solo para published/effective (modal de área destino, folio `CC-<código>-####`, versión/actor/fecha); borrador «NO CONTROLADO»; obsoleto «COPIA NO CONTROLADA»; auditar el mapeo de estado real (published/effective) en `/copy`.                                                                                                            |
+
 ## Orden recomendado (§61)
 
 1. **CORE-UX-005** — Semáforo global (base puesta en PLATFORM-001).
