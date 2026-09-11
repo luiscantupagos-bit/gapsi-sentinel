@@ -9,10 +9,13 @@ import {
 } from '@/server/tasks';
 import { listOrgMembers } from '@/server/projects';
 import { getTaskProgramOrigin } from '@/server/programs';
+import { listFilesForEntity } from '@/server/files';
 import { type TaskStatus } from '@/features/tasks/task-state';
 import { PageHeader, SectionCard } from '../../_components/ui';
 import { TaskPriorityBadge, TaskStatusBadge, taskTypeLabel } from '../_components/TaskBits';
 import { TaskWorkflow } from './_components/TaskWorkflow';
+import { FileAttachments } from '../../_components/FileAttachments';
+import { uploadTaskFileAction, deleteTaskFileAction } from './file-actions';
 
 const dt = (d: Date) => new Date(d).toLocaleString('es-MX');
 
@@ -27,11 +30,22 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ tas
     if (error instanceof TaskNotFoundError) notFound();
     throw error;
   }
-  const [ctx, members, nativeTasks] = await Promise.all([
+  const [ctx, members, nativeTasks, attachments] = await Promise.all([
     getUserTaskContext(session.organizationId, session.userId, taskId),
     listOrgMembers(session.organizationId),
     listNativeTasksBrief(session.organizationId, taskId),
+    listFilesForEntity(session.organizationId, 'task', taskId),
   ]);
+  const memberName = new Map(members.map((m) => [m.id, m.name]));
+  const attachmentFiles = attachments.map((f) => ({
+    id: f.id,
+    filename: f.filename,
+    mimeType: f.mimeType,
+    sizeBytes: f.sizeBytes,
+    createdAt: f.createdAt,
+    uploadedByName: f.uploadedBy ? (memberName.get(f.uploadedBy) ?? '—') : '—',
+    relationType: f.relationType,
+  }));
   const t = detail.task;
   // DOC-003: si la tarea proviene de un Programa, resolvemos su origen navegable.
   const programOrigin =
@@ -212,6 +226,17 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ tas
                 ))}
               </ul>
             )}
+          </SectionCard>
+
+          <SectionCard title="Adjuntos">
+            <FileAttachments
+              title="Archivos de la tarea"
+              files={attachmentFiles}
+              hiddenFields={{ taskId }}
+              uploadAction={uploadTaskFileAction}
+              deleteAction={deleteTaskFileAction}
+              allowEvidence
+            />
           </SectionCard>
         </div>
       </div>
