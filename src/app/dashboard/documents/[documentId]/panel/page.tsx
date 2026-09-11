@@ -22,6 +22,7 @@ import {
   type VersionStatus,
 } from '@/features/documents/workflow-state';
 import { categorizeVersions, resolveTab, type PanelVersion } from '@/features/documents/panel-view';
+import { changeDescription } from '@/features/documents/change-control';
 import {
   CONFIDENTIALITY_LEVELS,
   DOCUMENT_ORIGINS,
@@ -150,6 +151,22 @@ export default async function DocumentPanelPage({
     enCurso: groups.enCurso
       ? { label: groups.enCurso.label, statusLabel: vLabel(groups.enCurso.status) }
       : null,
+    // Etiqueta de la última versión (para calcular la siguiente en el formulario).
+    latestVersionLabel: panelVersions[0]?.label ?? 'v1.0',
+    // §19: si hay un borrador en curso, el panel ofrece «Continuar edición» en vez de
+    // crear otra versión. Ruta del editor según el modo de contenido.
+    existingDraft: groups.enCurso
+      ? {
+          label: groups.enCurso.label,
+          href: `/dashboard/documents/${doc.id}/${
+            doc.contentMode === 'structured'
+              ? 'structured'
+              : doc.contentMode === 'external'
+                ? 'edit'
+                : 'editor'
+          }`,
+        }
+      : null,
     editor: {
       versionId: editor.versionId,
       label: editor.label,
@@ -201,7 +218,7 @@ export default async function DocumentPanelPage({
       status: v.status,
       statusLabel: vLabel(v.status),
       isCurrent: v.isCurrent,
-      changeNotes: v.changeNotes,
+      modification: changeDescription(v.label, v.changeNotes),
       createdAtLabel: v.createdAtLabel,
       authorName: v.authorName,
       fileCount: v.fileCount,

@@ -18,6 +18,7 @@ import {
 import { validateStructuredContent } from '@/features/documents/structured-content';
 import { isStructuredType } from '@/features/documents/template-registry';
 import { INITIAL_VERSION_LABEL } from '@/features/documents/versioning';
+import { requiresChangeNotes } from '@/features/documents/change-control';
 import {
   activateProgramWithReconciliation,
   supersedeFutureOccurrences,
@@ -528,6 +529,13 @@ export async function publishVersion(
   if (version.status !== 'approved')
     throw new WorkflowValidationError(['Solo una versión aprobada puede publicarse.']);
   assertVersionTransition('approved', 'published');
+
+  // §15: la descripción de los cambios (change_notes) es obligatoria para publicar una
+  // versión posterior a la inicial (> v1.0). Server-side, no solo en el frontend.
+  if (requiresChangeNotes(version.label) && !version.changeNotes?.trim())
+    throw new WorkflowValidationError([
+      'La descripción de los cambios es obligatoria para publicar una versión posterior a la inicial (mayor a v1.0).',
+    ]);
 
   // DOC-003: si es un Programa, valida las actividades ejecutables ANTES de publicar
   // (horizonte, fechas, responsable §37/§12). No publica si hay errores.

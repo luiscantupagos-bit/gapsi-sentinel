@@ -23,7 +23,8 @@ export interface PanelVersionRow {
   status: string;
   statusLabel: string;
   isCurrent: boolean;
-  changeNotes: string | null;
+  /** Texto de la columna «Modificación» (change_notes o «Documento nuevo» para v1.0). */
+  modification: string;
   createdAtLabel: string;
   authorName: string | null;
   fileCount: number;
@@ -117,6 +118,8 @@ export interface DocumentPanelData {
   description: string | null;
   vigenteLabel: string | null;
   enCurso: { label: string; statusLabel: string } | null;
+  latestVersionLabel: string;
+  existingDraft: { label: string; href: string } | null;
   // Flujo
   editor: {
     versionId: string;
@@ -354,7 +357,12 @@ function ResumenTab({ data }: { data: DocumentPanelData }) {
       {data.description && <p className="lead">{data.description}</p>}
 
       <h3>Acciones</h3>
-      <DocumentActions documentId={data.documentId} editable={data.editable} />
+      <DocumentActions
+        documentId={data.documentId}
+        editable={data.editable}
+        latestVersionLabel={data.latestVersionLabel}
+        existingDraft={data.existingDraft}
+      />
     </>
   );
 }
@@ -467,7 +475,7 @@ function VersionesTab({ data }: { data: DocumentPanelData }) {
                   <span className={`badge badge--ver-${v.status}`}>{v.statusLabel}</span>
                 </td>
                 <td>{v.createdAtLabel}</td>
-                <td>{v.changeNotes ?? '—'}</td>
+                <td>{v.modification}</td>
                 <td>{v.authorName ?? '—'}</td>
                 <td>{v.status === 'published' ? 'Sí' : '—'}</td>
                 <td className="doc-panel__row-actions">
