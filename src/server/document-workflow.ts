@@ -546,6 +546,29 @@ export async function publishVersion(
   );
   if (programErrors.length) throw new WorkflowValidationError(programErrors);
 
+  // DOC-OUTPUT §C1/§C2/§C7: candado al hacer VIGENTE. No se puede publicar la versión
+  // sustituta mientras existan COPIAS CONTROLADAS FÍSICAS (impresas) de versiones
+  // anteriores pendientes de recuperación. Las copias digitales/PDF/vista web NO
+  // bloquean (no son retornables físicamente). El desbloqueo es registrar su
+  // recuperación. (La excepción con permiso elevado + justificación requiere ampliar
+  // el esquema y se documenta como follow-up, no se implementa aún.)
+  const pendingPhysical = await getPrisma().documentControlledCopy.findMany({
+    where: {
+      documentId: version.documentId,
+      organizationId,
+      versionId: { not: versionId },
+      format: 'printed',
+      status: { in: ['active', 'pending_recovery'] },
+    },
+    select: { folio: true, copyNumber: true },
+  });
+  if (pendingPhysical.length) {
+    const list = pendingPhysical.map((c) => c.folio ?? `#${c.copyNumber}`).join(', ');
+    throw new WorkflowValidationError([
+      `No es posible hacer vigente esta versión porque existen copias controladas de la versión anterior pendientes de recuperación (${list}). Registra su recuperación antes de publicar.`,
+    ]);
+  }
+
   // DOC-003 §2-13: versiones vigentes anteriores que serán reemplazadas (para
   // reconciliar su ejecución con la versión nueva tras publicar).
   const priorVersionIds: string[] = [];
@@ -575,8 +598,15 @@ export async function publishVersion(
         where: { versionId: p.id, organizationId, status: 'active' },
         data: { status: 'superseded' },
       });
+      // DOC-OUTPUT §C7: las copias DIGITALES/PDF no son retornables → quedan como
+      // «Reemplazadas» al superar la versión. Las FÍSICAS que quedaran activas pasan a
+      // pendiente de recuperación (defensivo: el candado de publicación ya las exige).
       await tx.documentControlledCopy.updateMany({
-        where: { versionId: p.id, organizationId, status: 'active' },
+        where: { versionId: p.id, organizationId, status: 'active', format: 'digital' },
+        data: { status: 'replaced' },
+      });
+      await tx.documentControlledCopy.updateMany({
+        where: { versionId: p.id, organizationId, status: 'active', format: 'printed' },
         data: { status: 'pending_recovery' },
       });
     }
