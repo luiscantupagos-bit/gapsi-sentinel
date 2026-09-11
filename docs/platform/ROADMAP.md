@@ -35,6 +35,28 @@ Follow-ups registrados (no implementados). Orden recomendado antes de DOC-004:
 | **DOC-CHANGE-CONTROL-FOLLOWUP** | Control de cambios por versiones formales | El control de cambios registra una línea por **versión publicada**, no por cada guardado de borrador; `change_notes` obligatorio > v1.0; v1.0 «Documento nuevo»; histórico inmutable ordenado.                                                                                                                                                                                                                                      |
 | **DOC-OUTPUT-FOLLOWUP**         | Impresión / PDF / copia controlada        | Vista `/copy` tipo hoja A4/carta; `@media print` con márgenes reales; copia controlada solo para published/effective (modal de área destino, folio `CC-<código>-####`, versión/actor/fecha); borrador «NO CONTROLADO»; obsoleto «COPIA NO CONTROLADA»; auditar el mapeo de estado real (published/effective) en `/copy`.                                                                                                            |
 
+### Control de cambios documental — reglas (DOC-CHANGE-CONTROL-FOLLOWUP, implementado)
+
+- **Una fila por versión FORMAL publicada.** El Control de cambios se construye
+  (`buildChangeLog`) solo con versiones `published`/`obsolete` (`FORMAL_VERSION_STATUSES`).
+  Editar/guardar un borrador NO genera filas; una versión se consolida al publicarse.
+- **v1.0 = «Documento nuevo»**; las posteriores muestran su `change_notes` (columna
+  «Modificación» del Panel y de la hoja usan `changeDescription`).
+- **`change_notes` obligatorio para publicar > v1.0** (`requiresChangeNotes`), validado
+  server-side en `publishVersion` (no solo en el frontend).
+- **Versionado `major.minor`, no float** (`versioning.ts`): menor `1.0→1.1`, `1.3→1.4`,
+  `1.9→1.10`; mayor `1.0→2.0`, `2.4→3.0`. El usuario elige menor/mayor; la UI muestra la
+  versión calculada y explica cuándo aplica cada uno.
+- **Un solo borrador en curso** (`IN_PROGRESS_VERSION_STATUSES`): `createVersion` rechaza
+  crear otra versión si ya hay una en preparación; el Panel ofrece «Continuar edición».
+- **Histórico inmutable y por versión** (corte por `createdAt`): al ver una versión
+  antigua el Control de cambios muestra solo los cambios hasta esa versión.
+- **Realizado por / fecha**: «Realizado por» = autor de la versión (no existe
+  `publishedBy`; su incorporación requeriría migración, queda como follow-up). La fecha
+  usa la publicación formal (`publishedAt`).
+- El Panel (pestaña Versiones) y la tabla «Control de cambios» del documento renderizado
+  comparten la misma fuente (`documentVersion.change_notes`); no hay historiales divergentes.
+
 ## Orden recomendado (§61)
 
 1. **CORE-UX-005** — Semáforo global (base puesta en PLATFORM-001).
