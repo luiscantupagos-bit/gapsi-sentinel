@@ -5728,3 +5728,25 @@ table td.mono {
     page-break-after: auto;
   }
 }
+
+/* CAPA-8D-OUTPUT — campos del reporte 8D dentro de .doc-render */
+.doc-report__field {
+  margin: 0 0 var(--space-2);
+}
+.doc-report__field-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--doc-heading, #0f2440);
+}
+.doc-report__field p {
+  margin: 2px 0 0;
+}
+.doc-report__note {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+  margin: var(--space-2) 0 0;
+}
