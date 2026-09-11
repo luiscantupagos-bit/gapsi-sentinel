@@ -130,6 +130,12 @@ describe.skipIf(!hasDb)('módulo documental — acceso y reglas', () => {
       org.userId,
       validDoc(`VER-${newId().slice(0, 6)}`),
     );
+    // La v1.0 debe estar publicada para crear la siguiente (DOC-CHANGE-CONTROL §19:
+    // no se apilan borradores).
+    await db().documentVersion.updateMany({
+      where: { documentId: docId, isCurrent: true },
+      data: { status: 'published', publishedAt: new Date() },
+    });
     await createVersion(org.orgId, org.userId, docId, { label: 'v2', changeNotes: 'cambio' });
     const versions = await db().documentVersion.findMany({ where: { documentId: docId } });
     expect(versions).toHaveLength(2);

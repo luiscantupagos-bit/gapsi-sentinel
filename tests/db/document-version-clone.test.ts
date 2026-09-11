@@ -17,6 +17,18 @@ async function versions(orgId: string, documentId: string) {
   });
 }
 
+/**
+ * Publica la versión vigente (raw) para poder crear la siguiente: `createVersion`
+ * ahora impide apilar borradores (DOC-CHANGE-CONTROL §19), de modo que la v1.0 debe
+ * estar publicada antes de generar la v1.1.
+ */
+async function publishCurrent(orgId: string, documentId: string) {
+  await db().documentVersion.updateMany({
+    where: { organizationId: orgId, documentId, isCurrent: true },
+    data: { status: 'published', publishedAt: new Date() },
+  });
+}
+
 describe.skipIf(!hasDb)('clonado de contenido al crear nueva versión (BUG PART E)', () => {
   it('A/C/J. Procedimiento: v1.1 hereda structured_content idéntico y sigue estructurado', async () => {
     const org = await seedOrgWithPublishedTemplate(db());
@@ -39,6 +51,7 @@ describe.skipIf(!hasDb)('clonado de contenido al crear nueva versión (BUG PART 
       structuredContent: content,
     } as never);
 
+    await publishCurrent(org.orgId, id);
     await createVersion(org.orgId, org.userId, id, {
       bump: 'minor',
       changeNotes: 'Segunda versión.',
@@ -65,6 +78,7 @@ describe.skipIf(!hasDb)('clonado de contenido al crear nueva versión (BUG PART 
       structuredContent: { fields: { objetivo: 'Original' }, repeatables: {} },
     } as never);
     const v1 = (await versions(org.orgId, id))[0]!;
+    await publishCurrent(org.orgId, id);
     await createVersion(org.orgId, org.userId, id, { bump: 'minor', changeNotes: 'v2' });
     const v2 = (await versions(org.orgId, id)).find((v) => v.label === 'v1.1')!;
 
@@ -114,6 +128,7 @@ describe.skipIf(!hasDb)('clonado de contenido al crear nueva versión (BUG PART 
         },
       },
     } as never);
+    await publishCurrent(org.orgId, id);
     await createVersion(org.orgId, org.userId, id, { bump: 'minor', changeNotes: 'v2' });
     const v2 = (await versions(org.orgId, id)).find((v) => v.label === 'v1.1')!;
     const program = (v2.structuredContent as { program: { activities: { activityId: string }[] } })
@@ -129,6 +144,7 @@ describe.skipIf(!hasDb)('clonado de contenido al crear nueva versión (BUG PART 
       areaCode: 'CA',
       structuredContent: { fields: { objetivo: 'A' }, repeatables: {} },
     } as never);
+    await publishCurrent(org.orgId, id);
     await createVersion(org.orgId, org.userId, id, { bump: 'minor', changeNotes: 'v2' });
     const vs = await versions(org.orgId, id);
     // Filas distintas → objetos JSONB independientes.
