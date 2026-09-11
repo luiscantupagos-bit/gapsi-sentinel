@@ -5378,3 +5378,87 @@ table td.mono {
 .compliance-preview__label {
   color: var(--color-text-muted, #64748b);
 }
+
+/* PLATFORM-002B: logo de organización + adjuntos reutilizables. */
+.logo-settings {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.logo-settings__preview {
+  width: 160px;
+  height: 80px;
+  border: 1px solid var(--color-border, #d9e2ec);
+  border-radius: var(--radius-sm, 6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.logo-settings__preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.logo-settings__fallback {
+  font-weight: 700;
+  color: var(--color-text-muted, #64748b);
+  padding: 0 var(--space-2);
+  text-align: center;
+}
+.logo-settings__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.attachments__upload {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+.attachments__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.attachments__item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-sm, 6px);
+}
+.attachments__name {
+  font-weight: 600;
+  flex: 1 1 12rem;
+}
+.attachments__meta {
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.85rem;
+}
+.attachments__del {
+  margin-left: auto;
+}
+@media (max-width: 640px) {
+  .attachments__item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .attachments__meta::before {
+    content: attr(data-label) ': ';
+    font-weight: 600;
+  }
+  .attachments__del {
+    margin-left: 0;
+  }
+}

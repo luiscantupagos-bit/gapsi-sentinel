@@ -69,7 +69,11 @@ model OrganizationProfile {
   taxId          String?   @map("tax_id")
   taxRegime      String?   @map("tax_regime")
   taxAddress     String?   @map("tax_address")
+  /// Logo legacy por URL (se conserva; fallback si no hay logo_file_id).
   logoUrl        String?   @map("logo_url")
+  /// PLATFORM-002B: logo como archivo transversal (stored_files). Integridad de
+  /// tenant por FK compuesta (logo_file_id, organization_id) → añadida en migración.
+  logoFileId     String?   @map("logo_file_id") @db.Uuid
   updatedBy      String?   @map("updated_by") @db.Uuid
   updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
 

@@ -276,6 +276,30 @@ export async function listFilesForEntity(
   return rows.map((r) => ({ ...toMeta(r.file), relationType: r.relationType }));
 }
 
+/** Número de relaciones activas de un archivo (para borrado seguro §16). */
+export async function activeRelationCount(organizationId: string, fileId: string): Promise<number> {
+  return getPrisma().fileRelation.count({ where: { organizationId, fileId } });
+}
+
+/**
+ * Desvincula una relación y, si el archivo queda **sin otras relaciones**, lo marca
+ * como borrado (soft delete §15/§16). Si sigue compartido, solo desvincula. Nunca
+ * destruye un archivo referenciado por otra entidad.
+ */
+export async function unlinkAndCleanup(
+  organizationId: string,
+  fileId: string,
+  relation: { entityType: EntityType; entityId: string; relationType: RelationType },
+): Promise<{ deleted: boolean }> {
+  await unlinkFile(organizationId, fileId, relation);
+  const remaining = await activeRelationCount(organizationId, fileId);
+  if (remaining === 0) {
+    await deleteFile(organizationId, fileId);
+    return { deleted: true };
+  }
+  return { deleted: false };
+}
+
 /** Metadata de un archivo vigente (o error). */
 export async function getFile(organizationId: string, fileId: string): Promise<StoredFileMeta> {
   const row = await getPrisma().storedFile.findFirst({

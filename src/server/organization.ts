@@ -5,6 +5,7 @@
  * entidad `organizations`; complementa con `organization_profiles`.
  */
 import { getPrisma, withOrgContext } from './db';
+import { uploadFile, unlinkAndCleanup, FileValidationError, type StoredFileMeta } from './files';
 
 export interface OrganizationProfile {
   name: string;
@@ -14,6 +15,23 @@ export interface OrganizationProfile {
   taxRegime: string;
   taxAddress: string;
   logoUrl: string;
+  /** PLATFORM-002B: id del logo como archivo transversal (o null → usa logoUrl/nombre). */
+  logoFileId: string | null;
+  /** Fuente de logo resuelta para mostrar: ruta autorizada, URL legacy o null (§3). */
+  logoSource: string | null;
+}
+
+const LOGO_MIME = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Fuente de logo con prioridad: logo_file_id → logo_url legacy → null (§3). */
+export function resolveLogoSource(profile: {
+  logoFileId: string | null;
+  logoUrl: string;
+}): string | null {
+  if (profile.logoFileId) return `/api/files/${profile.logoFileId}`;
+  if (profile.logoUrl) return profile.logoUrl;
+  return null;
 }
 
 const FIELD_MAX = 300;
@@ -35,6 +53,8 @@ export async function getOrganizationProfile(organizationId: string): Promise<Or
     }),
     prisma.organizationProfile.findUnique({ where: { organizationId } }),
   ]);
+  const logoFileId = profile?.logoFileId ?? null;
+  const logoUrl = profile?.logoUrl ?? '';
   return {
     name: org.name,
     commercialName: profile?.commercialName ?? '',
@@ -42,8 +62,83 @@ export async function getOrganizationProfile(organizationId: string): Promise<Or
     taxId: profile?.taxId ?? '',
     taxRegime: profile?.taxRegime ?? '',
     taxAddress: profile?.taxAddress ?? '',
-    logoUrl: profile?.logoUrl ?? '',
+    logoUrl,
+    logoFileId,
+    logoSource: resolveLogoSource({ logoFileId, logoUrl }),
   };
+}
+
+/**
+ * Sube (o reemplaza) el logo de la organización usando el almacenamiento transversal
+ * (PLATFORM-002B). Solo imágenes (PNG/JPEG/WEBP), máx 5 MB. El logo anterior se
+ * desvincula y se borra si queda huérfano. Idempotente por reemplazo.
+ */
+export async function uploadOrganizationLogo(
+  organizationId: string,
+  actorId: string,
+  input: { filename: string; mimeType: string; data: Buffer },
+): Promise<StoredFileMeta> {
+  if (!LOGO_MIME.has(input.mimeType)) {
+    throw new FileValidationError('El logo debe ser PNG, JPEG o WEBP.');
+  }
+  if (input.data.byteLength > LOGO_MAX_BYTES) {
+    throw new FileValidationError('El logo no debe superar 5 MB.');
+  }
+  // Sube y relaciona como logo de la organización.
+  const meta = await uploadFile(organizationId, actorId, {
+    filename: input.filename,
+    mimeType: input.mimeType,
+    data: input.data,
+    relation: { entityType: 'organization', entityId: organizationId, relationType: 'logo' },
+  });
+
+  const prisma = getPrisma();
+  const prev = await prisma.organizationProfile.findUnique({
+    where: { organizationId },
+    select: { logoFileId: true },
+  });
+
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.organizationProfile.upsert({
+      where: { organizationId },
+      update: { logoFileId: meta.id, updatedBy: actorId },
+      create: { organizationId, logoFileId: meta.id, updatedBy: actorId },
+    });
+  });
+
+  // Limpia el logo anterior (desvincula; borra si queda huérfano). Idempotente.
+  if (prev?.logoFileId && prev.logoFileId !== meta.id) {
+    await unlinkAndCleanup(organizationId, prev.logoFileId, {
+      entityType: 'organization',
+      entityId: organizationId,
+      relationType: 'logo',
+    });
+  }
+  return meta;
+}
+
+/** Quita el logo de la organización (desvincula + borra si queda huérfano). */
+export async function removeOrganizationLogo(
+  organizationId: string,
+  actorId: string,
+): Promise<void> {
+  const prisma = getPrisma();
+  const profile = await prisma.organizationProfile.findUnique({
+    where: { organizationId },
+    select: { logoFileId: true },
+  });
+  if (!profile?.logoFileId) return;
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.organizationProfile.update({
+      where: { organizationId },
+      data: { logoFileId: null, updatedBy: actorId },
+    });
+  });
+  await unlinkAndCleanup(organizationId, profile.logoFileId, {
+    entityType: 'organization',
+    entityId: organizationId,
+    relationType: 'logo',
+  });
 }
 
 export interface OrganizationProfileInput {

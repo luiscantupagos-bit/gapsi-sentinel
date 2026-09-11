@@ -3,12 +3,57 @@
 /** Server Action de configuración general del negocio (DOC-UX-003 §12). */
 import { revalidatePath } from 'next/cache';
 import { requireServerSession } from '@/server/session';
-import { setOrganizationProfile, profileFromForm } from '@/server/organization';
+import {
+  setOrganizationProfile,
+  profileFromForm,
+  uploadOrganizationLogo,
+  removeOrganizationLogo,
+} from '@/server/organization';
 import { updateOrganizationCompliancePolicy, CompliancePolicyError } from '@/server/compliance';
+import { FileValidationError } from '@/server/files';
 
 export interface ProfileState {
   ok: boolean;
   message: string;
+}
+
+export interface LogoState {
+  ok: boolean;
+  message: string;
+}
+
+/** PLATFORM-002B: sube/reemplaza el logo de la organización (imagen ≤ 5 MB). */
+export async function uploadLogoAction(
+  _prev: LogoState | null,
+  formData: FormData,
+): Promise<LogoState> {
+  const session = await requireServerSession();
+  const file = formData.get('file');
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: 'Selecciona una imagen.' };
+  }
+  try {
+    const data = Buffer.from(await file.arrayBuffer());
+    await uploadOrganizationLogo(session.organizationId, session.userId, {
+      filename: file.name,
+      mimeType: file.type,
+      data,
+    });
+  } catch (error) {
+    if (error instanceof FileValidationError) return { ok: false, message: error.message };
+    return { ok: false, message: 'No fue posible cargar el logo.' };
+  }
+  revalidatePath('/dashboard/settings');
+  revalidatePath('/dashboard/documents');
+  return { ok: true, message: 'Logo actualizado.' };
+}
+
+/** PLATFORM-002B: quita el logo de la organización. */
+export async function removeLogoAction(): Promise<void> {
+  const session = await requireServerSession();
+  await removeOrganizationLogo(session.organizationId, session.userId);
+  revalidatePath('/dashboard/settings');
+  revalidatePath('/dashboard/documents');
 }
 
 export interface CompliancePolicyState {
