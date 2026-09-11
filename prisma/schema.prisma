@@ -94,6 +94,54 @@ model OrganizationCompliancePolicy {
   @@map("organization_compliance_policies")
 }
 
+/// PLATFORM-002: archivo binario transversal (metadata; el binario vive en Object
+/// Storage). PostgreSQL es la fuente de verdad. `storageKey` = detalle técnico.
+model StoredFile {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  storageProvider  String    @map("storage_provider")
+  bucket           String
+  storageKey       String    @map("storage_key")
+  originalFilename String    @map("original_filename")
+  mimeType         String    @map("mime_type")
+  sizeBytes        Int       @map("size_bytes")
+  sha256           String
+  clientUploadId   String?   @map("client_upload_id") @db.Uuid
+  uploadedBy       String?   @map("uploaded_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  relations FileRelation[]
+
+  @@unique([id, organizationId])
+  @@unique([storageProvider, bucket, storageKey])
+  @@unique([organizationId, clientUploadId])
+  @@index([organizationId])
+  @@index([organizationId, sha256])
+  @@map("stored_files")
+}
+
+/// PLATFORM-002: relación de un archivo con una entidad de negocio (attachment,
+/// evidencia, logo…). `entityId` es genérico (no FK). La FK compuesta a stored_files
+/// garantiza que el archivo pertenezca a la MISMA organización (§40).
+model FileRelation {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  fileId         String   @map("file_id") @db.Uuid
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id") @db.Uuid
+  relationType   String   @map("relation_type")
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  file StoredFile @relation(fields: [fileId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@unique([organizationId, fileId, entityType, entityId, relationType])
+  @@index([organizationId, entityType, entityId])
+  @@index([fileId])
+  @@map("file_relations")
+}
+
 /// DOC-UX-002: suscripción comercial de la organización. PROVISIONAL — sin motor
 /// de billing real; solo alimenta el cálculo de entitlements (p. ej. ocultar la
 /// atribución de C3). Uno por organización; ausencia = sin entitlement.
