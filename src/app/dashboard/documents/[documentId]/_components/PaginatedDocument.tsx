@@ -17,12 +17,49 @@ import { useEffect, useRef, useState } from 'react';
 
 export type PageSize = 'letter' | 'a4';
 
-function cloneFooterWithPageNo(footer: HTMLElement | null): HTMLElement {
-  const el = (footer?.cloneNode(true) as HTMLElement) ?? document.createElement('footer');
-  if (!footer) el.className = 'doc-render__footer';
+/** Valor de un `<dd>` cuyo `<dt>` coincide con `label` dentro de un `.doc-render__meta`. */
+function metaValue(scope: HTMLElement | null, label: string): string {
+  if (!scope) return '';
+  for (const it of Array.from(scope.querySelectorAll('.doc-render__meta-item'))) {
+    if (it.querySelector('dt')?.textContent?.trim() === label) {
+      return it.querySelector('dd')?.textContent?.trim() ?? '';
+    }
+  }
+  return '';
+}
+
+interface DocMeta {
+  title: string;
+  code: string;
+  version: string;
+  folio: string;
+  confidential: string;
+}
+
+/** Encabezado COMPACTO de páginas 2..N (§B2): sin logo; título + código·versión. */
+function buildCompactHeader(meta: DocMeta): HTMLElement {
+  const el = document.createElement('header');
+  el.className = 'doc-render__header doc-render__header--compact';
+  const t = document.createElement('span');
+  t.className = 'doc-hc__title';
+  t.textContent = meta.title;
+  const id = document.createElement('span');
+  id.className = 'doc-hc__id';
+  id.textContent = [meta.code, meta.version].filter(Boolean).join(' · ');
+  el.append(t, id);
+  return el;
+}
+
+/** Pie compacto en TODAS las páginas (§C): clasificación + [folio ·] «Página X de Y». */
+function buildFooter(meta: DocMeta): HTMLElement {
+  const el = document.createElement('footer');
+  el.className = 'doc-render__footer doc-render__footer--compact';
+  const conf = document.createElement('p');
+  conf.className = 'doc-render__confidential';
+  conf.textContent = meta.confidential;
   const no = document.createElement('p');
   no.className = 'doc-render__pageno';
-  el.appendChild(no);
+  el.append(conf, no);
   return el;
 }
 
@@ -43,6 +80,23 @@ function paginate(container: HTMLElement, html: string, pageSize: PageSize): voi
   const watermark = article.querySelector(':scope > .doc-copy__watermark') as HTMLElement | null;
   const copyInfo = article.querySelector(':scope > .doc-copy__info') as HTMLElement | null;
 
+  // Identidad del documento para encabezado compacto y pie (§B2/§C).
+  const meta: DocMeta = {
+    title: header?.querySelector('.doc-render__title')?.textContent?.trim() ?? '',
+    code: metaValue(header, 'Código'),
+    version: metaValue(header, 'Versión'),
+    folio: metaValue(copyInfo, 'Copia') || metaValue(copyInfo, 'Folio'),
+    confidential:
+      footer?.querySelector('.doc-render__confidential')?.textContent?.trim() ??
+      'DOCUMENTO CONTROLADO Y CONFIDENCIAL',
+  };
+  // Texto institucional largo (reproducción/atribución): solo en la hoja 1 (§C1).
+  const footerExtras: HTMLElement[] = footer
+    ? (Array.from(footer.querySelectorAll(':scope > p')) as HTMLElement[]).filter(
+        (p) => !p.classList.contains('doc-render__confidential'),
+      )
+    : [];
+
   // Bloques de contenido en orden de flujo (la info de copia va primero, en la hoja 1).
   const blocks: HTMLElement[] = [];
   if (copyInfo) blocks.push(copyInfo);
@@ -53,20 +107,37 @@ function paginate(container: HTMLElement, html: string, pageSize: PageSize): voi
   const pages: HTMLElement[] = [];
   let flow: HTMLElement | null = null;
   let avail = 0;
+  let bailed = false;
+  const MAX_PAGES = 400;
 
   const newPage = (): void => {
+    const index = pages.length;
+    if (index >= MAX_PAGES) {
+      bailed = true;
+      return;
+    }
     const page = document.createElement('div');
     page.className = `doc-page doc-page--${pageSize}`;
-    if (watermark) page.appendChild(watermark.cloneNode(true));
+    // Marca de agua por hoja, capa superior (§E1/§E8): se coloca DESPUÉS del artículo.
     const art = document.createElement('article');
     art.setAttribute('class', artClass);
     if (artStyle) art.setAttribute('style', artStyle);
-    if (header) art.appendChild(header.cloneNode(true));
+    // §B1/§B4: hoja 1 = encabezado completo (con logo); 2..N = compacto sin logo.
+    if (index === 0) {
+      if (header) art.appendChild(header.cloneNode(true));
+    } else {
+      art.appendChild(buildCompactHeader(meta));
+    }
     const body = document.createElement('div');
     body.className = 'doc-page__flow';
     art.appendChild(body);
-    art.appendChild(cloneFooterWithPageNo(footer));
+    const foot = buildFooter(meta);
+    if (index === 0 && footerExtras.length) {
+      for (const p of footerExtras) foot.appendChild(p.cloneNode(true));
+    }
+    art.appendChild(foot);
     page.appendChild(art);
+    if (watermark) page.appendChild(watermark.cloneNode(true));
     container.appendChild(page);
     pages.push(page);
     flow = body;
@@ -74,9 +145,21 @@ function paginate(container: HTMLElement, html: string, pageSize: PageSize): voi
     avail = body.clientHeight;
   };
 
-  const fits = (): boolean => !!flow && flow.scrollHeight <= avail + 1;
+  // Si el tope de páginas se supera (medición patológica), se deja de partir para no
+  // colgar el hilo: todo «cabe» a partir de ese punto.
+  const fits = (): boolean => bailed || (!!flow && flow.scrollHeight <= avail + 1);
 
   newPage();
+  // Sin layout medible (p. ej. contenedor oculto/sin dimensiones): no se pagina, se
+  // muestra el documento en flujo continuo como fallback.
+  if (avail <= 60) {
+    container.innerHTML = '';
+    const fb = document.createElement('div');
+    fb.className = 'doc-render-fallback';
+    fb.innerHTML = html;
+    container.appendChild(fb);
+    return;
+  }
 
   const tableOf = (block: HTMLElement): HTMLTableElement | null =>
     block.querySelector('table') as HTMLTableElement | null;
@@ -166,11 +249,12 @@ function paginate(container: HTMLElement, html: string, pageSize: PageSize): voi
 
   for (const block of blocks) placeBlock(block);
 
-  // Numera las hojas: «Página X de Y».
+  // Numera las hojas: «[folio ·] Página X de Y» en el pie de cada una (§C/§D).
   const total = pages.length;
+  const prefix = meta.folio ? `${meta.folio} · ` : '';
   pages.forEach((page, idx) => {
     const no = page.querySelector('.doc-render__pageno');
-    if (no) no.textContent = `Página ${idx + 1} de ${total}`;
+    if (no) no.textContent = `${prefix}Página ${idx + 1} de ${total}`;
   });
 }
 
