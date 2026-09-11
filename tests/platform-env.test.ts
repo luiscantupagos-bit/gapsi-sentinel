@@ -9,11 +9,11 @@ describe('catálogo de entorno', () => {
     const names = ENV_CATALOG.map((e) => e.name);
     expect(new Set(names).size).toBe(names.length);
   });
-  it('los secretos están marcados (DATABASE_URL, AUTH_SECRET, STORAGE_SECRET_KEY)', () => {
+  it('los secretos están marcados (DATABASE_URL, AUTH_SECRET, STORAGE_SECRET_ACCESS_KEY)', () => {
     const secret = (n: string) => ENV_CATALOG.find((e) => e.name === n)?.secret;
     expect(secret('DATABASE_URL')).toBe(true);
     expect(secret('AUTH_SECRET')).toBe(true);
-    expect(secret('STORAGE_SECRET_KEY')).toBe(true);
+    expect(secret('STORAGE_SECRET_ACCESS_KEY')).toBe(true);
     expect(secret('APP_URL')).toBe(false);
   });
 });
