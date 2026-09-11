@@ -370,7 +370,11 @@ export async function getDocumentDetail(organizationId: string, documentId: stri
     }),
   ]);
 
-  const names = await userNames([doc.responsibleUserId, doc.createdBy]);
+  const names = await userNames([
+    doc.responsibleUserId,
+    doc.createdBy,
+    ...versions.map((v) => v.author),
+  ]);
   const site = doc.siteId
     ? await prisma.site.findFirst({
         where: { id: doc.siteId, organizationId },
@@ -412,6 +416,8 @@ export async function getDocumentDetail(organizationId: string, documentId: stri
       isCurrent: v.isCurrent,
       changeNotes: v.changeNotes,
       createdAt: v.createdAt,
+      createdAtLabel: formatIsoDate(isoDate(v.createdAt), dateFormat) ?? '—',
+      authorName: v.author ? (names.get(v.author) ?? null) : null,
       files: v.files.map((f) => ({
         id: f.id,
         kind: f.kind,

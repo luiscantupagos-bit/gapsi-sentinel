@@ -5462,3 +5462,109 @@ table td.mono {
     margin-left: 0;
   }
 }
+
+/* DOC-UX-PANEL-001 — Panel del documento por tabs (admin / gobierno / trazabilidad) */
+.doc-panel {
+  margin-top: var(--space-3);
+}
+.doc-panel__tablist {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.doc-panel__tab {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: none;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.doc-panel__tab:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.doc-panel__tab.is-active {
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  font-weight: 600;
+}
+.doc-panel__tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.doc-panel__panel {
+  padding-top: var(--space-3);
+}
+.doc-panel__panel:focus-visible {
+  outline: none;
+}
+.doc-panel__lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.doc-panel__lifecycle-item {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  font-size: 0.9rem;
+}
+.doc-panel__lifecycle-item--draft {
+  border-style: dashed;
+  color: var(--color-muted);
+}
+.doc-panel__hint {
+  font-size: 0.85rem;
+  margin: 0 0 var(--space-2);
+}
+.doc-panel__row-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.empty-state--compact {
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+}
+/* Estados de versión (badges) */
+.badge--ver-published {
+  background: var(--color-ok-bg, #e6f4ea);
+  color: var(--color-ok, #1e7d34);
+}
+.badge--ver-draft,
+.badge--ver-changes_requested {
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+}
+.badge--ver-in_review,
+.badge--ver-in_approval,
+.badge--ver-approved {
+  background: var(--color-warn-bg, #fdf3e3);
+  color: var(--color-warn, #9a6a12);
+}
+.badge--ver-obsolete,
+.badge--ver-archived {
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+@media (max-width: 640px) {
+  .doc-panel__tab {
+    padding: 8px 11px;
+    font-size: 0.85rem;
+  }
+}
