@@ -1,7 +1,10 @@
 # C3 Sentinel — Arquitectura de archivos y Object Storage (PLATFORM-001 §7-12/§34)
 
-> Diseño. La implementación es **PLATFORM-002**. En esta fase solo se define el
-> contrato `StorageProvider` (sin cablear) y el modelo de datos objetivo.
+> **PLATFORM-002 Fase 1 IMPLEMENTADA** (`stored_files` + `file_relations`, proveedores
+> local/S3, servicio `src/server/files.ts`, ruta `/api/files/[fileId]`). Detalle en
+> [`../tasks/PLATFORM-002-IMPLEMENTATION-NOTES.md`](../tasks/PLATFORM-002-IMPLEMENTATION-NOTES.md).
+> Este documento describe el diseño; la fase 2B cubrirá la UI de logo/adjuntos y la
+> migración de uploads legacy.
 
 ## 1. Contrato `StorageProvider` (§7)
 

@@ -4,16 +4,16 @@ Registro formal de bloques. Ninguno iniciado salvo PLATFORM-001 (esta fase).
 
 ## Roadmap PLATFORM (§59)
 
-| ID               | Nombre                                | Alcance                                                                            |
-| ---------------- | ------------------------------------- | ---------------------------------------------------------------------------------- |
-| **PLATFORM-001** | Production Architecture               | Auditoría, arquitectura objetivo, contratos base, roadmap (esta fase).             |
-| **PLATFORM-002** | File & Object Storage                 | `StorageProvider` real (R2), `stored_files`/`file_relations`, signed URLs, cuotas. |
-| **PLATFORM-003** | Production Authentication & Identity  | Auth.js, contraseñas, recuperación, invitaciones, sesiones, roles+capabilities.    |
-| **PLATFORM-004** | PWA Foundation                        | manifest, service worker, instalación, caché, shell offline.                       |
-| **PLATFORM-005** | Offline Records & Sync                | IndexedDB, cola, API de sync idempotente, conflictos.                              |
-| **PLATFORM-006** | Observability, Backups & Recovery     | Sentry, scheduler productivo (cron+`CRON_SECRET`), backups/PITR, audit trail.      |
-| **PLATFORM-007** | Subscriptions, Quotas & Tenant Limits | Planes, cuotas de storage, límites por tenant.                                     |
-| **PLATFORM-008** | Production Release                    | Staging→prod, `migrate deploy`, smoke, dominios.                                   |
+| ID                         | Nombre                                | Alcance                                                                                                                                                                      |
+| -------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PLATFORM-001**           | Production Architecture               | Auditoría, arquitectura objetivo, contratos base, roadmap (esta fase).                                                                                                       |
+| **PLATFORM-002** ✅ Fase 1 | File & Object Storage                 | `stored_files`/`file_relations`, proveedores local/S3(R2), subida/descarga segura, signed URLs, cuotas, SHA-256, idempotencia. Fase 2B: UI logo/adjuntos + migración legacy. |
+| **PLATFORM-003**           | Production Authentication & Identity  | Auth.js, contraseñas, recuperación, invitaciones, sesiones, roles+capabilities.                                                                                              |
+| **PLATFORM-004**           | PWA Foundation                        | manifest, service worker, instalación, caché, shell offline.                                                                                                                 |
+| **PLATFORM-005**           | Offline Records & Sync                | IndexedDB, cola, API de sync idempotente, conflictos.                                                                                                                        |
+| **PLATFORM-006**           | Observability, Backups & Recovery     | Sentry, scheduler productivo (cron+`CRON_SECRET`), backups/PITR, audit trail.                                                                                                |
+| **PLATFORM-007**           | Subscriptions, Quotas & Tenant Limits | Planes, cuotas de storage, límites por tenant.                                                                                                                               |
+| **PLATFORM-008**           | Production Release                    | Staging→prod, `migrate deploy`, smoke, dominios.                                                                                                                             |
 
 ## Roadmap funcional adicional (§60)
 

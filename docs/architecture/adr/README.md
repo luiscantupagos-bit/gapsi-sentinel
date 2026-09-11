@@ -90,6 +90,51 @@ CORE-UX-005; métricas de riesgo/almacenamiento/errores usan su propia semántic
 Registros… crean/relacionan Tasks nativas); no se duplica el motor.
 **Consecuencias**: trazabilidad Task↔origen; estados derivados; una sola bandeja.
 
+## ADR-0013 — Modelo transversal `stored_files` / `file_relations`
+
+**Contexto**: los archivos estaban fragmentados en ~10 tablas por módulo.
+**Decisión**: un modelo genérico `stored_files` (binario) + `file_relations` (relación
+a entidades por `entity_type`/`entity_id`), reutilizable por todos los módulos.
+**Consecuencias**: nuevos uploads usan el modelo transversal; el legacy convive y se
+migra por fases; `entity_id` es genérico (sin FK), la integridad de tenant la da la FK
+compuesta a `stored_files`.
+
+## ADR-0014 — Metadata en PostgreSQL, binarios en Object Storage
+
+**Contexto**: separar la verdad funcional del almacenamiento físico.
+**Decisión**: PostgreSQL es la fuente de verdad; el binario vive en el Object Storage;
+`storageKey` es solo detalle técnico y no codifica relaciones.
+**Consecuencias**: cambiar de proveedor no altera la lógica; nunca se infieren
+relaciones desde la ruta.
+
+## ADR-0015 — Sin URLs públicas permanentes
+
+**Contexto**: binarios privados por tenant.
+**Decisión**: el acceso usa signed URLs cortas (S3/R2) o streaming autorizado (local),
+previa validación server-side; nunca URLs públicas permanentes.
+**Consecuencias**: toda descarga pasa por `/api/files/[id]`; TTL corto (10 min).
+
+## ADR-0016 — `storageKey` generado en el servidor
+
+**Contexto**: evitar traversal/colisión/fuga de nombres.
+**Decisión**: el servidor genera `org/<orgId>/<yyyy>/<mm>/<uuid>.<ext>`; nunca acepta
+rutas del cliente ni usa el nombre original como ruta.
+**Consecuencias**: nombres opacos y seguros; el original se guarda como metadata.
+
+## ADR-0017 — Objetos de archivo inmutables
+
+**Contexto**: trazabilidad de documentos/evidencias/certificados.
+**Decisión**: no se sobrescribe un `stored_file`; una versión nueva es un archivo nuevo.
+**Consecuencias**: el versionado funcional de Sentinel no depende del versioning del
+Object Storage (capa adicional).
+
+## ADR-0018 — Idempotencia de subida por tenant (`client_upload_id`)
+
+**Contexto**: reintentos y captura offline futura.
+**Decisión**: `stored_files` lleva `client_upload_id` único por organización; el mismo
+id no crea dos metadatas.
+**Consecuencias**: base para sync offline idempotente (PLATFORM-005) sin duplicar.
+
 ## ADR-0012 — Gantt reutilizable
 
 **Contexto**: Proyectos y Programas necesitan visualización temporal.

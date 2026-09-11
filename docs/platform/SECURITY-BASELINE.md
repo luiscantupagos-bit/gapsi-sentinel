@@ -29,13 +29,17 @@ hacia capacidades explícitas.
 Toda autorización se valida **en servidor** (nunca en el cliente). Los IDs y estados
 sensibles no se confían del cliente. RLS por organización como segunda barrera.
 
-## 4. Archivos (§11/§34)
+## 4. Archivos (§11/§34) — PLATFORM-002 implementado
 
-- **Signed URLs** temporales; nunca URLs públicas permanentes para binarios privados.
-- Antes de firmar: validar organización + membership + permiso + acceso a la entidad.
-- Nunca confiar en `storageKey` del cliente.
-- Validación por **firma de archivo** (magic bytes), no por extensión; límites de
-  tamaño y MIME; escaneo antimalware futuro.
+- **Signed URLs** temporales (TTL 10 min) o streaming autorizado; nunca URLs públicas
+  permanentes para binarios privados. Ruta única `/api/files/[fileId]`.
+- Autorización server-side por organización/tenant (granular por entidad = futuro).
+- `storageKey` generado en servidor; nunca del cliente (anti-traversal).
+- Validación por **firma de archivo** (magic bytes) + MIME allowlist + tamaño
+  (`MAX_UPLOAD_MB`); SHA-256 por integridad; escaneo antimalware futuro (sin campo aún).
+- RLS tenant-scoped en `stored_files`/`file_relations`; FK compuesta impide relacionar
+  un archivo con una entidad de otra organización. Ver
+  [`../tasks/PLATFORM-002-IMPLEMENTATION-NOTES.md`](../tasks/PLATFORM-002-IMPLEMENTATION-NOTES.md).
 
 ## 5. Secrets (§31)
 

@@ -49,6 +49,10 @@ Pipeline futuro: `Camera → Blob → IndexedDB → Upload Queue → Object Stor
 stored_files → file_relations → record`. Ver
 [STORAGE-ARCHITECTURE](STORAGE-ARCHITECTURE.md).
 
+**Base ya disponible (PLATFORM-002)**: `stored_files.client_upload_id` (único por
+organización) hace el `uploadFile` **idempotente**, por lo que la cola de subida puede
+reintentar sin duplicar metadata. El chunking de archivos grandes es futuro.
+
 ## 7. QR / código de barras (§25)
 
 DOC-004 se preparará para vincular registros a `site`, `area`, `equipment`,
