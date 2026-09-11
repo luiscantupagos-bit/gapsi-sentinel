@@ -1144,9 +1144,11 @@ function buildRenderIdentity(
   },
   versionLabel: string,
   organizationName: string,
+  organizationLogoUrl: string | null = null,
 ): RenderIdentity {
   return {
     organizationName,
+    organizationLogoUrl,
     typeLabel: labelOf(DOCUMENT_TYPES, doc.documentType),
     code: doc.code,
     versionLabel,
@@ -1155,6 +1157,17 @@ function buildRenderIdentity(
     issuedAt: isoDate(doc.issuedAt),
     nextReviewAt: isoDate(doc.nextReviewAt),
   };
+}
+
+/** Fuente del logo de la organización para el render (PLATFORM-002B §3/§7). */
+async function organizationLogoSource(organizationId: string): Promise<string | null> {
+  const profile = await getPrisma().organizationProfile.findUnique({
+    where: { organizationId },
+    select: { logoFileId: true, logoUrl: true },
+  });
+  if (!profile) return null;
+  if (profile.logoFileId) return `/api/files/${profile.logoFileId}`;
+  return profile.logoUrl || null;
 }
 
 // --- DOC-002: referencias inteligentes y sincronización de relaciones --------
@@ -1803,8 +1816,9 @@ export async function renderDocumentControlledCopy(
   const { resolved } = await resolvedReferencesOf(organizationId, content);
   const presentation = await getDocumentPresentation(organizationId);
   const showC3Attribution = await resolveShowC3AttributionForOrg(organizationId);
+  const logoSource = await organizationLogoSource(organizationId);
   const identity = formatIdentityDates(
-    buildRenderIdentity(doc, version.label, org.name),
+    buildRenderIdentity(doc, version.label, org.name, logoSource),
     presentation.dateFormat,
   );
   const changeLog = await buildChangeLog(
@@ -1900,8 +1914,9 @@ export async function getStructuredContent(
   // control de cambios (hasta la versión vista §48) y modo (published/preview §55).
   const presentation = await getDocumentPresentation(organizationId);
   const showC3Attribution = await resolveShowC3AttributionForOrg(organizationId);
+  const logoSource = await organizationLogoSource(organizationId);
   const identity = formatIdentityDates(
-    buildRenderIdentity(doc, version.label, org.name),
+    buildRenderIdentity(doc, version.label, org.name, logoSource),
     presentation.dateFormat,
   );
   const changeLog = await buildChangeLog(
@@ -2011,7 +2026,8 @@ export async function saveStructuredContent(
     where: { id: organizationId },
     select: { name: true },
   });
-  const identity = buildRenderIdentity(doc, version.label, org.name);
+  const logoSource = await organizationLogoSource(organizationId);
+  const identity = buildRenderIdentity(doc, version.label, org.name, logoSource);
   const { resolved } = await resolvedReferencesOf(organizationId, content);
   const html = renderStructuredHtml(doc.documentType, content, identity, { resolved });
   const checksum = structuredChecksum(content);

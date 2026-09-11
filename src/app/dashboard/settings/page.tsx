@@ -8,6 +8,7 @@ import {
 import { getOrganizationCompliancePolicy } from '@/server/compliance';
 import { OrganizationProfileForm } from './_components/OrganizationProfileForm';
 import { ComplianceThresholdsForm } from './_components/ComplianceThresholdsForm';
+import { LogoSettings } from './_components/LogoSettings';
 
 const ROLE_LABEL: Record<string, string> = {
   owner: 'Propietario',
@@ -54,6 +55,9 @@ export default async function GeneralSettingsPage() {
           logoUrl: profile.logoUrl,
         }}
       />
+
+      <h2>Logo de organización</h2>
+      <LogoSettings logoSource={profile.logoSource} organizationName={profile.name} />
 
       <h2>Semáforo de cumplimiento</h2>
       <ComplianceThresholdsForm initial={compliancePolicy} />

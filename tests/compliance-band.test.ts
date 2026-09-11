@@ -12,6 +12,8 @@ import {
   validateResolvedPolicy,
   stylesFromColors,
   usesComplianceBand,
+  resolveMetricBand,
+  resolveInverseBand,
   type CompliancePolicy,
   type ResolvedCompliancePolicy,
 } from '@/features/compliance/compliance-band';
@@ -158,5 +160,43 @@ describe('semántica de métrica (§10/§37)', () => {
   it('el semáforo aplica solo a higher_is_better', () => {
     expect(usesComplianceBand('higher_is_better')).toBe(true);
     expect(usesComplianceBand('lower_is_better')).toBe(false);
+  });
+});
+
+describe('KPIs demo positivos/negativos (PLATFORM-002B §13)', () => {
+  it('A. higher_is_better 95 → verde con defaults', () => {
+    expect(resolveMetricBand(95, 'higher_is_better').level).toBe('green');
+  });
+  it('B. higher_is_better 76 → naranja con defaults', () => {
+    expect(resolveMetricBand(76, 'higher_is_better').level).toBe('orange');
+  });
+  it('C. lower_is_better 3 → verde (favorable)', () => {
+    const band = resolveMetricBand(3, 'lower_is_better');
+    expect(band.level).toBe('green');
+    expect(band.label).toBe('Nivel favorable');
+  });
+  it('D. lower_is_better 18 → rojo (crítico)', () => {
+    expect(resolveMetricBand(18, 'lower_is_better').level).toBe('red');
+  });
+  it('E. positivo reacciona a política custom (95/90/80)', () => {
+    const p: ResolvedCompliancePolicy = {
+      greenMin: 95,
+      yellowMin: 90,
+      orangeMin: 80,
+      green: '#0a0',
+      yellow: '#aa0',
+      orange: '#a50',
+      red: '#a00',
+    };
+    expect(resolveMetricBand(95, 'higher_is_better', p).level).toBe('green');
+    expect(resolveMetricBand(76, 'higher_is_better', p).level).toBe('red');
+  });
+  it('F. lower_is_better NO usa 90/80/70 (3% no es rojo)', () => {
+    // Si usara la política positiva, 3 < 70 → rojo. Con semántica inversa → verde.
+    expect(resolveMetricBand(3, 'lower_is_better').level).toBe('green');
+    // Rangos inversos demo: 0-5 verde, >5-10 amarillo, >10-15 naranja, >15 rojo.
+    expect(resolveInverseBand(8).level).toBe('yellow');
+    expect(resolveInverseBand(12).level).toBe('orange');
+    expect(resolveInverseBand(20).level).toBe('red');
   });
 });

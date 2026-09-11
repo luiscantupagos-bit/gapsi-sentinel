@@ -11,6 +11,7 @@ import { saveCompliancePolicyAction, type CompliancePolicyState } from '../actio
 import { SubmitButton } from '../../documents/_components/SubmitButton';
 import {
   resolveComplianceBand,
+  resolveMetricBand,
   validateResolvedPolicy,
   type ResolvedCompliancePolicy,
 } from '@/features/compliance/compliance-band';
@@ -21,6 +22,16 @@ interface Props {
 
 // Valores de ejemplo del preview (§13): se recolorean con la configuración actual.
 const PREVIEW_VALUES = [95, 85, 75, 65];
+
+// KPIs demo (§9): positivos reaccionan a la política; negativos usan semántica inversa.
+const POSITIVE_KPIS = [
+  { name: 'Cumplimiento de auditorías', value: 95 },
+  { name: 'Avance de acciones correctivas', value: 76 },
+];
+const NEGATIVE_KPIS = [
+  { name: 'Producto no conforme', value: 3 },
+  { name: 'Tareas vencidas', value: 18 },
+];
 
 export function ComplianceThresholdsForm({ initial }: Props) {
   const [state, action] = useActionState<CompliancePolicyState | null, FormData>(
@@ -156,6 +167,47 @@ export function ComplianceThresholdsForm({ initial }: Props) {
               />
               <span className="compliance-preview__pct">{v}%</span>
               <span className="compliance-preview__label">{band.label}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <h3>Ejemplos de indicadores</h3>
+      <p className="muted">
+        Los indicadores <strong>positivos</strong> (mayor = mejor) reaccionan a la configuración de
+        arriba. Los <strong>negativos</strong> (menor = mejor) usan su propia semántica inversa (no
+        el semáforo de cumplimiento).
+      </p>
+      <ul className="compliance-preview">
+        {POSITIVE_KPIS.map((kpi) => {
+          const band = resolveComplianceBand(kpi.value, policy);
+          return (
+            <li key={kpi.name} className="compliance-preview__row">
+              <span
+                className="compliance-preview__dot"
+                style={{ background: band.color }}
+                aria-hidden
+              />
+              <span className="compliance-preview__pct">{kpi.value}%</span>
+              <span className="compliance-preview__label">
+                {kpi.name} — {band.label}
+              </span>
+            </li>
+          );
+        })}
+        {NEGATIVE_KPIS.map((kpi) => {
+          const band = resolveMetricBand(kpi.value, 'lower_is_better');
+          return (
+            <li key={kpi.name} className="compliance-preview__row">
+              <span
+                className="compliance-preview__dot"
+                style={{ background: band.color }}
+                aria-hidden
+              />
+              <span className="compliance-preview__pct">{kpi.value}%</span>
+              <span className="compliance-preview__label">
+                {kpi.name} — {band.label}
+              </span>
             </li>
           );
         })}
