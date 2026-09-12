@@ -35,6 +35,12 @@ describe('PaginatedDocument — motor de páginas', () => {
     expect(paginator).toContain("size:${pageSize === 'a4' ? 'A4' : 'letter'}");
     expect(paginator).toContain('beforeprint');
   });
+  it('§D3: mueve una sección a hoja nueva si su contenido NO tabular no cabe (figura)', () => {
+    // Tras vaciar el tbody, mide el contenido no tabular y mueve la sección completa
+    // antes de rellenar filas (evita que la figura del Ishikawa desborde el pie).
+    expect(paginator).toContain("tbody.textContent = ''");
+    expect(paginator).toContain('!fits() && flow!.childElementCount > 1');
+  });
 });
 
 describe('salida de copia y CSS de hojas', () => {

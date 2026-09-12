@@ -5763,6 +5763,13 @@ table td.mono {
   max-width: 100%;
   height: auto;
 }
+/* §D3/§D4 — el Ishikawa embebido lleva ALTURA DEFINIDA para que el motor de páginas lo
+   mida correctamente (un SVG con width:100% sin altura intrínseca se mide como ~0 y se
+   desborda). preserveAspectRatio="meet" lo escala dentro de la caja sin deformarlo. */
+.doc-report__figure--ishikawa svg {
+  width: 100%;
+  height: 340px;
+}
 .doc-report__figure figcaption {
   font-size: 0.78rem;
   color: #6b7280;

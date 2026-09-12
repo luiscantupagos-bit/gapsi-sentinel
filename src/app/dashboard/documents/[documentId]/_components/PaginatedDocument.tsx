@@ -181,26 +181,24 @@ function paginate(container: HTMLElement, html: string, pageSize: PageSize): voi
       return; // si aún no cabe en hoja vacía, se acepta (bloque más alto que una hoja).
     }
 
-    // Parte la tabla: deja las filas que quepan y continúa el resto en hojas nuevas.
+    // Sección con tabla partible. Vacía el tbody para medir su contenido NO tabular
+    // (cabecera, campos, figura del Ishikawa §D3). Si ese contenido ya no cabe en lo que
+    // queda de la hoja y la hoja tenía contenido previo, mueve TODA la sección a una hoja
+    // nueva antes de rellenar filas (evita que la figura desborde el pie de la hoja).
     const allRows = Array.from(tbody.rows);
-    // Vacía el tbody y agrega filas hasta que deje de caber.
     tbody.textContent = '';
+    if (!fits() && flow!.childElementCount > 1) {
+      flow!.removeChild(block);
+      newPage();
+      flow!.appendChild(block);
+    }
+    // Agrega filas hasta que deje de caber; el resto continúa en hojas nuevas.
     let i = 0;
     while (i < allRows.length) {
       tbody.appendChild(allRows[i]!);
       if (!fits()) {
-        // La última fila no cupo: quítala y abre continuación.
-        if (tbody.rows.length > 1) {
-          tbody.removeChild(allRows[i]!);
-        } else {
-          // Ni una fila cabe en la hoja actual (hoja casi llena): nueva hoja.
-          tbody.removeChild(allRows[i]!);
-          newPage();
-          const cont = buildContinuation(block, table);
-          flow!.appendChild(cont);
-          continueTable(cont, allRows, i);
-          return;
-        }
+        // La última fila no cupo: quítala y abre continuación en una hoja nueva.
+        tbody.removeChild(allRows[i]!);
         newPage();
         const cont = buildContinuation(block, table);
         flow!.appendChild(cont);
