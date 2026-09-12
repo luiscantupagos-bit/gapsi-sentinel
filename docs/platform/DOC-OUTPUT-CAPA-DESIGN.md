@@ -28,7 +28,45 @@ pendiente de autorización (migración) o de un PR posterior (reporte 8D).
   copias digitales/PDF no bloquean (no retornables) y quedan «Reemplazadas» al superar la
   versión. Desbloqueo: registrar la recuperación (botón existente).
 
-## Diseñado — pendiente de autorización
+## Cierre FASE 2 — completado (UI + Ishikawa, 0 migraciones nuevas)
+
+Sobre el backend + la migración `20260920000000_copy_recovery_and_publish_exception` ya
+existentes, se cerró la experiencia de usuario y el Ishikawa del 8D:
+
+- **Recuperación de copias (§A)** — `RecoverCopyDialog.tsx`: diálogo accesible con datos de
+  la copia en solo lectura, **disposición obligatoria** (destruida/archivada/reemplazada/otra),
+  recuperada/confirmada por, observaciones y copia sustituta cuando la disposición es
+  «Reemplazada». `updateCopyAction` valida server-side y `updateControlledCopy` honra
+  «recuperada por» (por defecto el actor). Panel → Copias separa **ESTADO** de **DISPOSICIÓN**
+  y muestra la trazabilidad de reemplazo (CC → Reemplazada por → CC).
+- **Bloqueo de publicación (§B) + excepción (§C)** — `PublishControl.tsx`: al publicar con
+  copias físicas pendientes se abre un diálogo que las lista (no un error) y ofrece registrar
+  su recuperación o, **sólo el propietario**, publicar CON EXCEPCIÓN con justificación
+  obligatoria (server-side). Registra `document_publish_exceptions` + historial auditado.
+- **Ishikawa en D4 (§D)** — `ishikawa-svg.ts`: ÚNICO constructor de SVG puro reutilizado por
+  el componente del análisis (`IshikawaChart`) y el reporte 8D → sin segundo diagrama y sin
+  `react-dom/server` (Next lo bloquea en el App Router). D4 embebe el SVG en una figura
+  no-partible con altura definida; la marca de agua queda por encima; sin Ishikawa → estado
+  formal.
+- **Fix del motor de páginas** — una sección con contenido NO tabular pesado (la figura) más
+  una tabla ya no desborda el pie: se mueve la sección completa a una hoja nueva antes de
+  partir la tabla (`PaginatedDocument.placeBlock`, §D3).
+
+**Smoke visual (§G)** — el Browser pane del entorno está **oculto** (no captura píxeles), pero
+el motor de páginas corrió con layout medible: reporte 8D = 5 hojas, encabezado completo sólo
+en la hoja 1, pie «Página X de Y», Ishikawa embebido en su propia hoja y **0 desbordamiento**;
+copias BORRADOR/OBSOLETO = marca de agua en TODAS las hojas, texto completo, z sobre el
+contenido (30 > 1), `pointer-events:none`, dentro de márgenes, **0 desbordamiento**. La
+inspección de píxeles (screenshot/PDF) y el escenario en vivo de recuperación/excepción quedan
+para el smoke manual con el pane visible.
+
+### Follow-up registrado: CAPA-8D-ROOT-CAUSE-EXPANSION
+
+Ampliar D4 con la distinción **causa de ocurrencia** vs **causa de escape / no detección**
+(requeriría campos nuevos en `CapaRootCauseAnalysis` → migración aditiva). No se implementa
+ahora; la nota queda impresa en D4 del reporte.
+
+## Diseño original (referencia histórica)
 
 ### PART C-b/c — recuperación completa + excepción (requiere UNA migración aditiva)
 
