@@ -163,4 +163,26 @@ describe('renderCapaReportHtml — reporte 8D', () => {
     expect(html).toContain('doc-render__header');
     expect(html).toContain('doc-render__footer');
   });
+
+  it('§D: embebe el Ishikawa SVG en D4 dentro de una figura no-partible', () => {
+    const withSvg = renderCapaReportHtml(
+      { ...(base as Record<string, unknown>), ishikawaSvg: '<svg id="ishi"><g/></svg>' } as never,
+      identity,
+    );
+    expect(withSvg).toContain('Diagrama de Ishikawa');
+    expect(withSvg).toContain('doc-report__figure--ishikawa');
+    expect(withSvg).toContain('<svg id="ishi">');
+    // El SVG va dentro de D4, antes del bloque de los 5 porqués.
+    expect(withSvg.indexOf('doc-report__figure--ishikawa')).toBeLessThan(
+      withSvg.indexOf('<h3>5 porqués</h3>'),
+    );
+  });
+
+  it('§D6: sin Ishikawa muestra el estado formal (no un hueco vacío)', () => {
+    expect(html).toContain('Sin análisis de Ishikawa registrado.');
+  });
+
+  it('§E4: conserva el follow-up de causa de ocurrencia/escape', () => {
+    expect(html).toContain('CAPA-8D-ROOT-CAUSE-EXPANSION');
+  });
 });

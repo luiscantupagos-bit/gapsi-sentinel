@@ -118,6 +118,38 @@ describe.skipIf(!hasDb)('DOC-OUTPUT — recuperación de copias y excepción', (
     expect(digital.status).toBe('replaced');
   });
 
+  it('§A4/§A7 recuperación: honra "recuperada por" y registra la copia sustituta', async () => {
+    const ctx = await setup();
+    const v1 = await current(ctx);
+    await publish(ctx, v1.id);
+    const oldN = await registerControlledCopy(ctx.orgId, ctx.owner, v1.id, {
+      recipient: 'Planta',
+      format: 'printed',
+    });
+    const newN = await registerControlledCopy(ctx.orgId, ctx.owner, v1.id, {
+      recipient: 'Planta (nueva)',
+      format: 'printed',
+    });
+    const oldCopy = await db().documentControlledCopy.findFirstOrThrow({
+      where: { versionId: v1.id, copyNumber: oldN },
+    });
+    const newCopy = await db().documentControlledCopy.findFirstOrThrow({
+      where: { versionId: v1.id, copyNumber: newN },
+    });
+    // Recuperada por un tercero (no el actor), disposición = reemplazada, con sustituta.
+    await updateControlledCopy(ctx.orgId, ctx.owner, oldCopy.id, 'recovered', null, {
+      disposition: 'replaced',
+      recoveredBy: ctx.reviewer,
+      replacedByCopyId: newCopy.id,
+      recoveryNotes: 'Sustituida por la copia nueva',
+    });
+    const rec = await db().documentControlledCopy.findFirstOrThrow({ where: { id: oldCopy.id } });
+    expect(rec.status).toBe('recovered');
+    expect(rec.recoveredBy).toBe(ctx.reviewer); // §A4: el actor es owner, pero recupera reviewer
+    expect(rec.disposition).toBe('replaced');
+    expect(rec.replacedByCopyId).toBe(newCopy.id); // §A7: trazabilidad
+  });
+
   it('§J excepción: sin permiso (admin) denegada; sin motivo denegada; owner + motivo OK', async () => {
     const ctx = await setup();
     const v1 = await current(ctx);

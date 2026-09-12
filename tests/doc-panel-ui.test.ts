@@ -75,7 +75,7 @@ describe('DocumentPanel — contenido de tabs', () => {
     expect(panel).toContain('Realizado por');
   });
   it('H. copias: registro + salidas + recuperación', () => {
-    expect(panel).toContain('recoverCopyForm');
+    expect(panel).toContain('RecoverCopyDialog');
     expect(panel).toContain('Copias controladas (registro)');
     expect(panel).toContain('Copias generadas (salidas)');
   });
