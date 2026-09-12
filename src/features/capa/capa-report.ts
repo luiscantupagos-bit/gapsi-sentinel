@@ -35,6 +35,12 @@ export interface CapaReportData {
   whySteps: Record<string, unknown>[];
   actions: Record<string, unknown>[];
   reviews: Record<string, unknown>[];
+  /**
+   * DOC-OUTPUT §D — SVG del diagrama de Ishikawa ya renderizado (mismo componente que
+   * el análisis, vía renderToStaticMarkup). `null`/ausente → «Sin análisis de Ishikawa
+   * registrado». La marca de agua queda por encima (motor de páginas, §D5/§F4).
+   */
+  ishikawaSvg?: string | null;
 }
 
 export interface CapaReportIdentity {
@@ -170,6 +176,12 @@ export function renderCapaReportHtml(data: CapaReportData, id: CapaReportIdentit
     data.whySteps.map((w) => [esc(w.level), esc(w.question), esc(w.answer)]),
     'Sin análisis 5 porqués registrado.',
   );
+  // §D: el Ishikawa se embebe (mismo SVG que el análisis). §D3: evita partirlo entre
+  // páginas (break-inside). §D4: se escala al ancho disponible sin deformar (el SVG usa
+  // viewBox + preserveAspectRatio). §D6: sin análisis → texto formal, no hueco vacío.
+  const ishikawa = data.ishikawaSvg
+    ? `<figure class="doc-report__figure doc-report__figure--ishikawa">${data.ishikawaSvg}<figcaption>Diagrama de Ishikawa (espina de pescado).</figcaption></figure>`
+    : `<p class="doc-render__empty">Sin análisis de Ishikawa registrado.</p>`;
   const d4 = section(
     'D4 — Causa raíz',
     (rca
@@ -179,8 +191,9 @@ export function renderCapaReportHtml(data: CapaReportData, id: CapaReportIdentit
         field('Causa raíz (verificada)', rca.rootCause) +
         field('Justificación / verificación', rca.justification)
       : `<p class="doc-render__empty">${NONE}</p>`) +
+      `<h3>Diagrama de Ishikawa</h3>${ishikawa}` +
       `<h3>5 porqués</h3>${whys}` +
-      `<p class="doc-report__note">El diagrama de Ishikawa y demás herramientas de análisis se consultan en el análisis vinculado. La distinción causa de ocurrencia / de escape es un follow-up (CAPA-8D-ROOT-CAUSE-EXPANSION).</p>`,
+      `<p class="doc-report__note">La distinción causa de ocurrencia / de escape (no detección) es un follow-up registrado (CAPA-8D-ROOT-CAUSE-EXPANSION).</p>`,
   );
 
   // --- D5 correctivas permanentes -------------------------------------------
