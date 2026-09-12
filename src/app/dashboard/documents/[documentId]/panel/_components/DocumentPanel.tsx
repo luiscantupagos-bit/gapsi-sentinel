@@ -14,7 +14,9 @@ import Link from 'next/link';
 import { PANEL_TABS, PANEL_TAB_LABEL, type PanelTab } from '@/features/documents/panel-view';
 import { DocumentActions } from '../../DocumentActions';
 import { WorkflowPanel } from '../../WorkflowPanel';
-import { recoverCopyForm } from '../../../workflow-actions';
+import { RecoverCopyDialog } from '../../_components/RecoverCopyDialog';
+import { type PendingPhysicalCopy } from '../../_components/PublishControl';
+import { type ReplacementOption } from '../../_components/RecoverCopyDialog';
 
 // --- Formas serializables que arma la página server ---------------------------
 export interface PanelVersionRow {
@@ -62,10 +64,23 @@ export interface PanelDistributionRow {
 export interface PanelCopyRow {
   id: string;
   copyNumber: number;
+  folio: string;
+  versionLabel: string;
   recipient: string;
+  area: string | null;
+  responsible: string | null;
+  formatKey: string;
   formatLabel: string;
+  generatedAtLabel: string;
   statusKey: string;
   statusLabel: string;
+  /** Disposición final (distinta del estado); solo cuando la copia fue recuperada. */
+  dispositionLabel: string | null;
+  recoveredAtLabel: string | null;
+  recoveredByName: string | null;
+  /** Trazabilidad de reemplazo: folio de la copia sustituta y su id (si existe detalle). */
+  replacedByFolio: string | null;
+  replacedByCopyId: string | null;
   canRecover: boolean;
 }
 export interface PanelCopyOutputRow {
@@ -147,6 +162,12 @@ export interface DocumentPanelData {
   // Copias
   copies: PanelCopyRow[];
   copyOutputs: PanelCopyOutputRow[];
+  /** Copias físicas de versiones anteriores pendientes de recuperación (candado §B). */
+  pendingPhysicalCopies: PendingPhysicalCopy[];
+  /** Copias activas candidatas a ser copia sustituta en un reemplazo (§A4). */
+  replacementOptions: ReplacementOption[];
+  isOwner: boolean;
+  today: string;
   // Relaciones
   issuedFrom: PanelRelationRow[];
   references: PanelRelationRow[];
@@ -382,6 +403,10 @@ function FlujoTab({ data }: { data: DocumentPanelData }) {
         checksum={data.editor.checksum}
         ctx={data.ctx}
         members={data.members}
+        pendingPhysicalCopies={data.pendingPhysicalCopies}
+        isOwner={data.isOwner}
+        replacementOptions={data.replacementOptions}
+        today={data.today}
       />
 
       <h3>Asignaciones</h3>
@@ -539,10 +564,16 @@ function DistribucionTab({ data }: { data: DocumentPanelData }) {
 }
 
 function CopiasTab({ data }: { data: DocumentPanelData }) {
+  // Mapa folio → id para hacer clickeable la trazabilidad de reemplazo (§A7).
+  const folioById = new Map(data.copies.map((c) => [c.id, c.folio]));
   return (
     <>
       <h3>Copias controladas (registro)</h3>
-      <p className="muted doc-panel__hint">Quién resguarda una copia controlada del documento.</p>
+      <p className="muted doc-panel__hint">
+        Quién resguarda una copia controlada del documento. El <strong>estado</strong> indica dónde
+        está la copia (activa / pendiente / recuperada); la <strong>disposición</strong> es qué se
+        hizo con ella al recuperarla.
+      </p>
       {data.copies.length === 0 ? (
         <EmptyState>Sin copias registradas.</EmptyState>
       ) : (
@@ -550,32 +581,65 @@ function CopiasTab({ data }: { data: DocumentPanelData }) {
           <table>
             <thead>
               <tr>
-                <th>N.º</th>
-                <th>Destinatario</th>
-                <th>Formato</th>
+                <th>Folio</th>
+                <th>Versión</th>
+                <th>Tipo</th>
+                <th>Destino</th>
+                <th>Área</th>
+                <th>Responsable</th>
+                <th>Generación</th>
                 <th>Estado</th>
-                <th />
+                <th>Disposición</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {data.copies.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.copyNumber}</td>
-                  <td>{c.recipient}</td>
+                  <td className="mono">{c.folio}</td>
+                  <td>{c.versionLabel}</td>
                   <td>{c.formatLabel}</td>
+                  <td>{c.recipient}</td>
+                  <td>{c.area ?? '—'}</td>
+                  <td>{c.responsible ?? '—'}</td>
+                  <td>{c.generatedAtLabel}</td>
                   <td>
                     <span className={`badge badge--copy-${c.statusKey}`}>{c.statusLabel}</span>
+                    {c.recoveredAtLabel && (
+                      <span className="muted doc-panel__copy-sub">
+                        {c.recoveredAtLabel}
+                        {c.recoveredByName ? ` · ${c.recoveredByName}` : ''}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {c.dispositionLabel ?? '—'}
+                    {c.replacedByFolio && (
+                      <span className="muted doc-panel__copy-sub">
+                        {c.folio} → Reemplazada por →{' '}
+                        {c.replacedByCopyId && folioById.has(c.replacedByCopyId) ? (
+                          <span className="mono">{c.replacedByFolio}</span>
+                        ) : (
+                          <span className="mono">{c.replacedByFolio}</span>
+                        )}
+                      </span>
+                    )}
                   </td>
                   <td>
                     {c.canRecover && (
-                      <form action={recoverCopyForm} className="wf-form">
-                        <input type="hidden" name="documentId" value={data.documentId} />
-                        <input type="hidden" name="copyId" value={c.id} />
-                        <input type="hidden" name="status" value="recovered" />
-                        <button className="button button--ghost" type="submit">
-                          Registrar recuperación
-                        </button>
-                      </form>
+                      <RecoverCopyDialog
+                        documentId={data.documentId}
+                        copy={{
+                          id: c.id,
+                          folio: c.folio,
+                          versionLabel: c.versionLabel,
+                          recipient: c.recipient,
+                          formatLabel: c.formatLabel,
+                        }}
+                        members={data.members}
+                        replacementOptions={data.replacementOptions}
+                        today={data.today}
+                      />
                     )}
                   </td>
                 </tr>

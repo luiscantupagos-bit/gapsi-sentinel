@@ -9,6 +9,7 @@ import {
   getIssuedFromSources,
   listResponsibles,
   getControlledCopyHistory,
+  listDocumentAreas,
 } from '@/server/documents';
 import { getDocumentControl, getUserVersionContext } from '@/server/document-workflow';
 import {
@@ -19,6 +20,7 @@ import {
   DISTRIBUTION_TARGET_LABEL,
   DISTRIBUTION_STATUS_LABEL,
   COPY_STATUS_LABEL,
+  COPY_DISPOSITION_LABEL,
   type VersionStatus,
 } from '@/features/documents/workflow-state';
 import { categorizeVersions, resolveTab, type PanelVersion } from '@/features/documents/panel-view';
@@ -70,13 +72,21 @@ export default async function DocumentPanelPage({
     throw error;
   }
 
-  const [editor, control, members, copyHistory] = await Promise.all([
+  const [editor, control, members, copyHistory, areas] = await Promise.all([
     getEditorContent(session.organizationId, documentId),
     getDocumentControl(session.organizationId, documentId),
     listResponsibles(session.organizationId),
     getControlledCopyHistory(session.organizationId, documentId),
+    listDocumentAreas(session.organizationId),
   ]);
   const ctx = await getUserVersionContext(session.organizationId, session.userId, editor.versionId);
+
+  // Mapas para etiquetar copias (§A1: labels en español, nada de UUID).
+  const nameOf = new Map(members.map((m) => [m.id, m.name]));
+  const versionLabelOf = new Map(control.versions.map((v) => [v.id, v.label]));
+  const areaNameOf = new Map(areas.map((a) => [(a.code ?? '').toUpperCase(), a.name]));
+  const folioOf = new Map(control.copies.map((c) => [c.id, c.folio ?? `Copia #${c.copyNumber}`]));
+  const copyFolio = (c: (typeof control.copies)[number]) => c.folio ?? `Copia #${c.copyNumber}`;
 
   const [relations, issuedFrom] = await Promise.all([
     getDocumentRelations(session.organizationId, documentId),
@@ -235,10 +245,25 @@ export default async function DocumentPanelPage({
     copies: control.copies.map((c) => ({
       id: c.id,
       copyNumber: c.copyNumber,
+      folio: copyFolio(c),
+      versionLabel: versionLabelOf.get(c.versionId) ?? '—',
       recipient: c.recipient,
+      area: c.destinationAreaCode
+        ? (areaNameOf.get(c.destinationAreaCode.toUpperCase()) ?? c.destinationAreaCode)
+        : null,
+      responsible: c.issuedBy ? (nameOf.get(c.issuedBy) ?? null) : null,
+      formatKey: c.format,
       formatLabel: c.format === 'printed' ? 'Impresa' : 'Digital',
+      generatedAtLabel: dd(c.issuedAt),
       statusKey: c.status,
       statusLabel: COPY_STATUS_LABEL[c.status] ?? c.status,
+      dispositionLabel: c.disposition
+        ? (COPY_DISPOSITION_LABEL[c.disposition] ?? c.disposition)
+        : null,
+      recoveredAtLabel: c.recoveredAt ? dd(c.recoveredAt) : null,
+      recoveredByName: c.recoveredBy ? (nameOf.get(c.recoveredBy) ?? null) : null,
+      replacedByFolio: c.replacedByCopyId ? (folioOf.get(c.replacedByCopyId) ?? null) : null,
+      replacedByCopyId: c.replacedByCopyId ?? null,
       canRecover:
         Boolean(ctx?.isAdmin) && (c.status === 'active' || c.status === 'pending_recovery'),
     })),
@@ -251,6 +276,28 @@ export default async function DocumentPanelPage({
       issuedByName: c.issuedByName,
       issuedAt: c.issuedAt,
     })),
+    // §B: copias FÍSICAS de OTRAS versiones pendientes de recuperación (bloquean publicar).
+    pendingPhysicalCopies: control.copies
+      .filter(
+        (c) =>
+          c.format === 'printed' &&
+          (c.status === 'active' || c.status === 'pending_recovery') &&
+          c.versionId !== editor.versionId,
+      )
+      .map((c) => ({
+        id: c.id,
+        folio: copyFolio(c),
+        recipient: c.recipient,
+        versionLabel: versionLabelOf.get(c.versionId) ?? '—',
+        dateLabel: dd(c.issuedAt),
+        statusLabel: COPY_STATUS_LABEL[c.status] ?? c.status,
+      })),
+    // §A4: copias activas candidatas a ser la copia sustituta en un reemplazo.
+    replacementOptions: control.copies
+      .filter((c) => c.status === 'active')
+      .map((c) => ({ id: c.id, folio: copyFolio(c), recipient: c.recipient })),
+    isOwner: ctx?.role === 'owner',
+    today: new Date().toISOString().slice(0, 10),
     issuedFrom: relRows(issuedFrom),
     references: relRows(relations.references),
     issuedForms: relRows(relations.issuedForms),

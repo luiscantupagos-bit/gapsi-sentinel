@@ -5750,3 +5750,118 @@ table td.mono {
   font-style: italic;
   margin: var(--space-2) 0 0;
 }
+
+/* DOC-OUTPUT §D — figura embebida (Ishikawa) en el reporte: se ajusta al ancho de la
+   hoja sin deformarse (el SVG lleva viewBox + preserveAspectRatio) y evita partirse. */
+.doc-report__figure {
+  margin: var(--space-2) 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.doc-report__figure svg,
+.doc-report__figure .analysis-svg {
+  max-width: 100%;
+  height: auto;
+}
+.doc-report__figure figcaption {
+  font-size: 0.78rem;
+  color: #6b7280;
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* DOC-OUTPUT §A/§B/§C — diálogos de recuperación de copias y de publicación. */
+.doc-dialog {
+  border: 1px solid var(--color-border, #d5dde5);
+  border-radius: 12px;
+  padding: 0;
+  max-width: 30rem;
+  width: calc(100% - 2rem);
+  box-shadow: 0 18px 48px rgba(15, 36, 64, 0.22);
+  color: inherit;
+}
+.doc-dialog--wide {
+  max-width: 48rem;
+}
+.doc-dialog::backdrop {
+  background: rgba(15, 36, 64, 0.38);
+}
+.doc-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+.doc-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.doc-dialog__head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.doc-dialog__close {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+}
+.doc-dialog__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 1rem;
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--color-primary-soft, #eef4fb);
+  border-radius: 8px;
+}
+.doc-dialog__meta dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+.doc-dialog__meta dd {
+  margin: 0;
+  font-size: 0.92rem;
+}
+.doc-dialog__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+}
+.doc-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+.doc-dialog__exception {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1 1 100%;
+  border-top: 1px dashed var(--color-border, #d5dde5);
+  padding-top: 0.6rem;
+}
+.doc-panel__copy-sub {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+.button--danger {
+  background: #a11a09;
+  border-color: #a11a09;
+  color: #fff;
+}
+.button--danger:hover {
+  background: #8a1607;
+  border-color: #8a1607;
+}

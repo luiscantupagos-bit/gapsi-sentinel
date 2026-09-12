@@ -915,6 +915,8 @@ export async function updateControlledCopy(
     confirmedBy?: string | null;
     replacedByCopyId?: string | null;
     recoveryNotes?: string | null;
+    /** Quién recuperó físicamente la copia; por defecto el actor que lo registra. */
+    recoveredBy?: string | null;
   },
 ): Promise<void> {
   const role = await memberRole(organizationId, actorId);
@@ -934,7 +936,7 @@ export async function updateControlledCopy(
         closedAt: new Date(),
         notes: notes ?? copy.notes,
         recoveredAt: new Date(),
-        recoveredBy: actorId,
+        recoveredBy: details?.recoveredBy ?? actorId,
         confirmedBy: details?.confirmedBy ?? copy.confirmedBy,
         disposition: details?.disposition ?? (status === 'destroyed' ? 'destroyed' : null),
         replacedByCopyId: details?.replacedByCopyId ?? copy.replacedByCopyId,
