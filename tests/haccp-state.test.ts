@@ -82,10 +82,11 @@ describe('validación de publicación (§35)', () => {
 });
 
 describe('tabs', () => {
-  it('6 tabs con etiquetas', () => {
-    expect(HACCP_TABS).toHaveLength(6);
+  it('7 tabs con etiquetas (incluye Diagrama de flujo)', () => {
+    expect(HACCP_TABS).toHaveLength(7);
     expect(HACCP_TAB_LABEL.resumen).toBe('Resumen');
     expect(HACCP_TAB_LABEL.equipo).toBe('Equipo HACCP');
+    expect(HACCP_TAB_LABEL.flujo).toBe('Diagrama de flujo');
   });
   it('resolveTab valida y cae a resumen', () => {
     expect(resolveTab('ppr')).toBe('ppr');
