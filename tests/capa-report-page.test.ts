@@ -14,19 +14,21 @@ const page = readFileSync(
   'utf8',
 );
 
-describe('CAPA report page — Ishikawa embebido (§D)', () => {
-  it('reutiliza el ÚNICO constructor de SVG del Ishikawa (sin segundo diagrama)', () => {
-    expect(page).toContain('buildIshikawaSvg');
-    expect(page).toContain("from '@/features/capa/ishikawa-svg'");
+describe('CAPA report page — análisis de causas 6M embebido (§16)', () => {
+  it('reutiliza el ÚNICO constructor de markup 6M (sin segundo modelo)', () => {
+    expect(page).toContain('buildIshikawa6MHtml');
+    expect(page).toContain("from '@/features/capa/ishikawa-6m'");
   });
-  it('construye el SVG y lo pasa al reporte (sin react-dom/server)', () => {
+  it('construye el 6M y lo pasa al reporte (sin react-dom/server, sin pescado)', () => {
     expect(page).not.toContain('react-dom/server');
-    expect(page).toContain('ishikawaSvg');
+    expect(page).not.toContain('buildIshikawaSvg');
+    expect(page).toContain('ishikawa6MHtml');
   });
-  it('toma el análisis Ishikawa vinculado a la CAPA', () => {
+  it('toma el análisis Ishikawa vinculado a la CAPA y lista otros análisis (§5)', () => {
     expect(page).toContain('listAnalyses');
-    expect(page).toContain("type: 'ishikawa'");
+    expect(page).toContain("a.type === 'ishikawa'");
     expect(page).toContain('getAnalysisDetail');
+    expect(page).toContain('otherAnalyses');
   });
   it('sigue paginando con el motor de hojas físicas', () => {
     expect(page).toContain('PaginatedDocument');
