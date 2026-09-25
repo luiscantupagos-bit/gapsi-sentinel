@@ -4,27 +4,33 @@
  * las tablas accesibles de la página. No dependen solo del color (usan texto).
  */
 import type { ParetoResult } from '@/features/capa/analysis-state';
-import { buildIshikawaSvg, type IshikawaCategory } from '@/features/capa/ishikawa-svg';
+import { buildIshikawa6MHtml, type Ishikawa6MCategory } from '@/features/capa/ishikawa-6m';
 
 const truncate = (t: string, n = 26) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 
 /**
- * Diagrama de espina de pescado (Ishikawa). Reutiliza el ÚNICO constructor de SVG
- * (`buildIshikawaSvg`) — el mismo que embebe el reporte 8D — para no duplicar el diagrama.
+ * Análisis de causas — 6M (metodología Ishikawa): tarjetas por categoría, en lugar del
+ * dibujo literal de espina de pescado. Reutiliza el ÚNICO constructor de markup
+ * (`buildIshikawa6MHtml`) — el mismo que embebe el reporte 8D — para no duplicar la vista.
  */
-export function IshikawaChart({
-  effect,
+export function Ishikawa6MView({
   categories,
+  showStatus = true,
+  showProbability = true,
+  withHeading = false,
 }: {
-  effect: string;
-  categories: IshikawaCategory[];
+  categories: Ishikawa6MCategory[];
+  showStatus?: boolean;
+  showProbability?: boolean;
+  withHeading?: boolean;
 }) {
   return (
     <div
-      className="analysis-svg"
-      role="img"
-      aria-label={`Diagrama de Ishikawa: ${effect}`}
-      dangerouslySetInnerHTML={{ __html: buildIshikawaSvg({ effect, categories }) }}
+      role="group"
+      aria-label="Análisis de causas 6M (Ishikawa)"
+      dangerouslySetInnerHTML={{
+        __html: buildIshikawa6MHtml(categories, { showStatus, showProbability, withHeading }),
+      }}
     />
   );
 }

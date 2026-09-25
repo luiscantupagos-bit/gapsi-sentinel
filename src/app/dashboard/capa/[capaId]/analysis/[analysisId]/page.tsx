@@ -24,7 +24,7 @@ import {
   type RecurrenceConfirmation,
 } from '@/features/capa/analysis-state';
 import { paretoInsights } from '@/features/capa/analysis-state';
-import { CauseTreeChart, IshikawaChart, ParetoChart } from '../_components/AnalysisVisuals';
+import { CauseTreeChart, Ishikawa6MView, ParetoChart } from '../_components/AnalysisVisuals';
 import { PrintButton } from '../_components/PrintButton';
 import { ParetoResults } from '../_components/ParetoResults';
 import { ParetoInsights } from '../_components/ParetoInsights';
@@ -76,7 +76,12 @@ export default async function AnalysisDetailPage({
         name: cat.name,
         causes: detail.hypotheses
           .filter((h) => h.ishikawaCategoryId === cat.id)
-          .map((h) => ({ id: h.id, description: h.description, status: h.status })),
+          .map((h) => ({
+            id: h.id,
+            description: h.description,
+            status: h.status,
+            probability: h.probability,
+          })),
       }));
 
     // ===== Pareto: layout ejecutivo reordenado (captura → resultado → …) =====
@@ -364,12 +369,13 @@ export default async function AnalysisDetailPage({
 
         {/* ===== Reporte imprimible (hoja tamaño carta) ===== */}
         <div className="analysis-report">
-          {/* Ishikawa: diagrama + tabla lado a lado */}
+          {/* Ishikawa: análisis de causas 6M (tarjetas) + tabla lado a lado */}
           {type === 'ishikawa' && (
             <section className="analysis-2col">
               <div className="report-card">
-                <h2>Diagrama de Ishikawa</h2>
-                <IshikawaChart effect={capaDetail.capa.title} categories={categoriesWithCauses} />
+                <h2>Análisis de causas — 6M</h2>
+                <p className="muted">Metodología Ishikawa</p>
+                <Ishikawa6MView categories={categoriesWithCauses} />
               </div>
               <div className="report-card">
                 <h2>Causas</h2>

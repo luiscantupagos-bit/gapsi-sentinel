@@ -12,7 +12,6 @@ import {
   ACTION_TYPE_LABEL,
   ACTION_STATUS_LABEL,
   EFFECTIVENESS_RESULT_LABEL,
-  RCA_METHOD_LABEL,
 } from './capa-state';
 
 const EMPTY = '—';
@@ -36,11 +35,17 @@ export interface CapaReportData {
   actions: Record<string, unknown>[];
   reviews: Record<string, unknown>[];
   /**
-   * DOC-OUTPUT §D — SVG del diagrama de Ishikawa ya renderizado (mismo componente que
-   * el análisis, vía renderToStaticMarkup). `null`/ausente → «Sin análisis de Ishikawa
-   * registrado». La marca de agua queda por encima (motor de páginas, §D5/§F4).
+   * Análisis de causas 6M (Ishikawa) ya renderizado como HTML de tarjetas (mismo
+   * constructor único que el análisis, `buildIshikawa6MHtml`). `null`/ausente → «Sin
+   * análisis de causas registrado». La marca de agua queda por encima (motor de páginas).
    */
-  ishikawaSvg?: string | null;
+  ishikawa6MHtml?: string | null;
+  /**
+   * §5/C — otras herramientas de análisis aplicadas a la CAPA (Pareto, AMEF, árbol de
+   * fallas…), listadas de forma compacta después del 6M y los 5 Porqués. Vacío → no se
+   * muestra el bloque.
+   */
+  otherAnalyses?: { tool: string; title: string; status?: string | null }[];
 }
 
 export interface CapaReportIdentity {
@@ -176,23 +181,48 @@ export function renderCapaReportHtml(data: CapaReportData, id: CapaReportIdentit
     data.whySteps.map((w) => [esc(w.level), esc(w.question), esc(w.answer)]),
     'Sin análisis 5 porqués registrado.',
   );
-  // §D: el Ishikawa se embebe (mismo SVG que el análisis). §D3: evita partirlo entre
-  // páginas (break-inside). §D4: se escala al ancho disponible sin deformar (el SVG usa
-  // viewBox + preserveAspectRatio). §D6: sin análisis → texto formal, no hueco vacío.
-  const ishikawa = data.ishikawaSvg
-    ? `<figure class="doc-report__figure doc-report__figure--ishikawa">${data.ishikawaSvg}<figcaption>Diagrama de Ishikawa (espina de pescado).</figcaption></figure>`
-    : `<p class="doc-render__empty">Sin análisis de Ishikawa registrado.</p>`;
-  const d4 = section(
-    'D4 — Causa raíz',
+  // §16: el análisis de causas se representa como 6M (tarjetas), no como espina de pescado.
+  // Reutiliza el constructor único `buildIshikawa6MHtml`. Tarjetas print-safe. §6/§13: sin
+  // análisis → texto formal, no hueco vacío (no se fuerza 6M vacío si no se usó).
+  const ishikawa = data.ishikawa6MHtml
+    ? `<div class="doc-report__figure doc-report__figure--6m">${data.ishikawa6MHtml}</div>`
+    : `<p class="doc-render__empty">Sin análisis de causas registrado.</p>`;
+
+  // §5/C — otras herramientas de análisis (solo si existen; no se muestra bloque vacío).
+  const others = (data.otherAnalyses ?? []).length
+    ? `<h3>Otros análisis aplicados</h3>` +
+      table(
+        ['Herramienta', 'Título', 'Estado'],
+        (data.otherAnalyses ?? []).map((a) => [esc(a.tool), esc(a.title), esc(a.status ?? '')]),
+      )
+    : '';
+
+  // §6/§8-12 — conclusiones DESPUÉS de los análisis. Sin causa raíz confirmada → mensaje
+  // «Causa raíz aún no verificada» (no se inventa conclusión). Causa contribuyente y
+  // justificación solo si existen (no se fuerzan cajas vacías, §9).
+  const rootCause = (rca?.rootCause as string) || '';
+  const conclusions =
+    `<h3>Conclusiones del análisis</h3>` +
     (rca
-      ? metaRow('Método', esc(lbl(RCA_METHOD_LABEL, rca.method as string))) +
-        field('Causa inmediata', rca.immediateCause) +
-        field('Causa contribuyente', rca.contributingCause) +
-        field('Causa raíz (verificada)', rca.rootCause) +
-        field('Justificación / verificación', rca.justification)
-      : `<p class="doc-render__empty">${NONE}</p>`) +
-      `<h3>Diagrama de Ishikawa</h3>${ishikawa}` +
-      `<h3>5 porqués</h3>${whys}` +
+      ? field('Causa inmediata', rca.immediateCause) +
+        (rca.contributingCause ? field('Causa contribuyente', rca.contributingCause) : '') +
+        (rootCause
+          ? `<div class="doc-report__field doc-report__rootcause"><span class="doc-report__field-label">Causa raíz verificada</span><p>${esc(
+              rootCause,
+            )}</p></div>`
+          : `<p class="doc-render__empty">Causa raíz aún no verificada.</p>`) +
+        (rca.justification
+          ? field('Justificación / evidencia de verificación', rca.justification)
+          : '')
+      : `<p class="doc-render__empty">Causa raíz aún no verificada.</p>`);
+
+  // §2/§18 — orden: ANÁLISIS (6M → 5 Porqués → otros) → CONCLUSIONES.
+  const d4 = section(
+    'D4 — Análisis de causa raíz',
+    `<h3>Análisis de causas — 6M</h3><p class="doc-report__note">Metodología Ishikawa</p>${ishikawa}` +
+      `<h3>Análisis de 5 Porqués</h3>${whys}` +
+      others +
+      conclusions +
       `<p class="doc-report__note">La distinción causa de ocurrencia / de escape (no detección) es un follow-up registrado (CAPA-8D-ROOT-CAUSE-EXPANSION).</p>`,
   );
 

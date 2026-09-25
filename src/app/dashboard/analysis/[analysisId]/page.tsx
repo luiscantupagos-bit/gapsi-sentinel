@@ -29,7 +29,7 @@ import { ActionForm } from './_components/ActionForm';
 import { saveConclusionAction, detachRelationAction } from './actions';
 import { AnalysisEditPanel } from '../../capa/[capaId]/analysis/[analysisId]/AnalysisEditPanel';
 import {
-  IshikawaChart,
+  Ishikawa6MView,
   CauseTreeChart,
   ParetoChart,
 } from '../../capa/[capaId]/analysis/_components/AnalysisVisuals';
@@ -142,18 +142,26 @@ export default async function AnalysisWorkspacePage({
             <>
               {/* Visual por herramienta */}
               {type === 'ishikawa' && (
-                <IshikawaChart
-                  effect={analysis.title}
-                  categories={detail.categories
-                    .filter((cat) => cat.active)
-                    .map((cat) => ({
-                      id: cat.id,
-                      name: cat.name,
-                      causes: detail.hypotheses
-                        .filter((h) => h.ishikawaCategoryId === cat.id)
-                        .map((h) => ({ id: h.id, description: h.description, status: h.status })),
-                    }))}
-                />
+                <>
+                  <h3>Análisis de causas — 6M</h3>
+                  <p className="muted">Metodología Ishikawa</p>
+                  <Ishikawa6MView
+                    categories={detail.categories
+                      .filter((cat) => cat.active)
+                      .map((cat) => ({
+                        id: cat.id,
+                        name: cat.name,
+                        causes: detail.hypotheses
+                          .filter((h) => h.ishikawaCategoryId === cat.id)
+                          .map((h) => ({
+                            id: h.id,
+                            description: h.description,
+                            status: h.status,
+                            probability: h.probability,
+                          })),
+                      }))}
+                  />
+                </>
               )}
               {type === 'cause_tree' && (
                 <CauseTreeChart

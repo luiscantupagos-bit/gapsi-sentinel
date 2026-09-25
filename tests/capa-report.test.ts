@@ -109,7 +109,7 @@ describe('renderCapaReportHtml — reporte 8D', () => {
       'D1 — Equipo',
       'D2 — Descripción del problema',
       'D3 — Contención',
-      'D4 — Causa raíz',
+      'D4 — Análisis de causa raíz',
       'D5 — Acciones correctivas permanentes',
       'D6 — Implementación y validación',
       'D7 — Prevención de recurrencia',
@@ -127,7 +127,7 @@ describe('renderCapaReportHtml — reporte 8D', () => {
   it('mapea 5W2H y causa raíz', () => {
     expect(html).toContain('Etiqueta incorrecta'); // qué
     expect(html).toContain('poka-yoke'); // causa raíz
-    expect(html).toContain('5 porqués');
+    expect(html).toContain('Análisis de 5 Porqués');
   });
 
   it('usa etiquetas en español (§K18) y NO el historial técnico (§K17)', () => {
@@ -164,22 +164,75 @@ describe('renderCapaReportHtml — reporte 8D', () => {
     expect(html).toContain('doc-render__footer');
   });
 
-  it('§D: embebe el Ishikawa SVG en D4 dentro de una figura no-partible', () => {
-    const withSvg = renderCapaReportHtml(
-      { ...(base as Record<string, unknown>), ishikawaSvg: '<svg id="ishi"><g/></svg>' } as never,
+  it('§16: embebe el análisis de causas 6M en D4 (sin diagrama de pescado)', () => {
+    const with6M = renderCapaReportHtml(
+      {
+        ...(base as Record<string, unknown>),
+        ishikawa6MHtml: '<div class="ishi6m"><div class="ishi6m__card">X</div></div>',
+      } as never,
       identity,
     );
-    expect(withSvg).toContain('Diagrama de Ishikawa');
-    expect(withSvg).toContain('doc-report__figure--ishikawa');
-    expect(withSvg).toContain('<svg id="ishi">');
-    // El SVG va dentro de D4, antes del bloque de los 5 porqués.
-    expect(withSvg.indexOf('doc-report__figure--ishikawa')).toBeLessThan(
-      withSvg.indexOf('<h3>5 porqués</h3>'),
+    expect(with6M).toContain('Análisis de causas — 6M');
+    expect(with6M).toContain('doc-report__figure--6m');
+    expect(with6M).toContain('ishi6m__card');
+    // No hay diagrama de pescado (SVG).
+    expect(with6M).not.toContain('espina de pescado');
+    // Va dentro de D4, antes del bloque de los 5 porqués.
+    expect(with6M.indexOf('doc-report__figure--6m')).toBeLessThan(
+      with6M.indexOf('<h3>Análisis de 5 Porqués</h3>'),
     );
   });
 
-  it('§D6: sin Ishikawa muestra el estado formal (no un hueco vacío)', () => {
-    expect(html).toContain('Sin análisis de Ishikawa registrado.');
+  it('§6: sin análisis de causas muestra el estado formal (no un hueco vacío)', () => {
+    expect(html).toContain('Sin análisis de causas registrado.');
+  });
+
+  it('§2/§7: D4 muestra los ANÁLISIS antes de las conclusiones y sin campo «Método»', () => {
+    const i6m = html.indexOf('Análisis de causas — 6M');
+    const iWhys = html.indexOf('Análisis de 5 Porqués');
+    const iConcl = html.indexOf('Conclusiones del análisis');
+    const iRoot = html.indexOf('Causa raíz verificada');
+    expect(i6m).toBeGreaterThanOrEqual(0);
+    expect(iWhys).toBeGreaterThan(i6m);
+    expect(iConcl).toBeGreaterThan(iWhys);
+    // 6M y 5 Porqués aparecen antes de la causa raíz (conclusión).
+    expect(iRoot).toBeGreaterThan(i6m);
+    expect(iRoot).toBeGreaterThan(iWhys);
+    // §7: «Método» ya no es un campo redundante.
+    expect(html).not.toContain('<dt>Método</dt>');
+  });
+
+  it('§8-11: las conclusiones incluyen causa inmediata/contribuyente/raíz + justificación', () => {
+    expect(html).toContain('Causa inmediata');
+    expect(html).toContain('Causa contribuyente');
+    expect(html).toContain('Causa raíz verificada');
+    expect(html).toContain('Justificación / evidencia de verificación');
+  });
+
+  it('§12: sin causa raíz confirmada → «Causa raíz aún no verificada»', () => {
+    const noRoot = renderCapaReportHtml(
+      {
+        ...(base as Record<string, unknown>),
+        rca: { immediateCause: 'x', rootCause: '', justification: '' },
+      } as never,
+      identity,
+    );
+    expect(noRoot).toContain('Causa raíz aún no verificada.');
+    expect(noRoot).not.toContain('Causa raíz verificada');
+  });
+
+  it('§5: lista otras herramientas de análisis solo si existen', () => {
+    const withOthers = renderCapaReportHtml(
+      {
+        ...(base as Record<string, unknown>),
+        otherAnalyses: [{ tool: 'Pareto', title: 'Defectos Q1', status: 'Concluido' }],
+      } as never,
+      identity,
+    );
+    expect(withOthers).toContain('Otros análisis aplicados');
+    expect(withOthers).toContain('Pareto');
+    // Sin otras herramientas: no se muestra el bloque.
+    expect(html).not.toContain('Otros análisis aplicados');
   });
 
   it('§E4: conserva el follow-up de causa de ocurrencia/escape', () => {
