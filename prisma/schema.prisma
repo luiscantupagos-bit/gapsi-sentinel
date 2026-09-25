@@ -917,36 +917,36 @@ model DocumentReadAck {
 
 /// Registro de copia controlada (número único por versión).
 model DocumentControlledCopy {
-  id             String    @id @default(uuid()) @db.Uuid
-  organizationId String    @map("organization_id") @db.Uuid
-  documentId     String    @map("document_id") @db.Uuid
-  versionId      String    @map("version_id") @db.Uuid
-  copyNumber     Int       @map("copy_number")
-  recipient      String
+  id                  String    @id @default(uuid()) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  documentId          String    @map("document_id") @db.Uuid
+  versionId           String    @map("version_id") @db.Uuid
+  copyNumber          Int       @map("copy_number")
+  recipient           String
   /// format: digital | printed
-  format         String
-  issuedAt       DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
-  issuedBy       String?   @map("issued_by") @db.Uuid
+  format              String
+  issuedAt            DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
+  issuedBy            String?   @map("issued_by") @db.Uuid
   /// status: active | replaced | recovered | destroyed | pending_recovery
-  status         String    @default("active")
-  closedAt       DateTime? @map("closed_at") @db.Timestamptz(6)
-  notes          String?
+  status              String    @default("active")
+  closedAt            DateTime? @map("closed_at") @db.Timestamptz(6)
+  notes               String?
   /// DOC-UX-002 (salidas controladas): copyType print | pdf | null (copia de distribución).
-  copyType            String? @map("copy_type")
+  copyType            String?   @map("copy_type")
   /// Folio humano de la copia (p. ej. CC-PR-CA-001-0001).
-  folio               String? @map("folio")
+  folio               String?   @map("folio")
   /// Área destino de una copia impresa (código del catálogo de áreas).
-  destinationAreaCode String? @map("destination_area_code")
+  destinationAreaCode String?   @map("destination_area_code")
   /// Motivo de descarga de una copia PDF.
-  reason              String? @map("reason")
+  reason              String?   @map("reason")
   /// DOC-OUTPUT §I: recuperación completa de copias controladas físicas.
-  recoveredAt      DateTime? @map("recovered_at") @db.Timestamptz(6)
-  recoveredBy      String?   @map("recovered_by") @db.Uuid
-  confirmedBy      String?   @map("confirmed_by") @db.Uuid
+  recoveredAt         DateTime? @map("recovered_at") @db.Timestamptz(6)
+  recoveredBy         String?   @map("recovered_by") @db.Uuid
+  confirmedBy         String?   @map("confirmed_by") @db.Uuid
   /// disposition: destroyed | archived_obsolete | replaced | other
-  disposition      String?   @map("disposition")
-  replacedByCopyId String?   @map("replaced_by_copy_id") @db.Uuid
-  recoveryNotes    String?   @map("recovery_notes")
+  disposition         String?   @map("disposition")
+  replacedByCopyId    String?   @map("replaced_by_copy_id") @db.Uuid
+  recoveryNotes       String?   @map("recovery_notes")
 
   @@unique([versionId, copyNumber])
   @@index([documentId])
@@ -3020,9 +3020,9 @@ model StudyVariable {
 
 /// Una fila (observación) del dataset. Valores estructurados en JSONB.
 model StudyRow {
-  id             BigInt        @id @default(autoincrement())
-  organizationId String        @map("organization_id") @db.Uuid
-  datasetId      String        @map("dataset_id") @db.Uuid
+  id             BigInt  @id @default(autoincrement())
+  organizationId String  @map("organization_id") @db.Uuid
+  datasetId      String  @map("dataset_id") @db.Uuid
   rowIndex       Int     @map("row_index")
   values         Json
   excluded       Boolean @default(false)
@@ -3068,4 +3068,126 @@ model DataStudyHistory {
 
   @@index([studyId, createdAt])
   @@map("data_study_history")
+}
+
+// ==========================================================================
+// HACCP-001 — Fundación del módulo HACCP. El módulo es la fuente de verdad
+// operativa; el Plan HACCP formal será una salida documental (HACCP-007).
+// Referencias unificadas producto/MP/PPR/documentos en una sola tabla
+// version-owned con snapshot inline. Ver docs/platform/HACCP-001-DESIGN.md.
+// ==========================================================================
+
+/// Plan HACCP (identidad estable + display actual + puntero a versión vigente).
+model HaccpPlan {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  siteId            String?   @map("site_id") @db.Uuid
+  code              String
+  title             String
+  description       String?
+  scope             String?
+  /// status: draft | in_review | published | reevaluation_required | obsolete
+  status            String    @default("draft")
+  currentVersionId  String?   @map("current_version_id") @db.Uuid
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  nextReviewAt      DateTime? @map("next_review_at") @db.Date
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  versions HaccpPlanVersion[]
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("haccp_plans")
+}
+
+/// Versión del Plan HACCP (version-owned). major/minor, sin float. La publicada es inmutable.
+model HaccpPlanVersion {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  planId         String    @map("plan_id") @db.Uuid
+  major          Int       @default(1)
+  minor          Int       @default(0)
+  versionLabel   String    @map("version_label")
+  /// status: draft | in_review | published | obsolete
+  status         String    @default("draft")
+  scope          String?
+  productProcess String?   @map("product_process")
+  changeNotes    String?   @map("change_notes")
+  isCurrent      Boolean   @default(false) @map("is_current")
+  createdBy      String?   @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
+
+  plan       HaccpPlan              @relation(fields: [planId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  team       HaccpTeamMember[]
+  references HaccpSourceReference[]
+
+  @@unique([planId, versionLabel])
+  @@unique([id, organizationId])
+  @@index([planId])
+  @@map("haccp_plan_versions")
+}
+
+/// Integrante del equipo HACCP (version-owned). Interno (user_id) o externo (external_name).
+model HaccpTeamMember {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  planVersionId   String   @map("plan_version_id") @db.Uuid
+  userId          String?  @map("user_id") @db.Uuid
+  externalName    String?  @map("external_name")
+  area            String?
+  jobTitle        String?  @map("job_title")
+  haccpRole       String?  @map("haccp_role")
+  responsibility  String?
+  trainingSummary String?  @map("training_summary")
+  isLeader        Boolean  @default(false) @map("is_leader")
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([planVersionId])
+  @@map("haccp_team_members")
+}
+
+/// Referencia de fuente HACCP unificada (version-owned): producto, materia prima, PPR o
+/// documento soporte, apuntando a un Document + DocumentVersion exacta, con snapshot inline.
+model HaccpSourceReference {
+  id                         String    @id @default(uuid()) @db.Uuid
+  organizationId             String    @map("organization_id") @db.Uuid
+  planVersionId              String    @map("plan_version_id") @db.Uuid
+  /// reference_kind: product | material | prerequisite | document
+  referenceKind              String    @map("reference_kind")
+  /// source_type: document | program
+  sourceType                 String    @default("document") @map("source_type")
+  sourceDocumentId           String    @map("source_document_id") @db.Uuid
+  sourceVersionId            String?   @map("source_version_id") @db.Uuid
+  category                   String?
+  sortOrder                  Int       @default(0) @map("sort_order")
+  notes                      String?
+  // Snapshot inline (trazabilidad; el source_version_id es la referencia real, §22).
+  sourceCodeSnapshot         String?   @map("source_code_snapshot")
+  sourceTitleSnapshot        String?   @map("source_title_snapshot")
+  sourceVersionLabelSnapshot String?   @map("source_version_label_snapshot")
+  sourceStatusSnapshot       String?   @map("source_status_snapshot")
+  sourcePublishedAtSnapshot  DateTime? @map("source_published_at_snapshot") @db.Timestamptz(6)
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([planVersionId])
+  @@index([organizationId, referenceKind])
+  @@index([sourceDocumentId])
+  @@map("haccp_source_references")
+}
+
+/// Contador atómico del código `PL-HACCP-###` por organización (namespace independiente).
+model HaccpPlanCodeCounter {
+  organizationId String @id @map("organization_id") @db.Uuid
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@map("haccp_plan_code_counters")
 }
