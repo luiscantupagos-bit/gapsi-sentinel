@@ -6021,3 +6021,82 @@ table td.mono {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* HACCP-002 — diagrama de flujo vertical (read-only reutilizable + editor). Print-safe. */
+.haccp-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: var(--space-2) 0;
+  max-width: 640px;
+}
+.haccp-flow__item {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.haccp-flow__node {
+  border: 1px solid var(--color-border, #d5dde5);
+  border-left: 4px solid var(--color-primary, #1a4f8a);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface, #fff);
+}
+.haccp-flow__node--decision {
+  border-left-color: #a5480a;
+}
+.haccp-flow__node--inspection {
+  border-left-color: #0e7c66;
+}
+.haccp-flow__node--output {
+  border-left-color: #a11a09;
+}
+.haccp-flow__node--storage,
+.haccp-flow__node--transport {
+  border-left-color: #55636e;
+}
+.haccp-flow__node-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.haccp-flow__num {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  color: var(--color-primary, #1a4f8a);
+}
+.haccp-flow__name {
+  font-weight: 600;
+  flex: 1 1 auto;
+}
+.haccp-flow__meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+.haccp-flow__arrow {
+  text-align: center;
+  color: #55636e;
+  line-height: 1;
+}
+.haccp-flow__edges {
+  list-style: none;
+  margin: 0.15rem 0 0.15rem 1.2rem;
+  padding: 0;
+  font-size: 0.86rem;
+}
+.haccp-flow__edge--reject strong,
+.haccp-flow__edge--reject {
+  color: #a11a09;
+}
+.haccp-flow__edge--rework {
+  color: #a5480a;
+}
+.haccp-flow__verify {
+  margin: 0 0 var(--space-2);
+}
+@media print {
+  .haccp-flow__item {
+    break-inside: avoid;
+  }
+}

@@ -20,7 +20,7 @@ import {
   type HaccpReferenceKind,
 } from '@/features/haccp/haccp-state';
 
-type Tx = Prisma.TransactionClient;
+export type Tx = Prisma.TransactionClient;
 
 export class HaccpNotFoundError extends Error {
   constructor() {
@@ -44,12 +44,12 @@ async function memberRole(organizationId: string, userId: string): Promise<strin
 }
 const isAdmin = (role: string) => role === 'owner' || role === 'admin';
 
-async function requireAdmin(organizationId: string, userId: string): Promise<void> {
+export async function requireAdmin(organizationId: string, userId: string): Promise<void> {
   const role = await memberRole(organizationId, userId);
   if (!isAdmin(role)) throw new HaccpPermissionError('Solo owner/admin puede editar planes HACCP.');
 }
 
-async function memberDirectory(organizationId: string): Promise<Map<string, string>> {
+export async function memberDirectory(organizationId: string): Promise<Map<string, string>> {
   const members = await getPrisma().membership.findMany({
     where: { organizationId },
     select: { userId: true },
@@ -92,7 +92,7 @@ async function loadPlan(organizationId: string, planId: string) {
 }
 
 /** Versión activa (editable) del plan: el borrador/en-revisión más reciente, o la vigente. */
-async function activeVersion(organizationId: string, planId: string) {
+export async function activeVersion(organizationId: string, planId: string) {
   const draft = await getPrisma().haccpPlanVersion.findFirst({
     where: { organizationId, planId, status: { in: ['draft', 'in_review'] } },
     orderBy: { createdAt: 'desc' },
@@ -235,6 +235,11 @@ export async function getHaccpPlanDetail(organizationId: string, planId: string)
           scope: active.scope,
           productProcess: active.productProcess,
           editable,
+          flowVerifiedOnSite: active.flowVerifiedOnSite,
+          flowVerifiedAtLabel: active.flowVerifiedAt
+            ? active.flowVerifiedAt.toISOString().slice(0, 10)
+            : null,
+          flowVerifiedByName: nameOf(active.flowVerifiedBy),
         }
       : null,
     team: team.map((t) => ({
@@ -492,6 +497,46 @@ export async function createHaccpVersion(
         },
       });
     }
+    // §E22: clona etapas y conexiones preservando la identidad LÓGICA (process_step_id);
+    // las filas son nuevas. Las conexiones referencian process_step_id → no se remapean.
+    const [steps, connections] = await Promise.all([
+      tx.haccpProcessStep.findMany({ where: { organizationId, planVersionId: current.id } }),
+      tx.haccpProcessConnection.findMany({ where: { organizationId, planVersionId: current.id } }),
+    ]);
+    for (const s of steps) {
+      await tx.haccpProcessStep.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          processStepId: s.processStepId,
+          stepType: s.stepType,
+          name: s.name,
+          description: s.description,
+          sequence: s.sequence,
+          area: s.area,
+          responsibleUserId: s.responsibleUserId,
+          responsibleRole: s.responsibleRole,
+          equipment: s.equipment,
+          inputs: s.inputs,
+          outputs: s.outputs,
+          parameters: s.parameters,
+          notes: s.notes,
+        },
+      });
+    }
+    for (const c of connections) {
+      await tx.haccpProcessConnection.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          fromStepId: c.fromStepId,
+          toStepId: c.toStepId,
+          connectionType: c.connectionType,
+          label: c.label,
+          sequence: c.sequence,
+        },
+      });
+    }
     await tx.haccpPlan.update({ where: { id: planId }, data: { status: 'draft' } });
     return created.id;
   });
@@ -501,7 +546,7 @@ export async function createHaccpVersion(
 // Escritura — equipo
 // ===========================================================================
 
-async function requireEditableVersion(organizationId: string, planVersionId: string) {
+export async function requireEditableVersion(organizationId: string, planVersionId: string) {
   const v = await getPrisma().haccpPlanVersion.findFirst({
     where: { id: planVersionId, organizationId },
   });
