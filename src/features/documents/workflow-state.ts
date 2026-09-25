@@ -118,3 +118,22 @@ export const COPY_STATUS_LABEL: Record<string, string> = {
   destroyed: 'Destruida',
   replaced: 'Reemplazada',
 };
+
+/**
+ * DOC-OUTPUT §A2/§I: la DISPOSICIÓN final de una copia recuperada es un concepto
+ * distinto de su ESTADO. Estado = dónde está la copia (activa / pendiente /
+ * recuperada); disposición = qué se hizo con ella tras recuperarla.
+ */
+export const COPY_DISPOSITION_LABEL: Record<string, string> = {
+  destroyed: 'Destruida',
+  archived_obsolete: 'Archivada como obsoleta',
+  replaced: 'Reemplazada',
+  other: 'Otra',
+};
+
+export const COPY_DISPOSITION_OPTIONS = [
+  { value: 'destroyed', label: 'Destruida' },
+  { value: 'archived_obsolete', label: 'Archivada como obsoleta' },
+  { value: 'replaced', label: 'Reemplazada' },
+  { value: 'other', label: 'Otra' },
+] as const;

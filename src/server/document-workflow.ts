@@ -516,12 +516,14 @@ export async function approvalDecision(
   });
 }
 
-/** Publica una versión aprobada (owner/admin). Deja una sola vigente. */
+/** Publica una versión aprobada (owner/admin). Deja una sola vigente. Con `exception`
+ * (justificación) publica pese a copias físicas pendientes: requiere rol elevado. */
 export async function publishVersion(
   organizationId: string,
   actorId: string,
   versionId: string,
   effectiveAt?: string | null,
+  exception?: { reason: string } | null,
 ): Promise<void> {
   const version = await loadVersion(organizationId, versionId);
   const role = await memberRole(organizationId, actorId);
@@ -545,6 +547,64 @@ export async function publishVersion(
     versionId,
   );
   if (programErrors.length) throw new WorkflowValidationError(programErrors);
+
+  // DOC-OUTPUT §C1/§C2/§C7: candado al hacer VIGENTE. No se puede publicar la versión
+  // sustituta mientras existan COPIAS CONTROLADAS FÍSICAS (impresas) de versiones
+  // anteriores pendientes de recuperación. Las copias digitales/PDF/vista web NO
+  // bloquean (no son retornables físicamente). El desbloqueo es registrar su
+  // recuperación. (La excepción con permiso elevado + justificación requiere ampliar
+  // el esquema y se documenta como follow-up, no se implementa aún.)
+  const pendingPhysical = await getPrisma().documentControlledCopy.findMany({
+    where: {
+      documentId: version.documentId,
+      organizationId,
+      versionId: { not: versionId },
+      format: 'printed',
+      status: { in: ['active', 'pending_recovery'] },
+    },
+    select: { id: true, folio: true, copyNumber: true, versionId: true },
+  });
+  if (pendingPhysical.length) {
+    const list = pendingPhysical.map((c) => c.folio ?? `#${c.copyNumber}`).join(', ');
+    if (!exception) {
+      throw new WorkflowValidationError([
+        `No es posible hacer vigente esta versión porque existen copias controladas de la versión anterior pendientes de recuperación (${list}). Registra su recuperación antes de publicar.`,
+      ]);
+    }
+    // §J: excepción auditada. Permiso ELEVADO (owner, no cualquier admin) + justificación
+    // obligatoria server-side. Registra el evento con snapshot de las copias pendientes.
+    if (role !== 'owner')
+      throw new WorkflowPermissionError(
+        'Solo el propietario puede publicar con excepción de recuperación de copias.',
+      );
+    if (!exception.reason?.trim())
+      throw new WorkflowValidationError(['La justificación de la excepción es obligatoria.']);
+    await withOrgContext(organizationId, async (tx) => {
+      await tx.documentPublishException.create({
+        data: {
+          organizationId,
+          documentId: version.documentId,
+          newVersionId: versionId,
+          previousVersionId: pendingPhysical[0]?.versionId ?? null,
+          authorizedBy: actorId,
+          reason: exception.reason.trim(),
+          pendingCopies: pendingPhysical.map((c) => ({
+            id: c.id,
+            folio: c.folio,
+            copyNumber: c.copyNumber,
+          })),
+        },
+      });
+      await tx.documentHistory.create({
+        data: {
+          organizationId,
+          documentId: version.documentId,
+          action: 'version.published_with_exception',
+          actorUserId: actorId,
+        },
+      });
+    });
+  }
 
   // DOC-003 §2-13: versiones vigentes anteriores que serán reemplazadas (para
   // reconciliar su ejecución con la versión nueva tras publicar).
@@ -575,8 +635,15 @@ export async function publishVersion(
         where: { versionId: p.id, organizationId, status: 'active' },
         data: { status: 'superseded' },
       });
+      // DOC-OUTPUT §C7: las copias DIGITALES/PDF no son retornables → quedan como
+      // «Reemplazadas» al superar la versión. Las FÍSICAS que quedaran activas pasan a
+      // pendiente de recuperación (defensivo: el candado de publicación ya las exige).
       await tx.documentControlledCopy.updateMany({
-        where: { versionId: p.id, organizationId, status: 'active' },
+        where: { versionId: p.id, organizationId, status: 'active', format: 'digital' },
+        data: { status: 'replaced' },
+      });
+      await tx.documentControlledCopy.updateMany({
+        where: { versionId: p.id, organizationId, status: 'active', format: 'printed' },
         data: { status: 'pending_recovery' },
       });
     }
@@ -830,13 +897,27 @@ export async function registerControlledCopy(
   });
 }
 
-/** Cambia el estado de una copia controlada (recuperada/destruida/reemplazada). */
+export type CopyDisposition = 'destroyed' | 'archived_obsolete' | 'replaced' | 'other';
+
+/**
+ * Cambia el estado de una copia controlada y registra la RECUPERACIÓN completa (§I):
+ * actor y fecha de recuperación, quién confirma la recepción, disposición final y, si
+ * aplica, la copia que la reemplaza (trazabilidad, sin borrar la anterior). owner/admin.
+ */
 export async function updateControlledCopy(
   organizationId: string,
   actorId: string,
   copyId: string,
   status: 'replaced' | 'recovered' | 'destroyed',
   notes?: string | null,
+  details?: {
+    disposition?: CopyDisposition | null;
+    confirmedBy?: string | null;
+    replacedByCopyId?: string | null;
+    recoveryNotes?: string | null;
+    /** Quién recuperó físicamente la copia; por defecto el actor que lo registra. */
+    recoveredBy?: string | null;
+  },
 ): Promise<void> {
   const role = await memberRole(organizationId, actorId);
   if (!isAdmin(role))
@@ -845,10 +926,22 @@ export async function updateControlledCopy(
     where: { id: copyId, organizationId },
   });
   if (!copy) throw new DocumentNotFoundError();
+  // La recuperación (recovered/destroyed/replaced) sella actor + fecha; 'active'/
+  // 'pending_recovery' no llegan aquí (solo se cierran estados de recuperación).
   await withOrgContext(organizationId, async (tx) => {
     await tx.documentControlledCopy.update({
       where: { id: copyId },
-      data: { status, closedAt: new Date(), notes: notes ?? copy.notes },
+      data: {
+        status,
+        closedAt: new Date(),
+        notes: notes ?? copy.notes,
+        recoveredAt: new Date(),
+        recoveredBy: details?.recoveredBy ?? actorId,
+        confirmedBy: details?.confirmedBy ?? copy.confirmedBy,
+        disposition: details?.disposition ?? (status === 'destroyed' ? 'destroyed' : null),
+        replacedByCopyId: details?.replacedByCopyId ?? copy.replacedByCopyId,
+        recoveryNotes: details?.recoveryNotes ?? copy.recoveryNotes,
+      },
     });
   });
 }

@@ -8,12 +8,13 @@ import {
   assignWorkflowAction,
   distributeAction,
   obsoleteAction,
-  publishAction,
   registerCopyAction,
   reviewAction,
   submitReviewAction,
   type FormState,
 } from '../workflow-actions';
+import { PublishControl, type PendingPhysicalCopy } from './_components/PublishControl';
+import { type ReplacementOption } from './_components/RecoverCopyDialog';
 
 type Action = (prev: FormState | null, fd: FormData) => Promise<FormState>;
 
@@ -66,6 +67,10 @@ export function WorkflowPanel({
   checksum,
   ctx,
   members,
+  pendingPhysicalCopies,
+  isOwner,
+  replacementOptions,
+  today,
 }: {
   documentId: string;
   versionId: string;
@@ -74,6 +79,10 @@ export function WorkflowPanel({
   checksum: string | null;
   ctx: Ctx;
   members: { id: string; name: string }[];
+  pendingPhysicalCopies: PendingPhysicalCopy[];
+  isOwner: boolean;
+  replacementOptions: ReplacementOption[];
+  today: string;
 }) {
   const base = { documentId, versionId };
   return (
@@ -141,12 +150,15 @@ export function WorkflowPanel({
       )}
 
       {status === 'approved' && ctx.isAdmin && (
-        <ActionForm action={publishAction} hidden={base} button="Publicar">
-          <label>
-            Fecha de vigencia
-            <input type="date" name="effectiveAt" />
-          </label>
-        </ActionForm>
+        <PublishControl
+          documentId={documentId}
+          versionId={versionId}
+          pendingPhysicalCopies={pendingPhysicalCopies}
+          isOwner={isOwner}
+          members={members}
+          replacementOptions={replacementOptions}
+          today={today}
+        />
       )}
 
       {status === 'published' && ctx.isAdmin && (

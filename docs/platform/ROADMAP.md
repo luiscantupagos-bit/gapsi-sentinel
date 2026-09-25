@@ -195,3 +195,27 @@ ADMINISTRACIÓN
 
 (Hoy el sidebar no incluye **Registros** ni **Programas** como entradas de primer nivel;
 se agregarán con DOC-004 y PROGRAM-UX-001 respectivamente.)
+
+## Roadmap HACCP (registrado, no iniciado)
+
+El módulo HACCP es la **fuente de verdad operativa**; el Plan HACCP es su **salida
+documental** (usa el motor documental paginado de DOC-OUTPUT). No convertir el tipo
+genérico «Plan» en HACCP; no construir el Excel como una sola pantalla. La información se
+captura una vez, se relaciona, se versiona, se reutiliza, se ejecuta, genera evidencia y
+finalmente el documento formal.
+
+| ID            | Nombre                                  | Alcance                                                                                                                                                                                                                                                                   |
+| ------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **HACCP-001** | Fundación                               | Workspace HaccpPlan + HaccpPlanVersion; equipo, producto (ficha PT versionada), materias primas (fichas MP versionadas), PPR, documentos soporte; estados; **snapshots** de fuentes; impact-awareness; reevaluación requerida. Migración aditiva (proponer schema antes). |
+| **HACCP-002** | Diagrama de flujo                       | `ProcessStep` estable (id/nombre/área/responsable/entradas/salidas/parámetros/secuencia); editor gráfico. Las etapas alimentan el análisis de peligros.                                                                                                                   |
+| **HACCP-003** | Análisis de peligros                    | Dos matrices (MP / proceso); tipos B/Q/F/alérgeno/radiológico; matriz de riesgo configurable (P×S, snapshot de metodología); significancia + justificación + medida.                                                                                                      |
+| **HACCP-004** | Medidas de control / PCC / PPRO         | Wizard P1..P8 según metodología; resultado PCC/PPRO/PPR; control plan (límite/criterio, monitoreo qué/cómo/quién/cuándo, corrección, verificación, validación).                                                                                                           |
+| **HACCP-005** | Validación                              | Matriz PCC/PPRO × método/responsable/fecha/resultado/evidencia (PLATFORM-002); no satisfactoria → reevaluación requerida.                                                                                                                                                 |
+| **HACCP-006** | Verificación + Tasks + Gantt            | Verification definitions con frecuencia → **Tasks nativas** (reutiliza motor de recurrencia de Programas, sin scheduler nuevo); notificaciones existentes; Gantt reutilizable; no conforme → Hallazgo/CAPA con trazabilidad.                                              |
+| **HACCP-007** | Documento generado + impacto/versionado | Genera automáticamente PL-HACCP vX.Y con el motor documental paginado (header full/compacto, footer, Página X de Y, watermark sobre contenido); versionado 1.0/1.1/2.0 con deep clone + snapshots inmutables; impact assessment ante cambios de fuente.                   |
+
+**Dependencia DOC-004**: HACCP-001 puede iniciarse antes; HACCP-006/007 (monitoreos y
+registros de verificación) deben integrarse con Registros digitales (DOC-004).
+
+**Orden propuesto tras integrar DOC-OUTPUT/CAPA**: HACCP-001 → DOC-004 → HACCP-002 → 003 →
+004 → 005 → 006 → 007 (reevaluar tras HACCP-001).

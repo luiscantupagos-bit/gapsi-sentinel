@@ -122,6 +122,9 @@ export default async function CapaDetailPage({ params }: { params: Promise<{ cap
             <Link className="button button--ghost" href={`/dashboard/capa/${capa.id}/analysis`}>
               Análisis
             </Link>
+            <Link className="button button--ghost" href={`/dashboard/capa/${capa.id}/report`}>
+              Reporte 8D
+            </Link>
             {ctx.canEdit && (
               <Link className="button button--ghost" href={`/dashboard/capa/${capa.id}/edit`}>
                 Editar

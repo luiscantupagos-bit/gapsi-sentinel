@@ -5586,3 +5586,289 @@ table td.mono {
   gap: var(--space-2);
   align-items: flex-start;
 }
+
+/* DOC-OUTPUT-FOLLOWUP — hojas físicas (header/footer/paginación/watermark por página) */
+.doc-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+}
+.doc-pages[data-paginated='false'] {
+  padding: 0;
+  gap: 0;
+}
+/* Fondo neutro exterior cuando se muestran hojas reales (§B). */
+.doc-pages[data-paginated='true'] {
+  background: var(--color-surface-2);
+}
+.doc-page {
+  position: relative;
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.doc-page--letter {
+  width: 8.5in;
+  height: 11in;
+}
+.doc-page--a4 {
+  width: 210mm;
+  height: 297mm;
+}
+.doc-page > .doc-render {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 14mm 14mm 12mm;
+  box-sizing: border-box;
+  background: transparent;
+}
+.doc-page .doc-render__header,
+.doc-page .doc-render__footer {
+  flex: 0 0 auto;
+}
+.doc-page .doc-page__flow {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.doc-render__pageno {
+  margin: 6px 0 0;
+  text-align: right;
+  font-size: 0.72rem;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+}
+/* Encabezado compacto de páginas 2..N (§B2): título a la izquierda, código·versión a
+   la derecha; sin logo, altura mínima para dar protagonismo al contenido (§B5). */
+.doc-render__header--compact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 0 4mm;
+  margin: 0 0 4mm;
+  border-bottom: 1px solid var(--doc-secondary, #e3e8ef);
+}
+.doc-hc__title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--doc-heading, #0f2440);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-hc__id {
+  font-size: 0.78rem;
+  color: var(--doc-text, #374151);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.doc-render__footer--compact {
+  margin-top: 4mm;
+}
+.doc-render__footer--compact .doc-render__pageno {
+  border-top: 1px solid var(--doc-secondary, #e3e8ef);
+  padding-top: 2mm;
+}
+/* §E1/§E8: marca de agua POR ENCIMA del contenido, una por hoja, dentro de márgenes,
+   sin cortar (multilínea, tamaño relativo a la hoja). No bloquea interacción (§E2). */
+.doc-page > .doc-copy__watermark {
+  position: absolute;
+  inset: 14mm;
+  z-index: 30;
+  pointer-events: none;
+  overflow: visible;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.doc-page > .doc-copy__watermark span {
+  transform: rotate(-28deg);
+  font-size: 2.2rem;
+  line-height: 1.15;
+  max-width: 90%;
+  white-space: normal;
+  text-align: center;
+  color: rgba(90, 90, 90, 0.22);
+}
+.doc-page > .doc-copy__watermark--obsolete span {
+  color: rgba(185, 28, 28, 0.22);
+}
+/* Máximo tamaño en pantalla: si la hoja no cabe, se reduce proporcionalmente. */
+@media (max-width: 9in) {
+  .doc-page {
+    transform-origin: top center;
+  }
+}
+@media print {
+  .sidebar,
+  .topbar,
+  .no-print,
+  .copy-controls {
+    display: none !important;
+  }
+  .doc-pages,
+  .doc-pages[data-paginated='true'] {
+    gap: 0;
+    padding: 0;
+    background: #ffffff;
+  }
+  .doc-page {
+    box-shadow: none;
+    break-after: page;
+    page-break-after: always;
+  }
+  .doc-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}
+
+/* CAPA-8D-OUTPUT — campos del reporte 8D dentro de .doc-render */
+.doc-report__field {
+  margin: 0 0 var(--space-2);
+}
+.doc-report__field-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--doc-heading, #0f2440);
+}
+.doc-report__field p {
+  margin: 2px 0 0;
+}
+.doc-report__note {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+  margin: var(--space-2) 0 0;
+}
+
+/* DOC-OUTPUT §D — figura embebida (Ishikawa) en el reporte: se ajusta al ancho de la
+   hoja sin deformarse (el SVG lleva viewBox + preserveAspectRatio) y evita partirse. */
+.doc-report__figure {
+  margin: var(--space-2) 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.doc-report__figure svg,
+.doc-report__figure .analysis-svg {
+  max-width: 100%;
+  height: auto;
+}
+/* §D3/§D4 — el Ishikawa embebido lleva ALTURA DEFINIDA para que el motor de páginas lo
+   mida correctamente (un SVG con width:100% sin altura intrínseca se mide como ~0 y se
+   desborda). preserveAspectRatio="meet" lo escala dentro de la caja sin deformarlo. */
+.doc-report__figure--ishikawa svg {
+  width: 100%;
+  height: 340px;
+}
+.doc-report__figure figcaption {
+  font-size: 0.78rem;
+  color: #6b7280;
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* DOC-OUTPUT §A/§B/§C — diálogos de recuperación de copias y de publicación. */
+.doc-dialog {
+  border: 1px solid var(--color-border, #d5dde5);
+  border-radius: 12px;
+  padding: 0;
+  max-width: 30rem;
+  width: calc(100% - 2rem);
+  box-shadow: 0 18px 48px rgba(15, 36, 64, 0.22);
+  color: inherit;
+}
+.doc-dialog--wide {
+  max-width: 48rem;
+}
+.doc-dialog::backdrop {
+  background: rgba(15, 36, 64, 0.38);
+}
+.doc-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+.doc-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.doc-dialog__head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.doc-dialog__close {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+}
+.doc-dialog__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 1rem;
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--color-primary-soft, #eef4fb);
+  border-radius: 8px;
+}
+.doc-dialog__meta dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+.doc-dialog__meta dd {
+  margin: 0;
+  font-size: 0.92rem;
+}
+.doc-dialog__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+}
+.doc-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+.doc-dialog__exception {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1 1 100%;
+  border-top: 1px dashed var(--color-border, #d5dde5);
+  padding-top: 0.6rem;
+}
+.doc-panel__copy-sub {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+.button--danger {
+  background: #a11a09;
+  border-color: #a11a09;
+  color: #fff;
+}
+.button--danger:hover {
+  background: #8a1607;
+  border-color: #8a1607;
+}

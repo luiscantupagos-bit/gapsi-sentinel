@@ -111,18 +111,25 @@ export async function approvalAction(_p: FormState | null, fd: FormData): Promis
 export async function publishAction(_p: FormState | null, fd: FormData): Promise<FormState> {
   const session = await requireServerSession();
   const documentId = s(fd, 'documentId');
+  // §J/§C: si el formulario trae una justificación, se publica CON EXCEPCIÓN (permiso
+  // elevado + justificación obligatoria, validados server-side en publishVersion).
+  const reason = opt(fd, 'exceptionReason');
   try {
     await publishVersion(
       session.organizationId,
       session.userId,
       s(fd, 'versionId'),
       opt(fd, 'effectiveAt') ?? null,
+      reason ? { reason } : null,
     );
   } catch (e) {
     return toState(e);
   }
   revalidateDoc(documentId);
-  return { ok: true, message: 'Versión publicada.' };
+  return {
+    ok: true,
+    message: reason ? 'Versión publicada con excepción.' : 'Versión publicada.',
+  };
 }
 
 export async function obsoleteAction(_p: FormState | null, fd: FormData): Promise<FormState> {
@@ -197,23 +204,40 @@ export async function registerCopyAction(_p: FormState | null, fd: FormData): Pr
   return { ok: true, message: 'Copia controlada registrada.' };
 }
 
+const DISPOSITIONS = new Set(['destroyed', 'archived_obsolete', 'replaced', 'other']);
+
 export async function updateCopyAction(_p: FormState | null, fd: FormData): Promise<FormState> {
   const session = await requireServerSession();
   const documentId = s(fd, 'documentId');
-  const status = s(fd, 'status') as 'replaced' | 'recovered' | 'destroyed';
+  // §I: registrar recuperación. La copia queda RECUPERADA (estado); la DISPOSICIÓN final
+  // (destruida/archivada/reemplazada/otra) se guarda aparte. La disposición es obligatoria.
+  const disposition = opt(fd, 'disposition');
+  if (!disposition || !DISPOSITIONS.has(disposition))
+    return { ok: false, message: 'Revisa los datos.', errors: ['La disposición es obligatoria.'] };
+  const replacedByCopyId = disposition === 'replaced' ? opt(fd, 'replacedByCopyId') : undefined;
   try {
-    await updateControlledCopy(session.organizationId, session.userId, s(fd, 'copyId'), status);
+    await updateControlledCopy(
+      session.organizationId,
+      session.userId,
+      s(fd, 'copyId'),
+      'recovered',
+      null,
+      {
+        disposition: disposition as 'destroyed' | 'archived_obsolete' | 'replaced' | 'other',
+        confirmedBy: opt(fd, 'confirmedBy') ?? null,
+        replacedByCopyId: replacedByCopyId ?? null,
+        recoveryNotes: opt(fd, 'recoveryNotes') ?? null,
+        recoveredBy: opt(fd, 'recoveredBy') ?? null,
+      },
+    );
   } catch (e) {
     return toState(e);
   }
   revalidateDoc(documentId);
-  return { ok: true, message: 'Copia actualizada.' };
+  return { ok: true, message: 'Recuperación registrada.' };
 }
 
 /** Envoltorios con firma `(formData) => void` para formularios simples de servidor. */
-export async function recoverCopyForm(formData: FormData): Promise<void> {
-  await updateCopyAction(null, formData);
-}
 export async function acknowledgeReadForm(formData: FormData): Promise<void> {
   await acknowledgeReadAction(null, formData);
 }

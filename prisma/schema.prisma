@@ -939,10 +939,36 @@ model DocumentControlledCopy {
   destinationAreaCode String? @map("destination_area_code")
   /// Motivo de descarga de una copia PDF.
   reason              String? @map("reason")
+  /// DOC-OUTPUT §I: recuperación completa de copias controladas físicas.
+  recoveredAt      DateTime? @map("recovered_at") @db.Timestamptz(6)
+  recoveredBy      String?   @map("recovered_by") @db.Uuid
+  confirmedBy      String?   @map("confirmed_by") @db.Uuid
+  /// disposition: destroyed | archived_obsolete | replaced | other
+  disposition      String?   @map("disposition")
+  replacedByCopyId String?   @map("replaced_by_copy_id") @db.Uuid
+  recoveryNotes    String?   @map("recovery_notes")
 
   @@unique([versionId, copyNumber])
   @@index([documentId])
   @@map("document_controlled_copies")
+}
+
+/// DOC-OUTPUT §J: excepción auditada para publicar una versión con copias físicas
+/// aún pendientes de recuperación. Requiere permiso elevado + justificación (server).
+model DocumentPublishException {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  documentId        String   @map("document_id") @db.Uuid
+  newVersionId      String   @map("new_version_id") @db.Uuid
+  previousVersionId String?  @map("previous_version_id") @db.Uuid
+  authorizedBy      String   @map("authorized_by") @db.Uuid
+  reason            String
+  /// Snapshot de las copias pendientes al momento de la excepción (ids/folios).
+  pendingCopies     Json     @map("pending_copies")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId, documentId])
+  @@map("document_publish_exceptions")
 }
 
 /// Historial de cambios de estado de versión (append-only).

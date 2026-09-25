@@ -3,6 +3,7 @@ import { requireServerSession } from '@/server/session';
 import { getControlledCopyForRender, renderDocumentControlledCopy } from '@/server/documents';
 import type { CopyMark } from '@/features/documents/structured-render';
 import { PrintControls } from './_components/PrintControls';
+import { PaginatedDocument } from '../_components/PaginatedDocument';
 
 /**
  * Salida controlada (DOC-UX-002 §70-77): render en modo `controlled_copy` con
@@ -57,10 +58,10 @@ export default async function ControlledCopyPage({
   }
 
   return (
-    <main className="container copy-page">
+    <main className="copy-page">
       <PrintControls backHref={backHref} note={note} />
-      {/* HTML generado en servidor desde datos estructurados (allowlist, sin scripts). */}
-      <div dangerouslySetInnerHTML={{ __html: rendered!.html }} />
+      {/* Hojas físicas tamaño Carta con header/footer/paginación/watermark por página. */}
+      <PaginatedDocument html={rendered!.html} pageSize="letter" />
     </main>
   );
 }

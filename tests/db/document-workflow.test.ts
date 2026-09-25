@@ -21,6 +21,7 @@ import {
   publishVersion,
   pendingReads,
   registerControlledCopy,
+  updateControlledCopy,
   reviewDecision,
   submitForReview,
 } from '@/server/document-workflow';
@@ -227,15 +228,29 @@ describe.skipIf(!hasDb)('control documental — flujo y permisos', () => {
     expect(n1).toBe(1);
     expect(n2).toBe(2);
 
-    // Nueva versión publicada → la anterior obsoleta y su copia pendiente de recuperación.
+    // DOC-OUTPUT §C: con una copia FÍSICA (impresa) activa de la versión anterior,
+    // publicar la sustituta se BLOQUEA hasta registrar su recuperación.
     const v2 = await createEditorDocumentSecondVersion(s);
+    await expect(publishVersion(s.orgId, s.author, v2)).rejects.toBeInstanceOf(
+      WorkflowValidationError,
+    );
+    // Registrar la recuperación de la copia impresa desbloquea la publicación.
+    const printed = await db().documentControlledCopy.findFirstOrThrow({
+      where: { versionId: s.versionId, copyNumber: 1 },
+    });
+    await updateControlledCopy(s.orgId, s.author, printed.id, 'recovered');
     await publishVersion(s.orgId, s.author, v2);
     const oldVersion = await db().documentVersion.findUniqueOrThrow({ where: { id: s.versionId } });
     expect(oldVersion.status).toBe('obsolete');
-    const copy = await db().documentControlledCopy.findFirstOrThrow({
+    // La impresa quedó recuperada; la DIGITAL (no retornable) quedó reemplazada (§C7).
+    const p1 = await db().documentControlledCopy.findFirstOrThrow({
       where: { versionId: s.versionId, copyNumber: 1 },
     });
-    expect(copy.status).toBe('pending_recovery');
+    expect(p1.status).toBe('recovered');
+    const p2 = await db().documentControlledCopy.findFirstOrThrow({
+      where: { versionId: s.versionId, copyNumber: 2 },
+    });
+    expect(p2.status).toBe('replaced');
   });
 
   it('viewer no puede enviar a revisión; aislamiento entre organizaciones', async () => {
