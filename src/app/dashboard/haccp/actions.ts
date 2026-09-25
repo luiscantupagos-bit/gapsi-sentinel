@@ -21,6 +21,15 @@ import {
   updateHaccpPlan,
   updateSourceToLatest,
 } from '@/server/haccp';
+import {
+  addConnection,
+  addProcessStep,
+  moveProcessStep,
+  removeConnection,
+  removeProcessStep,
+  setFlowVerification,
+  updateProcessStep,
+} from '@/server/haccp-flow';
 import type { HaccpReferenceKind } from '@/features/haccp/haccp-state';
 import type { VersionBump } from '@/features/documents/versioning';
 
@@ -196,4 +205,134 @@ export async function updateSourceToLatestAction(
   }
   revalidatePlan(planId);
   return { ok: true, message: 'Fuente actualizada a la versión más reciente.' };
+}
+
+// --- HACCP-002: diagrama de flujo -------------------------------------------
+
+export async function addStepAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await addProcessStep(session.organizationId, session.userId, s(fd, 'planVersionId'), {
+      name: s(fd, 'name'),
+      stepType: opt(fd, 'stepType'),
+      description: opt(fd, 'description') ?? null,
+      area: opt(fd, 'area') ?? null,
+      responsibleUserId: opt(fd, 'responsibleUserId') ?? null,
+      responsibleRole: opt(fd, 'responsibleRole') ?? null,
+      equipment: opt(fd, 'equipment') ?? null,
+      inputs: opt(fd, 'inputs') ?? null,
+      outputs: opt(fd, 'outputs') ?? null,
+      parameters: opt(fd, 'parameters') ?? null,
+      notes: opt(fd, 'notes') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Etapa agregada.' };
+}
+
+export async function updateStepAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await updateProcessStep(session.organizationId, session.userId, s(fd, 'stepId'), {
+      name: opt(fd, 'name'),
+      stepType: opt(fd, 'stepType'),
+      description: opt(fd, 'description') ?? null,
+      area: opt(fd, 'area') ?? null,
+      responsibleUserId: opt(fd, 'responsibleUserId') ?? null,
+      responsibleRole: opt(fd, 'responsibleRole') ?? null,
+      equipment: opt(fd, 'equipment') ?? null,
+      inputs: opt(fd, 'inputs') ?? null,
+      outputs: opt(fd, 'outputs') ?? null,
+      parameters: opt(fd, 'parameters') ?? null,
+      notes: opt(fd, 'notes') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Etapa actualizada.' };
+}
+
+export async function removeStepAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeProcessStep(session.organizationId, session.userId, s(fd, 'stepId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Etapa eliminada.' };
+}
+
+export async function moveStepAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await moveProcessStep(
+      session.organizationId,
+      session.userId,
+      s(fd, 'stepId'),
+      s(fd, 'direction') === 'up' ? 'up' : 'down',
+    );
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Etapa reordenada.' };
+}
+
+export async function addConnectionAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await addConnection(session.organizationId, session.userId, s(fd, 'planVersionId'), {
+      fromProcessStepId: s(fd, 'fromProcessStepId'),
+      toProcessStepId: s(fd, 'toProcessStepId'),
+      connectionType: opt(fd, 'connectionType'),
+      label: opt(fd, 'label') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Conexión agregada.' };
+}
+
+export async function removeConnectionAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeConnection(session.organizationId, session.userId, s(fd, 'connectionId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Conexión eliminada.' };
+}
+
+export async function verifyFlowAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  const verified = fd.get('verified') === 'true' || fd.get('verified') === 'on';
+  try {
+    await setFlowVerification(
+      session.organizationId,
+      session.userId,
+      s(fd, 'planVersionId'),
+      verified,
+      opt(fd, 'notes') ?? null,
+    );
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: verified ? 'Flujo verificado en planta.' : 'Verificación retirada.' };
 }

@@ -29,7 +29,9 @@ import {
   type HaccpReferenceKind,
 } from '@/features/haccp/haccp-state';
 import type { getHaccpPlanDetail } from '@/server/haccp';
+import type { getPlanFlow } from '@/server/haccp-flow';
 import { SubmitButton } from '../../../documents/_components/SubmitButton';
+import { HaccpFlowTab } from './HaccpFlowTab';
 import {
   addSourceAction,
   addTeamMemberAction,
@@ -43,6 +45,7 @@ import {
 } from '../../actions';
 
 type HaccpDetail = Awaited<ReturnType<typeof getHaccpPlanDetail>>;
+type FlowData = Awaited<ReturnType<typeof getPlanFlow>>;
 type DocPick = { id: string; code: string; title: string; documentType: string; status: string };
 type Action = (prev: FormState | null, fd: FormData) => Promise<FormState>;
 
@@ -54,6 +57,7 @@ interface WorkspaceProps {
   sites: { id: string; name: string }[];
   canEdit: boolean;
   isAdmin: boolean;
+  flow: FlowData;
 }
 
 const EmptyState = ({ children }: { children: ReactNode }) => (
@@ -104,6 +108,7 @@ export function HaccpWorkspace({
   sites,
   canEdit,
   isAdmin,
+  flow,
 }: WorkspaceProps) {
   const [active, setActive] = useState<HaccpTab>(initialTab);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -192,6 +197,7 @@ export function HaccpWorkspace({
               sites={sites}
               canEdit={canEdit}
               isAdmin={isAdmin}
+              flow={flow}
             />
           )}
         </div>
@@ -208,6 +214,7 @@ function TabContent(props: {
   sites: { id: string; name: string }[];
   canEdit: boolean;
   isAdmin: boolean;
+  flow: FlowData;
 }) {
   switch (props.tab) {
     case 'resumen':
@@ -222,6 +229,15 @@ function TabContent(props: {
       return <SourceTab {...props} kind="prerequisite" />;
     case 'documentos':
       return <SourceTab {...props} kind="document" />;
+    case 'flujo':
+      return (
+        <HaccpFlowTab
+          planId={props.data.plan.id}
+          flow={props.flow}
+          members={props.members}
+          canEdit={props.canEdit}
+        />
+      );
     default:
       return null;
   }
