@@ -3121,14 +3121,73 @@ model HaccpPlanVersion {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
 
-  plan       HaccpPlan              @relation(fields: [planId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  team       HaccpTeamMember[]
-  references HaccpSourceReference[]
+  // HACCP-002: verificación in situ del diagrama de flujo (por VERSIÓN completa, §E18).
+  flowVerifiedOnSite    Boolean   @default(false) @map("flow_verified_on_site")
+  flowVerifiedAt        DateTime? @map("flow_verified_at") @db.Timestamptz(6)
+  flowVerifiedBy        String?   @map("flow_verified_by") @db.Uuid
+  flowVerificationNotes String?   @map("flow_verification_notes")
+
+  plan        HaccpPlan                @relation(fields: [planId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  team        HaccpTeamMember[]
+  references  HaccpSourceReference[]
+  steps       HaccpProcessStep[]
+  connections HaccpProcessConnection[]
 
   @@unique([planId, versionLabel])
   @@unique([id, organizationId])
   @@index([planId])
   @@map("haccp_plan_versions")
+}
+
+/// HACCP-002 — etapa del diagrama de flujo (version-owned). `process_step_id` es la identidad
+/// LÓGICA estable de la etapa entre versiones (como activityId en Programas); `id` es la fila.
+model HaccpProcessStep {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  planVersionId     String    @map("plan_version_id") @db.Uuid
+  processStepId     String    @map("process_step_id") @db.Uuid
+  /// step_type: process | inspection | storage | transport | decision | rework | output
+  stepType          String    @default("process") @map("step_type")
+  name              String
+  description       String?
+  sequence          Int       @default(0)
+  area              String?
+  responsibleUserId String?   @map("responsible_user_id") @db.Uuid
+  responsibleRole   String?   @map("responsible_role")
+  equipment         String?
+  inputs            String?
+  outputs           String?
+  parameters        String?
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([planVersionId, processStepId])
+  @@unique([id, organizationId])
+  @@index([planVersionId])
+  @@map("haccp_process_steps")
+}
+
+/// HACCP-002 — conexión dirigida entre etapas del flujo (version-owned). Referencia por la
+/// identidad LÓGICA (`process_step_id`) para sobrevivir al clon de versión.
+model HaccpProcessConnection {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  planVersionId  String   @map("plan_version_id") @db.Uuid
+  fromStepId     String   @map("from_step_id") @db.Uuid
+  toStepId       String   @map("to_step_id") @db.Uuid
+  /// connection_type: sequence | conditional | rework | reject
+  connectionType String   @default("sequence") @map("connection_type")
+  label          String?
+  sequence       Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([planVersionId])
+  @@map("haccp_process_connections")
 }
 
 /// Integrante del equipo HACCP (version-owned). Interno (user_id) o externo (external_name).
