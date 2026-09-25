@@ -14,6 +14,7 @@
  * No usa datos personales reales.
  */
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 // Imports RELATIVOS (tsx no resuelve el alias '@/'); estas rutas no usan alias.
 import {
   CONTENT_SCHEMA_VERSION,
@@ -3765,6 +3766,70 @@ async function seedHaccp(): Promise<void> {
         sourceVersionLabelSnapshot: r.src.version?.label ?? null,
         sourceStatusSnapshot: r.src.version?.status ?? null,
         sourcePublishedAtSnapshot: r.src.version?.publishedAt ?? null,
+      },
+    });
+  }
+
+  // HACCP-002 — diagrama de flujo demo (huevo fresco) con rama de producto no conforme.
+  const stepDefs: { key: string; name: string; type: string; area?: string }[] = [
+    { key: 'recep', name: 'Recepción de huevo', type: 'process', area: 'Recepción' },
+    { key: 'almtmp', name: 'Almacenamiento temporal', type: 'storage', area: 'Almacén' },
+    {
+      key: 'insp',
+      name: 'Selección / inspección (ovoscopía)',
+      type: 'inspection',
+      area: 'Producción',
+    },
+    { key: 'pnc', name: 'Separación de producto no conforme', type: 'output', area: 'Calidad' },
+    { key: 'clasif', name: 'Clasificación por peso', type: 'process', area: 'Producción' },
+    { key: 'empaque', name: 'Empaque', type: 'process', area: 'Producción' },
+    { key: 'loteo', name: 'Identificación / loteado', type: 'process', area: 'Producción' },
+    {
+      key: 'almpt',
+      name: 'Almacenamiento de producto terminado',
+      type: 'storage',
+      area: 'Almacén',
+    },
+    { key: 'despacho', name: 'Despacho', type: 'transport', area: 'Logística' },
+  ];
+  const stepId: Record<string, string> = {};
+  let seq = 0;
+  for (const s of stepDefs) {
+    const logical = randomUUID();
+    stepId[s.key] = logical;
+    await prisma.haccpProcessStep.create({
+      data: {
+        organizationId: ORG_A,
+        planVersionId: VERSION,
+        processStepId: logical,
+        stepType: s.type,
+        name: s.name,
+        area: s.area ?? null,
+        sequence: seq++,
+      },
+    });
+  }
+  const conns: { from: string; to: string; type: string; label?: string }[] = [
+    { from: 'recep', to: 'almtmp', type: 'sequence' },
+    { from: 'almtmp', to: 'insp', type: 'sequence' },
+    { from: 'insp', to: 'clasif', type: 'conditional', label: 'Conforme' },
+    { from: 'insp', to: 'pnc', type: 'reject', label: 'No conforme' },
+    { from: 'clasif', to: 'empaque', type: 'sequence' },
+    { from: 'empaque', to: 'loteo', type: 'sequence' },
+    { from: 'loteo', to: 'almpt', type: 'sequence' },
+    { from: 'almpt', to: 'despacho', type: 'sequence' },
+  ];
+  let cseq = 0;
+  for (const c of conns) {
+    await prisma.haccpProcessConnection.create({
+      data: {
+        organizationId: ORG_A,
+        planVersionId: VERSION,
+        fromStepId: stepId[c.from]!,
+        toStepId: stepId[c.to]!,
+        connectionType: c.type,
+        label: c.label ?? null,
+        sequence: cseq++,
       },
     });
   }
