@@ -3620,6 +3620,156 @@ async function seedDataStudy(): Promise<void> {
   });
 }
 
+/**
+ * HACCP-001 — Plan HACCP demo (PL-HACCP-001) para «selección y empaque de huevo fresco» en
+ * Alimentos Demo A. Vigente (v1.0), con equipo (líder) y PPR/documentos referenciando fuentes
+ * reales (PRO-01, PR-CA-004, PR-CA-003) con su versión exacta sellada. Producto terminado y
+ * materias primas quedan PENDIENTES: aún no existen fichas de especificación en el seed (no se
+ * inventan, §55). Idempotente por id fijo.
+ */
+async function seedHaccp(): Promise<void> {
+  const PLAN = '00000000-0000-4000-8000-00000000ac01';
+  const VERSION = '00000000-0000-4000-8000-00000000ac02';
+  const exists = await prisma.haccpPlan.findUnique({ where: { id: PLAN } });
+  if (exists) return;
+
+  // Fuentes reales (por código) con su versión publicada vigente.
+  const byCode = async (code: string) => {
+    const doc = await prisma.document.findFirst({
+      where: { organizationId: ORG_A, code },
+      select: { id: true, code: true, title: true, documentType: true },
+    });
+    if (!doc) return null;
+    const version = await prisma.documentVersion.findFirst({
+      where: { organizationId: ORG_A, documentId: doc.id, status: 'published', isCurrent: true },
+      select: { id: true, label: true, status: true, publishedAt: true },
+    });
+    return { doc, version };
+  };
+  const limpieza = await byCode('PRO-01');
+  const proveedores = await byCode('PR-CA-004');
+  const aceptacionMp = await byCode('PR-CA-003');
+
+  await prisma.haccpPlan.create({
+    data: {
+      id: PLAN,
+      organizationId: ORG_A,
+      siteId: SITE_A,
+      code: 'PL-HACCP-001',
+      title: 'Plan HACCP para selección y empaque de huevo fresco',
+      description:
+        'Plan HACCP del proceso de recepción, selección, clasificación y empaque de huevo fresco.',
+      scope:
+        'Aplica a la recepción, selección, ovoscopía, clasificación por peso y empaque de huevo fresco de gallina en la planta de Alimentos Demo A.',
+      status: 'published',
+      currentVersionId: null,
+      responsibleUserId: USER_A,
+      nextReviewAt: new Date('2027-01-31T00:00:00.000Z'),
+      createdBy: USER_A,
+    },
+  });
+  await prisma.haccpPlanCodeCounter.upsert({
+    where: { organizationId: ORG_A },
+    create: { organizationId: ORG_A, lastSeq: 1 },
+    update: { lastSeq: 1 },
+  });
+  await prisma.haccpPlanVersion.create({
+    data: {
+      id: VERSION,
+      organizationId: ORG_A,
+      planId: PLAN,
+      major: 1,
+      minor: 0,
+      versionLabel: 'v1.0',
+      status: 'published',
+      isCurrent: true,
+      scope: 'Recepción, selección, ovoscopía, clasificación y empaque de huevo fresco.',
+      productProcess: 'Huevo fresco de gallina — selección y empaque',
+      createdBy: USER_A,
+      publishedAt: new Date('2026-08-01T00:00:00.000Z'),
+    },
+  });
+  // Enlaza el puntero a la versión vigente (FK circular: se hace tras crear la versión).
+  await prisma.haccpPlan.update({
+    where: { id: PLAN },
+    data: { currentVersionId: VERSION },
+  });
+
+  // Equipo HACCP (líder + operación + mantenimiento externo).
+  const team = [
+    {
+      userId: USER_A,
+      externalName: null,
+      area: 'Calidad',
+      jobTitle: 'Jefe de Aseguramiento de Calidad',
+      haccpRole: 'Líder HACCP',
+      responsibility: 'Coordinar el equipo y validar el plan.',
+      trainingSummary: 'HACCP nivel avanzado (2025).',
+      isLeader: true,
+      sortOrder: 0,
+    },
+    {
+      userId: USER_C,
+      externalName: null,
+      area: 'Producción',
+      jobTitle: 'Supervisor de Empaque',
+      haccpRole: 'Producción / Operación',
+      responsibility: 'Aportar el conocimiento del proceso de empaque.',
+      trainingSummary: 'HACCP básico (2025).',
+      isLeader: false,
+      sortOrder: 1,
+    },
+    {
+      userId: null,
+      externalName: 'Ing. Mantenimiento (externo)',
+      area: 'Mantenimiento',
+      jobTitle: 'Asesor de Mantenimiento',
+      haccpRole: 'Mantenimiento',
+      responsibility: 'Verificar equipos e infraestructura.',
+      trainingSummary: null,
+      isLeader: false,
+      sortOrder: 2,
+    },
+  ];
+  for (const t of team) {
+    await prisma.haccpTeamMember.create({
+      data: { organizationId: ORG_A, planVersionId: VERSION, ...t },
+    });
+  }
+
+  // Referencias de fuente: PPR (limpieza, proveedores) + documento soporte (aceptación MP).
+  const refs: {
+    kind: string;
+    src: Awaited<ReturnType<typeof byCode>>;
+    category: string | null;
+    sort: number;
+  }[] = [
+    { kind: 'prerequisite', src: limpieza, category: 'Limpieza y desinfección', sort: 0 },
+    { kind: 'prerequisite', src: proveedores, category: 'Proveedores', sort: 1 },
+    { kind: 'document', src: aceptacionMp, category: null, sort: 2 },
+  ];
+  for (const r of refs) {
+    if (!r.src) continue;
+    await prisma.haccpSourceReference.create({
+      data: {
+        organizationId: ORG_A,
+        planVersionId: VERSION,
+        referenceKind: r.kind,
+        sourceType: r.src.doc.documentType === 'program' ? 'program' : 'document',
+        sourceDocumentId: r.src.doc.id,
+        sourceVersionId: r.src.version?.id ?? null,
+        category: r.category,
+        sortOrder: r.sort,
+        sourceCodeSnapshot: r.src.doc.code,
+        sourceTitleSnapshot: r.src.doc.title,
+        sourceVersionLabelSnapshot: r.src.version?.label ?? null,
+        sourceStatusSnapshot: r.src.version?.status ?? null,
+        sourcePublishedAtSnapshot: r.src.version?.publishedAt ?? null,
+      },
+    });
+  }
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -3714,9 +3864,10 @@ async function main(): Promise<void> {
   await seedAudits();
   await seedEventsAndKpis();
   await seedDataStudy();
+  await seedHaccp();
 
   console.log(
-    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos, tareas, auditorías, eventos/KPI y 1 estudio de datos demo (EST-2026-0001).',
+    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos, tareas, auditorías, eventos/KPI, 1 estudio de datos demo (EST-2026-0001) y 1 plan HACCP demo (PL-HACCP-001).',
   );
 }
 
