@@ -41,13 +41,13 @@ elimina `haccp_product_references` + `haccp_material_references` +
 `haccp_prerequisite_references` + `haccp_document_references` + `haccp_source_snapshots` →
 `haccp_source_references`.
 
-| Tabla | Alcance | Rol |
-|---|---|---|
-| `haccp_plans` | identidad estable | plan + display actual + puntero a versión vigente |
-| `haccp_plan_versions` | version-owned | major/minor/label/status/scope/change_notes/is_current |
-| `haccp_team_members` | version-owned | equipo (interno/externo, líder ≤1) |
-| `haccp_source_references` | version-owned | producto/MP/PPR/documentos + snapshot inline |
-| `haccp_plan_code_counters` | contador | consecutivo `PL-HACCP-###` por organización |
+| Tabla                      | Alcance           | Rol                                                    |
+| -------------------------- | ----------------- | ------------------------------------------------------ |
+| `haccp_plans`              | identidad estable | plan + display actual + puntero a versión vigente      |
+| `haccp_plan_versions`      | version-owned     | major/minor/label/status/scope/change_notes/is_current |
+| `haccp_team_members`       | version-owned     | equipo (interno/externo, líder ≤1)                     |
+| `haccp_source_references`  | version-owned     | producto/MP/PPR/documentos + snapshot inline           |
+| `haccp_plan_code_counters` | contador          | consecutivo `PL-HACCP-###` por organización            |
 
 Los datos que cambian entre versiones pertenecen a `plan_version` (§47). Al crear versión
 nueva se hace **deep clone** de team + source_references (no se comparten filas, §37).
@@ -55,24 +55,28 @@ nueva se hace **deep clone** de team + source_references (no se comparten filas,
 ## Esquema (campos)
 
 ### haccp_plans
+
 `id, organization_id, site_id?, code, title, description?, scope?, status, current_version_id?,
 responsible_user_id?, next_review_at?, created_by?, created_at, updated_at`.
 `status`: `draft | in_review | published | reevaluation_required | obsolete`.
 Únicos: `(organization_id, code)`, `(id, organization_id)`.
 
 ### haccp_plan_versions
+
 `id, organization_id, plan_id, major, minor, version_label, status, scope?, product_process?,
 change_notes?, is_current, created_by?, created_at, published_at?`.
 `status`: `draft | in_review | published | obsolete`. Único: `(plan_id, version_label)`,
 `(id, organization_id)`.
 
 ### haccp_team_members
+
 `id, organization_id, plan_version_id, user_id?, external_name?, area?, job_title?,
 haccp_role?, responsibility?, training_summary?, is_leader, sort_order, created_at`.
 Persona interna → `user_id` (no se duplica el nombre, §10). Persona externa → `external_name`.
 **Líder ≤1 por versión**: índice único parcial `(plan_version_id) WHERE is_leader` (§11).
 
 ### haccp_source_references
+
 `id, organization_id, plan_version_id, reference_kind, source_type, source_document_id,
 source_version_id?, category?, sort_order, notes?, source_code_snapshot?,
 source_title_snapshot?, source_version_label_snapshot?, source_status_snapshot?,
@@ -82,6 +86,7 @@ source_published_at_snapshot?, created_at`.
 **Producto ≤1 por versión**: índice único parcial `(plan_version_id) WHERE reference_kind='product'` (§12).
 
 ### haccp_plan_code_counters
+
 `organization_id (PK), last_seq`.
 
 ## Snapshots e impact awareness (§21-27)
@@ -126,3 +131,31 @@ schema existente → DETENERSE (no aplica: es puramente aditiva).
 HACCP-002 (flujo/nodos), 003 (peligros/riesgo), 004 (PCC/PPRO/árbol), 005 (validación), 006
 (tareas/Gantt/recurrencia), 007 (documento formal generado). DOC-004 (Records) necesario para
 monitoreos/verificación operativa. Interfaces futuras se documentan, no se implementan.
+
+## Estado: IMPLEMENTADO (HACCP-001)
+
+Rama `feat/haccp-001-foundation` (desde `main` = 7dfa36e). Entregado:
+
+- **Migración** `20260924000000_haccp_foundation` (aditiva; 0 DROP; 5 tablas, RLS + políticas
+  tenant, grants a gapsi_app, FKs tenant-safe, índices únicos parciales líder≤1 y producto≤1).
+- **Server** `src/server/haccp.ts`: crear plan (código PL-HACCP-### atómico) + v1.0, editar
+  borrador, equipo (líder único), fuentes producto/MP/PPR/documento con snapshot de la versión
+  exacta, publicar (valida + sella snapshots + vigente), nueva versión (deep clone con versiones
+  exactas, no latest), detección de actualización de fuente (solo aviso), actualizar fuente en
+  borrador.
+- **Feature** `src/features/haccp/haccp-state.ts`: estados/labels/tabs/validación/detección puras.
+- **UI**: nav «Cumplimiento → HACCP»; índice `/dashboard/haccp`; asistente `/dashboard/haccp/new`;
+  workspace `/dashboard/haccp/[planId]` con 6 tabs (Resumen/Equipo/Producto/Materias/PPR/Documentos)
+  - 6 fases futuras «Próximamente»; solo el borrador editable; publicado inmutable; nueva versión
+    para admin; referencias clickeables; estados en español.
+- **Seed** demo `PL-HACCP-001` (huevo fresco) vigente con equipo (líder) + PPR/documento reales;
+  producto y materias primas quedan PENDIENTES (no hay fichas de especificación; §55, no se
+  inventan).
+- **Tests**: `haccp-state` (unit), `db/haccp` (aislamiento, líder, snapshot, publicación,
+  detección, clon, inmutabilidad, cross-tenant), `haccp-ui` (fuente). Gates verdes; seed 3x.
+
+### Follow-up de FASE 2 registrado: DOC-OUTPUT-VISUAL-SMOKE
+
+La validación visual de la salida documental (copia controlada / borrador / obsoleto) y del
+reporte CAPA 8D se hizo por mediciones del DOM (el Browser pane del entorno no captura píxeles).
+Pendiente de smoke de píxeles/PDF con revisión manual; no bloqueante.
