@@ -695,8 +695,14 @@ model DocumentVersion {
   // nativos estructurados). El HTML/render se deriva de estos datos.
   structuredContent Json? @map("structured_content")
 
-  document Document       @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  // DOC-004: esquema de FORMULARIO (secciones/campos tipados con id lógico estable)
+  // para documentos tipo `form`. Pertenece a esta versión EXACTA; al publicar queda
+  // sellado y los registros (record_instances) lo referencian por versión.
+  formSchema Json? @map("form_schema")
+
+  document Document          @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Restrict)
   files    DocumentFile[]
+  records  RecordInstance[]
 
   @@unique([documentId, label])
   @@unique([id, organizationId])
@@ -985,6 +991,76 @@ model DocumentStatusHistory {
 
   @@index([versionId, createdAt])
   @@map("document_status_history")
+}
+
+// =====================================================================
+// DOC-004 — Registros digitales
+// Un documento tipo `form` (Formato) define, en su DocumentVersion, un
+// `form_schema`. Cada llenado produce un RecordInstance que referencia la
+// VERSIÓN EXACTA del formato (nunca «latest»). FK compuestas tenant-safe,
+// CHECK de estados, RLS y grants se añaden por SQL complementario.
+// =====================================================================
+
+/// Instancia de REGISTRO: llenado de un formato usando una versión documental exacta.
+model RecordInstance {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  recordNumber   String @map("record_number")
+
+  documentId        String @map("document_id") @db.Uuid
+  documentVersionId String @map("document_version_id") @db.Uuid
+
+  /// SNAPSHOT mínimo para auditoría/reportes (§41); el esquema vive en la versión.
+  formCode         String  @map("form_code")
+  formTitle        String  @map("form_title")
+  formVersionLabel String  @map("form_version_label")
+
+  /// status: draft | in_progress | submitted | reviewed | closed | cancelled
+  status String @default("draft")
+
+  /// Datos capturados (JSONB validado contra el form_schema de la versión, §9).
+  data Json?
+
+  assignedToUserId String? @map("assigned_to_user_id") @db.Uuid
+  siteId           String? @map("site_id") @db.Uuid
+
+  /// Origen/procedencia (§32): manual | haccp_control_plan | program | task | audit.
+  sourceType String? @map("source_type")
+  sourceId   String? @map("source_id")
+
+  /// Idempotencia offline (§39/§40): único por organización cuando no es null.
+  clientGeneratedId String? @map("client_generated_id") @db.Uuid
+
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(6)
+  submittedBy String?   @map("submitted_by") @db.Uuid
+  reviewedAt  DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy  String?   @map("reviewed_by") @db.Uuid
+  closedAt    DateTime? @map("closed_at") @db.Timestamptz(6)
+  closedBy    String?   @map("closed_by") @db.Uuid
+  updatedAt   DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version DocumentVersion @relation(fields: [documentVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, recordNumber])
+  @@unique([organizationId, clientGeneratedId])
+  @@index([organizationId, status])
+  @@index([organizationId, documentId])
+  @@index([organizationId, sourceType, sourceId])
+  @@map("record_instances")
+}
+
+/// Consecutivo atómico de folio de registro por organización y año (REG-AAAA-######).
+model RecordCodeCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  year           Int
+  lastSeq        Int    @default(0) @map("last_seq")
+
+  @@id([organizationId, year])
+  @@map("record_code_counters")
 }
 
 // =====================================================================
