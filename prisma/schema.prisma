@@ -3127,18 +3127,90 @@ model HaccpPlanVersion {
   flowVerifiedBy        String?   @map("flow_verified_by") @db.Uuid
   flowVerificationNotes String?   @map("flow_verification_notes")
 
-  plan        HaccpPlan                @relation(fields: [planId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  team        HaccpTeamMember[]
-  references  HaccpSourceReference[]
-  steps       HaccpProcessStep[]
-  connections HaccpProcessConnection[]
-  hazards     HaccpHazard[]
-  riskMatrix  HaccpRiskMatrixConfig?
+  plan         HaccpPlan                @relation(fields: [planId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  team         HaccpTeamMember[]
+  references   HaccpSourceReference[]
+  steps        HaccpProcessStep[]
+  connections  HaccpProcessConnection[]
+  hazards      HaccpHazard[]
+  riskMatrix   HaccpRiskMatrixConfig?
+  assessments  HaccpControlAssessment[]
+  controlPlans HaccpControlPlan[]
 
   @@unique([planId, versionLabel])
   @@unique([id, organizationId])
   @@index([planId])
   @@map("haccp_plan_versions")
+}
+
+/// HACCP-004 — evaluación de la MEDIDA DE CONTROL de un peligro significativo mediante el árbol
+/// de decisión. `control_measure_logical_id` es la identidad LÓGICA estable entre versiones. La
+/// metodología usada + el camino de respuestas quedan como SNAPSHOT (§32) para reproducibilidad.
+model HaccpControlAssessment {
+  id                      String    @id @default(uuid()) @db.Uuid
+  organizationId          String    @map("organization_id") @db.Uuid
+  planVersionId           String    @map("plan_version_id") @db.Uuid
+  controlMeasureLogicalId String    @map("control_measure_logical_id") @db.Uuid
+  hazardLogicalId         String    @map("hazard_logical_id") @db.Uuid
+  /// Metodología/árbol usado (snapshot) y su versión.
+  methodKey               String    @map("method_key")
+  methodVersion           String    @map("method_version")
+  /// classification: ppr | ppro | pcc | other | review_required
+  classification          String
+  /// classification_source: calculated | override
+  classificationSource    String    @default("calculated") @map("classification_source")
+  justification           String?
+  overrideReason          String?   @map("override_reason")
+  /// answers: [{ questionId, answer }] (camino recorrido, snapshot §19/§32)
+  answers                 Json
+  /// status: draft | complete
+  status                  String    @default("complete")
+  createdBy               String?   @map("created_by") @db.Uuid
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([planVersionId, hazardLogicalId])
+  @@unique([id, organizationId])
+  @@index([planVersionId])
+  @@map("haccp_control_assessments")
+}
+
+/// HACCP-004 — Plan de control de un peligro clasificado (PCC/PPRO/PPR). Los campos varían según
+/// la clasificación; no se fuerzan todos (§12). No inventa límites/criterios sin fuente (§33/§34).
+model HaccpControlPlan {
+  id                      String    @id @default(uuid()) @db.Uuid
+  organizationId          String    @map("organization_id") @db.Uuid
+  planVersionId           String    @map("plan_version_id") @db.Uuid
+  controlMeasureLogicalId String    @map("control_measure_logical_id") @db.Uuid
+  hazardLogicalId         String    @map("hazard_logical_id") @db.Uuid
+  /// classification: ppr | ppro | pcc | other
+  classification          String
+  /// Origen del peligro (para vincular a etapa o materia prima).
+  processStepId           String?   @map("process_step_id") @db.Uuid
+  sourceReferenceId       String?   @map("source_reference_id") @db.Uuid
+  controlMeasure          String?   @map("control_measure")
+  justification           String?
+  criticalLimit           String?   @map("critical_limit")
+  actionCriterion         String?   @map("action_criterion")
+  monitoringWhat          String?   @map("monitoring_what")
+  monitoringHow           String?   @map("monitoring_how")
+  monitoringWho           String?   @map("monitoring_who")
+  monitoringWhen          String?   @map("monitoring_when")
+  correction              String?
+  correctiveAction        String?   @map("corrective_action")
+  recordReference         String?   @map("record_reference")
+  createdBy               String?   @map("created_by") @db.Uuid
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([planVersionId, controlMeasureLogicalId])
+  @@unique([id, organizationId])
+  @@index([planVersionId])
+  @@map("haccp_control_plans")
 }
 
 /// HACCP-003 — configuración de la matriz de riesgo (version-owned, SNAPSHOT de la metodología
