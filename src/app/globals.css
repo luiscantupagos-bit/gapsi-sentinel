@@ -6219,3 +6219,23 @@ table td.mono {
   flex-wrap: wrap;
   margin-bottom: 0.75rem;
 }
+
+/* HACCP-005 — badges de estado de validación. */
+.badge--valstatus-satisfactory {
+  background: #dff3e6;
+  color: #14683a;
+}
+.badge--valstatus-unsatisfactory,
+.badge--valstatus-expired {
+  background: #f7d7d3;
+  color: #8a1607;
+}
+.badge--valstatus-needs_review,
+.badge--valstatus-in_progress {
+  background: #fdecc8;
+  color: #7a4d00;
+}
+.badge--valstatus-pending {
+  background: #eef1f5;
+  color: #4b5563;
+}

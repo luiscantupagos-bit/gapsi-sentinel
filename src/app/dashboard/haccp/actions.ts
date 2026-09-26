@@ -33,6 +33,7 @@ import {
 import { addHazard, removeHazard, saveRiskMatrix, updateHazard } from '@/server/haccp-hazards';
 import { DEFAULT_RISK_MATRIX } from '@/features/haccp/haccp-hazards';
 import { removeAssessment, saveAssessment, saveControlPlan } from '@/server/haccp-control';
+import { removeValidation, saveValidation } from '@/server/haccp-validation';
 import type { HaccpReferenceKind } from '@/features/haccp/haccp-state';
 import type { VersionBump } from '@/features/documents/versioning';
 
@@ -512,4 +513,50 @@ export async function saveControlPlanAction(
   }
   revalidatePlan(planId);
   return { ok: true, message: 'Plan de control guardado.' };
+}
+
+// --- HACCP-005: validación de medidas de control ----------------------------
+
+export async function saveValidationAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await saveValidation(session.organizationId, session.userId, s(fd, 'planVersionId'), {
+      controlMeasureLogicalId: s(fd, 'controlMeasureLogicalId'),
+      objective: opt(fd, 'objective') ?? null,
+      scope: opt(fd, 'scope') ?? null,
+      methodType: opt(fd, 'methodType') ?? null,
+      methodDescription: opt(fd, 'methodDescription') ?? null,
+      evidenceSummary: opt(fd, 'evidenceSummary') ?? null,
+      technicalBasis: opt(fd, 'technicalBasis') ?? null,
+      acceptanceCriteria: opt(fd, 'acceptanceCriteria') ?? null,
+      conclusion: opt(fd, 'conclusion') ?? null,
+      evidenceDocumentId: opt(fd, 'evidenceDocumentId') ?? null,
+      performedAt: opt(fd, 'performedAt') ?? null,
+      performedByUserId: opt(fd, 'performedByUserId') ?? null,
+      performedByExternalName: opt(fd, 'performedByExternalName') ?? null,
+      reviewedByUserId: opt(fd, 'reviewedByUserId') ?? null,
+      nextValidationAt: opt(fd, 'nextValidationAt') ?? null,
+      result: opt(fd, 'result') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Validación guardada.' };
+}
+
+export async function removeValidationAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeValidation(session.organizationId, session.userId, s(fd, 'validationId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Validación eliminada.' };
 }

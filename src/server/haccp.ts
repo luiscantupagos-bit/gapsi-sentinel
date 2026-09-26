@@ -651,6 +651,40 @@ export async function createHaccpVersion(
         },
       });
     }
+    // §HACCP-005 §20: clona las validaciones como antecedente preservando validation_logical_id.
+    const validations = await tx.haccpControlValidation.findMany({
+      where: { organizationId, planVersionId: current.id },
+    });
+    for (const v of validations) {
+      await tx.haccpControlValidation.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          validationLogicalId: v.validationLogicalId,
+          controlMeasureLogicalId: v.controlMeasureLogicalId,
+          hazardLogicalId: v.hazardLogicalId,
+          status: v.status,
+          result: v.result,
+          objective: v.objective,
+          scope: v.scope,
+          methodType: v.methodType,
+          methodDescription: v.methodDescription,
+          evidenceSummary: v.evidenceSummary,
+          technicalBasis: v.technicalBasis,
+          acceptanceCriteria: v.acceptanceCriteria,
+          conclusion: v.conclusion,
+          evidenceDocumentId: v.evidenceDocumentId,
+          evidenceDocumentVersionId: v.evidenceDocumentVersionId,
+          performedAt: v.performedAt,
+          performedByUserId: v.performedByUserId,
+          performedByExternalName: v.performedByExternalName,
+          reviewedByUserId: v.reviewedByUserId,
+          reviewedAt: v.reviewedAt,
+          nextValidationAt: v.nextValidationAt,
+          createdBy: v.createdBy,
+        },
+      });
+    }
     await tx.haccpPlan.update({ where: { id: planId }, data: { status: 'draft' } });
     return created.id;
   });
