@@ -30,8 +30,10 @@ import {
 } from '@/features/haccp/haccp-state';
 import type { getHaccpPlanDetail } from '@/server/haccp';
 import type { getPlanFlow } from '@/server/haccp-flow';
+import type { getHazardAnalysis } from '@/server/haccp-hazards';
 import { SubmitButton } from '../../../documents/_components/SubmitButton';
 import { HaccpFlowTab } from './HaccpFlowTab';
+import { HaccpHazardsTab } from './HaccpHazardsTab';
 import {
   addSourceAction,
   addTeamMemberAction,
@@ -46,6 +48,7 @@ import {
 
 type HaccpDetail = Awaited<ReturnType<typeof getHaccpPlanDetail>>;
 type FlowData = Awaited<ReturnType<typeof getPlanFlow>>;
+type HazardData = Awaited<ReturnType<typeof getHazardAnalysis>>;
 type DocPick = { id: string; code: string; title: string; documentType: string; status: string };
 type Action = (prev: FormState | null, fd: FormData) => Promise<FormState>;
 
@@ -58,6 +61,7 @@ interface WorkspaceProps {
   canEdit: boolean;
   isAdmin: boolean;
   flow: FlowData;
+  hazards: HazardData;
 }
 
 const EmptyState = ({ children }: { children: ReactNode }) => (
@@ -109,6 +113,7 @@ export function HaccpWorkspace({
   canEdit,
   isAdmin,
   flow,
+  hazards,
 }: WorkspaceProps) {
   const [active, setActive] = useState<HaccpTab>(initialTab);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -198,6 +203,7 @@ export function HaccpWorkspace({
               canEdit={canEdit}
               isAdmin={isAdmin}
               flow={flow}
+              hazards={hazards}
             />
           )}
         </div>
@@ -215,6 +221,7 @@ function TabContent(props: {
   canEdit: boolean;
   isAdmin: boolean;
   flow: FlowData;
+  hazards: HazardData;
 }) {
   switch (props.tab) {
     case 'resumen':
@@ -237,6 +244,16 @@ function TabContent(props: {
           members={props.members}
           canEdit={props.canEdit}
         />
+      );
+    case 'peligros':
+      return props.hazards ? (
+        <HaccpHazardsTab
+          planId={props.data.plan.id}
+          analysis={props.hazards}
+          canEdit={props.canEdit}
+        />
+      ) : (
+        <p className="empty-state empty-state--compact">Sin versión activa.</p>
       );
     default:
       return null;

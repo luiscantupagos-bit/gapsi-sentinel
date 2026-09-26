@@ -6100,3 +6100,52 @@ table td.mono {
     break-inside: avoid;
   }
 }
+
+/* HACCP-003 — matriz de riesgo (semántica HACCP, independiente del semáforo de cumplimiento). */
+.risk-matrix td,
+.risk-matrix th {
+  text-align: center;
+}
+.risk-cell {
+  font-size: 0.85rem;
+}
+.risk-cell__score {
+  display: block;
+  font-weight: 700;
+}
+.risk-cell__band {
+  display: block;
+  font-size: 0.7rem;
+}
+.risk-cell--low {
+  background: #dff3e6;
+  color: #14683a;
+}
+.risk-cell--medium {
+  background: #fdecc8;
+  color: #7a4d00;
+}
+.risk-cell--high {
+  background: #f7d7d3;
+  color: #8a1607;
+}
+.row--significant {
+  background: #fcf1ef;
+}
+.haccp-filter {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: var(--space-2) 0;
+  font-size: 0.9rem;
+}
+.haccp-hazard-group {
+  border: 1px solid var(--color-border, #d5dde5);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  break-inside: avoid;
+}
+.haccp-hazard-group > summary {
+  cursor: pointer;
+}
