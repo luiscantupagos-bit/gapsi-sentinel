@@ -3909,13 +3909,16 @@ async function seedHaccp(): Promise<void> {
       control: 'Limpieza y desinfección (PRO-01) e higiene del personal.',
     },
   ];
+  const hazardLogicalByName: Record<string, string> = {};
   for (const h of hazardDefs) {
     const score = h.p * h.s;
+    const logical = randomUUID();
+    hazardLogicalByName[h.name] = logical;
     await prisma.haccpHazard.create({
       data: {
         organizationId: ORG_A,
         planVersionId: VERSION,
-        hazardLogicalId: randomUUID(),
+        hazardLogicalId: logical,
         sourceType: 'process_step',
         processStepId: stepId[h.step]!,
         hazardType: h.type,
@@ -3926,6 +3929,53 @@ async function seedHaccp(): Promise<void> {
         isSignificant: score >= THRESHOLD,
         significanceSource: 'calculated',
         existingControlMeasure: h.control ?? null,
+        createdBy: USER_A,
+      },
+    });
+  }
+
+  // HACCP-004 — evalúa UN peligro significativo (Salmonella en recepción) como PPRO con su plan
+  // de control; los demás quedan PENDIENTES (§43/§44). No se inventan límites críticos (§33).
+  const salmonellaLogical = hazardLogicalByName['Salmonella spp.'];
+  if (salmonellaLogical) {
+    const measureLogical = randomUUID();
+    await prisma.haccpControlAssessment.create({
+      data: {
+        organizationId: ORG_A,
+        planVersionId: VERSION,
+        controlMeasureLogicalId: measureLogical,
+        hazardLogicalId: salmonellaLogical,
+        methodKey: 'default',
+        methodVersion: '1',
+        classification: 'ppro',
+        classificationSource: 'calculated',
+        justification:
+          'La medida actúa sobre el peligro pero no hay un límite crítico medible definido; se gestiona como PPRO.',
+        answers: [
+          { questionId: 'P1', answer: 'yes' },
+          { questionId: 'P2', answer: 'no' },
+        ],
+        status: 'complete',
+        createdBy: USER_A,
+      },
+    });
+    await prisma.haccpControlPlan.create({
+      data: {
+        organizationId: ORG_A,
+        planVersionId: VERSION,
+        controlMeasureLogicalId: measureLogical,
+        hazardLogicalId: salmonellaLogical,
+        classification: 'ppro',
+        processStepId: stepId['recep']!,
+        controlMeasure: 'Certificado del proveedor y cadena de frío controlada.',
+        actionCriterion:
+          'Certificado del proveedor vigente y carga en condiciones (criterio observable).',
+        monitoringWhat: 'Certificado y condición de la carga en la recepción.',
+        monitoringHow: 'Verificación documental y visual.',
+        monitoringWho: 'Personal de recepción / calidad.',
+        monitoringWhen: 'En cada recepción.',
+        correction: 'Retener o rechazar el lote no conforme.',
+        correctiveAction: 'Registrar el evento y notificar al proveedor.',
         createdBy: USER_A,
       },
     });
