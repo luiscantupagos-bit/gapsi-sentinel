@@ -97,6 +97,7 @@ export const HACCP_TABS = [
   'flujo',
   'peligros',
   'medidas',
+  'validacion',
 ] as const;
 export type HaccpTab = (typeof HACCP_TABS)[number];
 
@@ -110,10 +111,11 @@ export const HACCP_TAB_LABEL: Record<HaccpTab, string> = {
   flujo: 'Diagrama de flujo',
   peligros: 'Análisis de peligros',
   medidas: 'Medidas de control',
+  validacion: 'Validación',
 };
 
-/** Tabs de fases futuras (HACCP-005..): se muestran deshabilitadas («Próximamente»). */
-export const HACCP_FUTURE_TABS = ['Validación', 'Verificación'] as const;
+/** Tabs de fases futuras (HACCP-006..): se muestran deshabilitadas («Próximamente»). */
+export const HACCP_FUTURE_TABS = ['Verificación'] as const;
 
 export function resolveTab(raw: string | null | undefined): HaccpTab {
   return (HACCP_TABS as readonly string[]).includes(raw ?? '') ? (raw as HaccpTab) : 'resumen';

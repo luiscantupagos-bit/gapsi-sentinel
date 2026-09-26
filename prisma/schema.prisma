@@ -3136,11 +3136,57 @@ model HaccpPlanVersion {
   riskMatrix   HaccpRiskMatrixConfig?
   assessments  HaccpControlAssessment[]
   controlPlans HaccpControlPlan[]
+  validations  HaccpControlValidation[]
 
   @@unique([planId, versionLabel])
   @@unique([id, organizationId])
   @@index([planId])
   @@map("haccp_plan_versions")
+}
+
+/// HACCP-005 — VALIDACIÓN de una medida de control (¿es capaz de controlar el peligro?). Distinta
+/// de la verificación (HACCP-006). `validation_logical_id` = identidad LÓGICA estable entre
+/// versiones. La evidencia por archivo se relaciona vía `file_relations`
+/// (entity_type='haccp_control_validation'); no se crea storage nuevo (§8). Publicado = inmutable.
+model HaccpControlValidation {
+  id                        String    @id @default(uuid()) @db.Uuid
+  organizationId            String    @map("organization_id") @db.Uuid
+  planVersionId             String    @map("plan_version_id") @db.Uuid
+  validationLogicalId       String    @map("validation_logical_id") @db.Uuid
+  controlMeasureLogicalId   String    @map("control_measure_logical_id") @db.Uuid
+  hazardLogicalId           String    @map("hazard_logical_id") @db.Uuid
+  /// status: pending | in_progress | satisfactory | unsatisfactory | expired | needs_review
+  status                    String    @default("pending")
+  /// result: satisfactory | unsatisfactory | inconclusive (separado del status, §6)
+  result                    String?
+  objective                 String?
+  scope                     String?
+  /// method_type: literature | legislation | specification | historical | experimental | plant_trial | supplier | external_study | combined | other
+  methodType                String?   @map("method_type")
+  methodDescription         String?   @map("method_description")
+  evidenceSummary           String?   @map("evidence_summary")
+  technicalBasis            String?   @map("technical_basis")
+  acceptanceCriteria        String?   @map("acceptance_criteria")
+  conclusion                String?
+  /// Evidencia documental (documento Sentinel + versión EXACTA, §9).
+  evidenceDocumentId        String?   @map("evidence_document_id") @db.Uuid
+  evidenceDocumentVersionId String?   @map("evidence_document_version_id") @db.Uuid
+  performedAt               DateTime? @map("performed_at") @db.Date
+  performedByUserId         String?   @map("performed_by_user_id") @db.Uuid
+  performedByExternalName   String?   @map("performed_by_external_name")
+  reviewedByUserId          String?   @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt                DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  nextValidationAt          DateTime? @map("next_validation_at") @db.Date
+  createdBy                 String?   @map("created_by") @db.Uuid
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([planVersionId, controlMeasureLogicalId])
+  @@unique([id, organizationId])
+  @@index([planVersionId])
+  @@map("haccp_control_validations")
 }
 
 /// HACCP-004 — evaluación de la MEDIDA DE CONTROL de un peligro significativo mediante el árbol

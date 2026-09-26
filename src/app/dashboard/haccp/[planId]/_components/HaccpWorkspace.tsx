@@ -32,10 +32,12 @@ import type { getHaccpPlanDetail } from '@/server/haccp';
 import type { getPlanFlow } from '@/server/haccp-flow';
 import type { getHazardAnalysis } from '@/server/haccp-hazards';
 import type { getControlMeasures } from '@/server/haccp-control';
+import type { getValidations } from '@/server/haccp-validation';
 import { SubmitButton } from '../../../documents/_components/SubmitButton';
 import { HaccpFlowTab } from './HaccpFlowTab';
 import { HaccpHazardsTab } from './HaccpHazardsTab';
 import { HaccpControlTab } from './HaccpControlTab';
+import { HaccpValidationTab } from './HaccpValidationTab';
 import {
   addSourceAction,
   addTeamMemberAction,
@@ -52,6 +54,7 @@ type HaccpDetail = Awaited<ReturnType<typeof getHaccpPlanDetail>>;
 type FlowData = Awaited<ReturnType<typeof getPlanFlow>>;
 type HazardData = Awaited<ReturnType<typeof getHazardAnalysis>>;
 type ControlData = Awaited<ReturnType<typeof getControlMeasures>>;
+type ValidationData = Awaited<ReturnType<typeof getValidations>>;
 type DocPick = { id: string; code: string; title: string; documentType: string; status: string };
 type Action = (prev: FormState | null, fd: FormData) => Promise<FormState>;
 
@@ -66,6 +69,7 @@ interface WorkspaceProps {
   flow: FlowData;
   hazards: HazardData;
   control: ControlData;
+  validation: ValidationData;
 }
 
 const EmptyState = ({ children }: { children: ReactNode }) => (
@@ -119,6 +123,7 @@ export function HaccpWorkspace({
   flow,
   hazards,
   control,
+  validation,
 }: WorkspaceProps) {
   const [active, setActive] = useState<HaccpTab>(initialTab);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -210,6 +215,7 @@ export function HaccpWorkspace({
               flow={flow}
               hazards={hazards}
               control={control}
+              validation={validation}
             />
           )}
         </div>
@@ -229,6 +235,7 @@ function TabContent(props: {
   flow: FlowData;
   hazards: HazardData;
   control: ControlData;
+  validation: ValidationData;
 }) {
   switch (props.tab) {
     case 'resumen':
@@ -265,6 +272,18 @@ function TabContent(props: {
     case 'medidas':
       return props.control ? (
         <HaccpControlTab planId={props.data.plan.id} data={props.control} canEdit={props.canEdit} />
+      ) : (
+        <p className="empty-state empty-state--compact">Sin versión activa.</p>
+      );
+    case 'validacion':
+      return props.validation ? (
+        <HaccpValidationTab
+          planId={props.data.plan.id}
+          data={props.validation}
+          members={props.members}
+          documents={props.documents.map((d) => ({ id: d.id, code: d.code, title: d.title }))}
+          canEdit={props.canEdit}
+        />
       ) : (
         <p className="empty-state empty-state--compact">Sin versión activa.</p>
       );
