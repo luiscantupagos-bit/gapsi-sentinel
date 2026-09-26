@@ -598,6 +598,59 @@ export async function createHaccpVersion(
         },
       });
     }
+    // §HACCP-004 §30: clona evaluaciones de medidas de control y planes de control,
+    // preservando control_measure_logical_id / hazard_logical_id. La MP se remapea.
+    const [assessments, controlPlans] = await Promise.all([
+      tx.haccpControlAssessment.findMany({ where: { organizationId, planVersionId: current.id } }),
+      tx.haccpControlPlan.findMany({ where: { organizationId, planVersionId: current.id } }),
+    ]);
+    for (const a of assessments) {
+      await tx.haccpControlAssessment.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          controlMeasureLogicalId: a.controlMeasureLogicalId,
+          hazardLogicalId: a.hazardLogicalId,
+          methodKey: a.methodKey,
+          methodVersion: a.methodVersion,
+          classification: a.classification,
+          classificationSource: a.classificationSource,
+          justification: a.justification,
+          overrideReason: a.overrideReason,
+          answers: a.answers as object,
+          status: a.status,
+          createdBy: a.createdBy,
+        },
+      });
+    }
+    for (const p of controlPlans) {
+      const newSourceRef = p.sourceReferenceId
+        ? (newMatByLogical.get(oldMatKey.get(p.sourceReferenceId) ?? '') ?? null)
+        : null;
+      await tx.haccpControlPlan.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          controlMeasureLogicalId: p.controlMeasureLogicalId,
+          hazardLogicalId: p.hazardLogicalId,
+          classification: p.classification,
+          processStepId: p.processStepId,
+          sourceReferenceId: newSourceRef,
+          controlMeasure: p.controlMeasure,
+          justification: p.justification,
+          criticalLimit: p.criticalLimit,
+          actionCriterion: p.actionCriterion,
+          monitoringWhat: p.monitoringWhat,
+          monitoringHow: p.monitoringHow,
+          monitoringWho: p.monitoringWho,
+          monitoringWhen: p.monitoringWhen,
+          correction: p.correction,
+          correctiveAction: p.correctiveAction,
+          recordReference: p.recordReference,
+          createdBy: p.createdBy,
+        },
+      });
+    }
     await tx.haccpPlan.update({ where: { id: planId }, data: { status: 'draft' } });
     return created.id;
   });

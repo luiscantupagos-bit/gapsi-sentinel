@@ -32,6 +32,7 @@ import {
 } from '@/server/haccp-flow';
 import { addHazard, removeHazard, saveRiskMatrix, updateHazard } from '@/server/haccp-hazards';
 import { DEFAULT_RISK_MATRIX } from '@/features/haccp/haccp-hazards';
+import { removeAssessment, saveAssessment, saveControlPlan } from '@/server/haccp-control';
 import type { HaccpReferenceKind } from '@/features/haccp/haccp-state';
 import type { VersionBump } from '@/features/documents/versioning';
 
@@ -435,4 +436,80 @@ export async function saveRiskMatrixAction(_p: FormState | null, fd: FormData): 
   }
   revalidatePlan(planId);
   return { ok: true, message: 'Criterios de riesgo guardados.' };
+}
+
+// --- HACCP-004: selección de medidas de control -----------------------------
+
+export async function saveAssessmentAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  // Respuestas: campos answer_<questionId> = yes|no|na.
+  const answers: { questionId: string; answer: 'yes' | 'no' | 'na' }[] = [];
+  for (const [k, v] of fd.entries()) {
+    if (k.startsWith('answer_') && (v === 'yes' || v === 'no' || v === 'na')) {
+      answers.push({ questionId: k.slice('answer_'.length), answer: v });
+    }
+  }
+  const override = opt(fd, 'overrideClassification');
+  try {
+    await saveAssessment(session.organizationId, session.userId, s(fd, 'planVersionId'), {
+      hazardLogicalId: s(fd, 'hazardLogicalId'),
+      answers,
+      overrideClassification: (override ?? null) as
+        | 'ppr'
+        | 'ppro'
+        | 'pcc'
+        | 'other'
+        | 'review_required'
+        | null,
+      overrideReason: opt(fd, 'overrideReason') ?? null,
+      justification: opt(fd, 'justification') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Evaluación guardada.' };
+}
+
+export async function removeAssessmentAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeAssessment(session.organizationId, session.userId, s(fd, 'assessmentId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Evaluación eliminada.' };
+}
+
+export async function saveControlPlanAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await saveControlPlan(session.organizationId, session.userId, s(fd, 'assessmentId'), {
+      controlMeasure: opt(fd, 'controlMeasure') ?? null,
+      justification: opt(fd, 'justification') ?? null,
+      criticalLimit: opt(fd, 'criticalLimit') ?? null,
+      actionCriterion: opt(fd, 'actionCriterion') ?? null,
+      monitoringWhat: opt(fd, 'monitoringWhat') ?? null,
+      monitoringHow: opt(fd, 'monitoringHow') ?? null,
+      monitoringWho: opt(fd, 'monitoringWho') ?? null,
+      monitoringWhen: opt(fd, 'monitoringWhen') ?? null,
+      correction: opt(fd, 'correction') ?? null,
+      correctiveAction: opt(fd, 'correctiveAction') ?? null,
+      recordReference: opt(fd, 'recordReference') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Plan de control guardado.' };
 }
