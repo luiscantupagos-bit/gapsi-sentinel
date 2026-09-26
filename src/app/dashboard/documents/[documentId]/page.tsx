@@ -90,6 +90,18 @@ export default async function DocumentViewPage({
 
       {doc.documentType === 'program' && <ProgramTabs documentId={doc.id} active="document" />}
 
+      {doc.documentType === 'form' && (
+        <div className="doc-formbanner">
+          <p>
+            <strong>Formato digital.</strong> Diseña el formulario de captura de este formato; los
+            registros (DOC-004) usarán la versión publicada.
+          </p>
+          <Link className="button button--ghost" href={`/dashboard/documents/${doc.id}/form`}>
+            Diseñar formulario
+          </Link>
+        </div>
+      )}
+
       {isExternal ? (
         <div className="external-doc-card">
           <p>

@@ -6239,3 +6239,255 @@ table td.mono {
   background: #eef1f5;
   color: #4b5563;
 }
+
+/* =====================================================================
+   DOC-004 — Registros digitales (formatos, diseñador, captura)
+   ===================================================================== */
+
+/* Estado del registro. */
+.badge--recstatus-closed,
+.badge--recstatus-reviewed {
+  background: #dff3e6;
+  color: #14683a;
+}
+.badge--recstatus-submitted {
+  background: #e0ecfd;
+  color: #1a4894;
+}
+.badge--recstatus-in_progress {
+  background: #fdecc8;
+  color: #7a4d00;
+}
+.badge--recstatus-draft {
+  background: #eef1f5;
+  color: #4b5563;
+}
+.badge--recstatus-cancelled {
+  background: #f7d7d3;
+  color: #8a1607;
+}
+
+/* Panel de alta y banner de formato. */
+.record-new-panel,
+.doc-formbanner {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+.doc-formbanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.record-new .record-new,
+.record-new {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.record-meta {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 1rem;
+}
+.record-meta dt {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.record-progress {
+  margin-top: -0.25rem;
+}
+
+/* Captura del registro: campos grandes, táctiles (tablet-first, §42). */
+.record-form__section,
+.record-view__section {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+.record-field {
+  display: block;
+  margin: 0.85rem 0;
+}
+.record-field__label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.record-field__req {
+  color: var(--color-danger);
+}
+.record-field__help {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  margin-top: 0.25rem;
+}
+.record-field input[type='text'],
+.record-field input[type='number'],
+.record-field input[type='date'],
+.record-field input[type='time'],
+.record-field input[type='datetime-local'],
+.record-field textarea,
+.record-field select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.record-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+}
+.record-check input {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.record-multiselect {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.record-file {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.record-repeat__row {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+}
+.record-repeat__rowactions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.record-form__actions,
+.record-workflow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+.record-actionform {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.record-errors {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--color-danger);
+  font-size: 0.85rem;
+}
+
+/* Vista de solo lectura del registro (print-safe). */
+.record-view__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.record-view__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+.record-view__field dt {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.record-view__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.record-view__table th,
+.record-view__table td {
+  border: 1px solid var(--color-border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+.record-view__tablewrap {
+  overflow-x: auto;
+}
+
+/* Diseñador de formularios. */
+.fd-toolbar,
+.fd-save {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+  align-items: center;
+}
+.fd-section {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+.fd-section__head,
+.fd-field__row,
+.fd-field__actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.fd-field {
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+}
+.fd-field__actions {
+  align-items: center;
+  margin-top: 0.5rem;
+}
+.fd-grow {
+  flex: 1 1 200px;
+}
+.fd-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.fd-preview__section {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  background: var(--color-surface-2);
+}
+
+@media (max-width: 640px) {
+  .record-meta {
+    gap: 0.75rem;
+  }
+  .fd-section__head,
+  .fd-field__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
