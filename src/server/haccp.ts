@@ -537,6 +537,67 @@ export async function createHaccpVersion(
         },
       });
     }
+    // §HACCP-003 §38: clona la matriz de riesgo (snapshot de metodología) y los peligros,
+    // preservando hazard_logical_id y las referencias lógicas (process_step_id / material).
+    const matrix = await tx.haccpRiskMatrixConfig.findFirst({
+      where: { organizationId, planVersionId: current.id },
+    });
+    if (matrix) {
+      await tx.haccpRiskMatrixConfig.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          probabilityScale: matrix.probabilityScale as object,
+          severityScale: matrix.severityScale as object,
+          scoreFormula: matrix.scoreFormula,
+          significanceThreshold: matrix.significanceThreshold,
+        },
+      });
+    }
+    // Mapa de referencias de MP anterior → nueva (por sortOrder, ya clonadas arriba).
+    const newMaterials = await tx.haccpSourceReference.findMany({
+      where: { organizationId, planVersionId: created.id, referenceKind: 'material' },
+    });
+    const newMatByLogical = new Map(
+      newMaterials.map((m) => [`${m.sourceDocumentId}|${m.sortOrder}`, m.id]),
+    );
+    const oldMaterials = await tx.haccpSourceReference.findMany({
+      where: { organizationId, planVersionId: current.id, referenceKind: 'material' },
+    });
+    const oldMatKey = new Map(
+      oldMaterials.map((m) => [m.id, `${m.sourceDocumentId}|${m.sortOrder}`]),
+    );
+    const hazards = await tx.haccpHazard.findMany({
+      where: { organizationId, planVersionId: current.id },
+    });
+    for (const h of hazards) {
+      const newSourceRef = h.sourceReferenceId
+        ? (newMatByLogical.get(oldMatKey.get(h.sourceReferenceId) ?? '') ?? null)
+        : null;
+      await tx.haccpHazard.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          hazardLogicalId: h.hazardLogicalId, // identidad lógica estable (§38)
+          sourceType: h.sourceType,
+          sourceReferenceId: newSourceRef,
+          processStepId: h.processStepId, // identidad lógica de la etapa (no se remapea)
+          hazardType: h.hazardType,
+          name: h.name,
+          description: h.description,
+          originOrCause: h.originOrCause,
+          probability: h.probability,
+          severity: h.severity,
+          riskScore: h.riskScore,
+          isSignificant: h.isSignificant,
+          significanceSource: h.significanceSource,
+          significanceReason: h.significanceReason,
+          existingControlMeasure: h.existingControlMeasure,
+          status: h.status,
+          createdBy: h.createdBy,
+        },
+      });
+    }
     await tx.haccpPlan.update({ where: { id: planId }, data: { status: 'draft' } });
     return created.id;
   });

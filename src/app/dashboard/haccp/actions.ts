@@ -30,6 +30,8 @@ import {
   setFlowVerification,
   updateProcessStep,
 } from '@/server/haccp-flow';
+import { addHazard, removeHazard, saveRiskMatrix, updateHazard } from '@/server/haccp-hazards';
+import { DEFAULT_RISK_MATRIX } from '@/features/haccp/haccp-hazards';
 import type { HaccpReferenceKind } from '@/features/haccp/haccp-state';
 import type { VersionBump } from '@/features/documents/versioning';
 
@@ -335,4 +337,102 @@ export async function verifyFlowAction(_p: FormState | null, fd: FormData): Prom
   }
   revalidatePlan(planId);
   return { ok: true, message: verified ? 'Flujo verificado en planta.' : 'Verificación retirada.' };
+}
+
+// --- HACCP-003: análisis de peligros ----------------------------------------
+
+const num = (fd: FormData, k: string, dflt: number) => {
+  const n = Number(s(fd, k));
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : dflt;
+};
+
+export async function addHazardAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  const override = opt(fd, 'overrideSignificant');
+  try {
+    await addHazard(session.organizationId, session.userId, s(fd, 'planVersionId'), {
+      sourceType: s(fd, 'sourceType') === 'material' ? 'material' : 'process_step',
+      sourceReferenceId: opt(fd, 'sourceReferenceId') ?? null,
+      processStepId: opt(fd, 'processStepId') ?? null,
+      hazardType: s(fd, 'hazardType'),
+      name: s(fd, 'name'),
+      description: opt(fd, 'description') ?? null,
+      originOrCause: opt(fd, 'originOrCause') ?? null,
+      probability: num(fd, 'probability', 1),
+      severity: num(fd, 'severity', 1),
+      existingControlMeasure: opt(fd, 'existingControlMeasure') ?? null,
+      overrideSignificant: override === undefined ? null : override === 'yes',
+      significanceReason: opt(fd, 'significanceReason') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Peligro agregado.' };
+}
+
+export async function updateHazardAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  const override = opt(fd, 'overrideSignificant');
+  try {
+    await updateHazard(session.organizationId, session.userId, s(fd, 'hazardId'), {
+      hazardType: opt(fd, 'hazardType'),
+      name: opt(fd, 'name'),
+      description: opt(fd, 'description') ?? null,
+      originOrCause: opt(fd, 'originOrCause') ?? null,
+      probability: num(fd, 'probability', 1),
+      severity: num(fd, 'severity', 1),
+      existingControlMeasure: opt(fd, 'existingControlMeasure') ?? null,
+      overrideSignificant: override === undefined ? undefined : override === 'yes',
+      significanceReason: opt(fd, 'significanceReason') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Peligro actualizado.' };
+}
+
+export async function removeHazardAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeHazard(session.organizationId, session.userId, s(fd, 'hazardId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Peligro eliminado.' };
+}
+
+const LEVELS = 5;
+function scaleFrom(fd: FormData, prefix: string, defaults: { value: number; label: string }[]) {
+  return Array.from({ length: LEVELS }, (_, i) => {
+    const value = i + 1;
+    const label = opt(fd, `${prefix}_${value}`) ?? defaults[i]?.label ?? String(value);
+    return { value, label };
+  });
+}
+
+export async function saveRiskMatrixAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await saveRiskMatrix(session.organizationId, session.userId, s(fd, 'planVersionId'), {
+      probabilityScale: scaleFrom(fd, 'prob', DEFAULT_RISK_MATRIX.probabilityScale),
+      severityScale: scaleFrom(fd, 'sev', DEFAULT_RISK_MATRIX.severityScale),
+      scoreFormula: s(fd, 'scoreFormula') === 'sum' ? 'sum' : 'multiply',
+      significanceThreshold: num(
+        fd,
+        'significanceThreshold',
+        DEFAULT_RISK_MATRIX.significanceThreshold,
+      ),
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Criterios de riesgo guardados.' };
 }

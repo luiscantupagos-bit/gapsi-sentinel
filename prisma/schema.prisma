@@ -3132,11 +3132,77 @@ model HaccpPlanVersion {
   references  HaccpSourceReference[]
   steps       HaccpProcessStep[]
   connections HaccpProcessConnection[]
+  hazards     HaccpHazard[]
+  riskMatrix  HaccpRiskMatrixConfig?
 
   @@unique([planId, versionLabel])
   @@unique([id, organizationId])
   @@index([planId])
   @@map("haccp_plan_versions")
+}
+
+/// HACCP-003 — configuración de la matriz de riesgo (version-owned, SNAPSHOT de la metodología
+/// usada). Escalas en JSON validado. Una versión publicada recuerda su matriz exacta (§22).
+model HaccpRiskMatrixConfig {
+  id                    String    @id @default(uuid()) @db.Uuid
+  organizationId        String    @map("organization_id") @db.Uuid
+  planVersionId         String    @unique @map("plan_version_id") @db.Uuid
+  /// probability_scale: [{ value:int, label:string }]
+  probabilityScale      Json      @map("probability_scale")
+  /// severity_scale: [{ value:int, label:string }]
+  severityScale         Json      @map("severity_scale")
+  /// score_formula: multiply (por ahora)
+  scoreFormula          String    @default("multiply") @map("score_formula")
+  significanceThreshold Int       @map("significance_threshold")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@unique([planVersionId, organizationId])
+  @@map("haccp_risk_matrix_configs")
+}
+
+/// HACCP-003 — peligro identificado (version-owned) sobre una MATERIA PRIMA o una ETAPA del
+/// proceso. `hazard_logical_id` es la identidad LÓGICA estable entre versiones. Termina en
+/// peligro + riesgo + significancia + medida existente (la clasificación PCC/PPRO es HACCP-004).
+model HaccpHazard {
+  id                     String    @id @default(uuid()) @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
+  planVersionId          String    @map("plan_version_id") @db.Uuid
+  hazardLogicalId        String    @map("hazard_logical_id") @db.Uuid
+  /// source_type: material | process_step
+  sourceType             String    @map("source_type")
+  /// Referencia a haccp_source_references (material) — fila de la versión.
+  sourceReferenceId      String?   @map("source_reference_id") @db.Uuid
+  /// Identidad LÓGICA de la etapa (process_step_id) cuando source_type = process_step.
+  processStepId          String?   @map("process_step_id") @db.Uuid
+  /// hazard_type: biological | chemical | physical | allergen | radiological | other
+  hazardType             String    @map("hazard_type")
+  name                   String
+  description            String?
+  originOrCause          String?   @map("origin_or_cause")
+  probability            Int
+  severity               Int
+  riskScore              Int       @map("risk_score")
+  isSignificant          Boolean   @default(false) @map("is_significant")
+  /// significance_source: calculated | override
+  significanceSource     String    @default("calculated") @map("significance_source")
+  significanceReason     String?   @map("significance_reason")
+  existingControlMeasure String?   @map("existing_control_measure")
+  /// status: draft | confirmed
+  status                 String    @default("draft")
+  createdBy              String?   @map("created_by") @db.Uuid
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([planVersionId])
+  @@index([organizationId, hazardType])
+  @@map("haccp_hazards")
 }
 
 /// HACCP-002 — etapa del diagrama de flujo (version-owned). `process_step_id` es la identidad

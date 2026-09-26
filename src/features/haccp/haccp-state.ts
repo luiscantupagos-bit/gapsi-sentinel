@@ -95,6 +95,7 @@ export const HACCP_TABS = [
   'ppr',
   'documentos',
   'flujo',
+  'peligros',
 ] as const;
 export type HaccpTab = (typeof HACCP_TABS)[number];
 
@@ -106,11 +107,11 @@ export const HACCP_TAB_LABEL: Record<HaccpTab, string> = {
   ppr: 'PPR',
   documentos: 'Documentos',
   flujo: 'Diagrama de flujo',
+  peligros: 'Análisis de peligros',
 };
 
-/** Tabs de fases futuras (HACCP-003..005): se muestran deshabilitadas («Próximamente»). */
+/** Tabs de fases futuras (HACCP-004..005): se muestran deshabilitadas («Próximamente»). */
 export const HACCP_FUTURE_TABS = [
-  'Análisis de peligros',
   'Medidas de control',
   'PCC / PPRO',
   'Validación',
