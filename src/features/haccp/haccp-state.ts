@@ -108,7 +108,7 @@ export const HACCP_TAB_LABEL: Record<HaccpTab, string> = {
   materias: 'Materias primas',
   ppr: 'PPR',
   documentos: 'Documentos',
-  flujo: 'Diagrama de flujo',
+  flujo: 'Proceso',
   peligros: 'Análisis de peligros',
   medidas: 'Medidas de control',
   validacion: 'Validación',

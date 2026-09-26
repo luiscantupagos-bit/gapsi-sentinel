@@ -315,6 +315,65 @@ export function HaccpHazardsTab({
               </ActionForm>
             </details>
           )}
+
+          {/* §O — peligros por ENTRADA de cada etapa (introducidos con el material). */}
+          {analysis.stepGroups.some((s) => (s.inputs?.length ?? 0) > 0) && (
+            <section className="haccp-input-hazards">
+              <h3>Peligros por entrada</h3>
+              <p className="muted doc-panel__hint">
+                Distingue el peligro que <strong>entra con una entrada</strong> del peligro
+                <strong> generado o intensificado en la actividad</strong> de la etapa.
+              </p>
+              {analysis.stepGroups
+                .filter((s) => (s.inputs?.length ?? 0) > 0)
+                .map((s) => (
+                  <div key={s.processStepId} className="haccp-input-hazards__step">
+                    <h4>
+                      {s.number} · {s.name}
+                    </h4>
+                    {s.inputs!.map((inp) => (
+                      <div key={inp.inputLogicalId} className="haccp-input-hazards__input">
+                        <p>
+                          <strong>{inp.name}</strong>
+                          {inp.hazards.length > 0 ? (
+                            <span className="muted"> · {inp.hazards.length} peligro(s)</span>
+                          ) : (
+                            <span className="badge badge--warn">
+                              Esta entrada aún no tiene evaluación de peligros.
+                            </span>
+                          )}
+                        </p>
+                        {inp.hazards.map((h) => (
+                          <span key={h.id} className="badge">
+                            {h.name}
+                            {h.isSignificant ? ' · significativo' : ''}
+                          </span>
+                        ))}
+                        {editable && (
+                          <details>
+                            <summary className="button button--ghost">Agregar peligro</summary>
+                            <ActionForm
+                              action={addHazardAction}
+                              hidden={{
+                                planId,
+                                planVersionId: version.id,
+                                sourceType: 'process_step',
+                                processStepId: s.processStepId,
+                                contextType: 'input',
+                                inputLogicalId: inp.inputLogicalId,
+                              }}
+                              button="Agregar peligro de entrada"
+                            >
+                              <HazardFields />
+                            </ActionForm>
+                          </details>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+            </section>
+          )}
         </>
       )}
 

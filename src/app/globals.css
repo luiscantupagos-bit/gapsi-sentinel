@@ -6491,3 +6491,140 @@ table td.mono {
     align-items: stretch;
   }
 }
+
+/* =====================================================================
+   HACCP-PROCESS-EXPANSION — mapa de proceso, SIPOC, descripción de etapas
+   ===================================================================== */
+
+/* Mapa de proceso (SIPOC por etapa). */
+.haccp-map__step {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: 0.85rem 1.1rem;
+  margin: 0.75rem 0;
+}
+.haccp-map__stephead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.haccp-map__num {
+  font-family: var(--font-mono, monospace);
+  color: var(--color-muted);
+}
+.haccp-map__counts {
+  display: flex;
+  gap: 1.25rem;
+  color: var(--color-muted);
+  flex-wrap: wrap;
+}
+.haccp-map__sipoc {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+.haccp-map__col h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+.haccp-map__col ul,
+.haccp-map__dests {
+  margin: 0;
+  padding-left: 1rem;
+}
+.haccp-map__arrow {
+  align-self: center;
+  color: var(--color-primary);
+  font-size: 1.25rem;
+}
+.haccp-map__origin {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.haccp-map__secondary > strong {
+  color: var(--color-warning);
+}
+.haccp-map__ext {
+  margin-left: 0.35rem;
+}
+
+/* SIPOC en tabla/tarjetas (responsive §X). */
+.haccp-sipoc {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 0.75rem 0;
+}
+.haccp-sipoc__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr 1fr 1fr;
+  border-top: 1px solid var(--color-border);
+}
+.haccp-sipoc__row:first-child {
+  border-top: none;
+}
+.haccp-sipoc__cell {
+  padding: 0.55rem 0.7rem;
+  border-left: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+.haccp-sipoc__cell:first-child {
+  border-left: none;
+}
+.haccp-sipoc__cell--proc {
+  background: var(--color-surface-2);
+}
+.haccp-sipoc__cell::before {
+  content: attr(data-col);
+  display: none;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+/* Descripción de etapas. */
+.haccp-stagedesc__list {
+  margin: 0.25rem 0 0.75rem;
+  padding-left: 1.1rem;
+}
+
+/* Editor de entradas/salidas/destinos. */
+.haccp-proc-step {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.5rem 0.9rem;
+  margin: 0.5rem 0;
+}
+.haccp-proc-step > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.haccp-proc-output {
+  border-left: 3px solid var(--color-border);
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+@media (max-width: 720px) {
+  .haccp-map__sipoc {
+    grid-template-columns: 1fr;
+  }
+  .haccp-map__arrow {
+    display: none;
+  }
+  .haccp-sipoc__row {
+    grid-template-columns: 1fr;
+  }
+  .haccp-sipoc__cell {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+  .haccp-sipoc__cell::before {
+    display: block;
+  }
+}

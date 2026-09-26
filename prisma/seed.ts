@@ -3834,6 +3834,94 @@ async function seedHaccp(): Promise<void> {
     });
   }
 
+  // HACCP-PROCESS-EXPANSION — entradas de Recepción y salidas/destinos de Selección (demo
+  // operativo §G/§H). No se afirman peligros desde el seed sin fichas reales.
+  const recepInputs: { name: string; inputType: string }[] = [
+    { name: 'Huevo', inputType: 'raw_material' },
+    { name: 'Cono de pulpa moldeada', inputType: 'packaging_material' },
+    { name: 'Caja plástica', inputType: 'reusable_material' },
+    { name: 'Tarima plástica', inputType: 'reusable_material' },
+  ];
+  let inSeq = 0;
+  for (const inp of recepInputs) {
+    await prisma.haccpProcessInput.create({
+      data: {
+        organizationId: ORG_A,
+        planVersionId: VERSION,
+        processStepId: stepId['recep']!,
+        inputLogicalId: randomUUID(),
+        name: inp.name,
+        inputType: inp.inputType,
+        sourceType: 'supplier',
+        sortOrder: inSeq++,
+      },
+    });
+  }
+
+  // Salidas de Selección (insp) con sus destinos (subproductos y rutas secundarias §F/§H).
+  const outputDefs: {
+    name: string;
+    outputType: string;
+    destinations: { type: string; step?: string; external?: string; label?: string }[];
+  }[] = [
+    {
+      name: 'Huevo conforme',
+      outputType: 'conforming_product',
+      destinations: [{ type: 'next_process_step', step: 'clasif', label: 'Conforme' }],
+    },
+    {
+      name: 'Huevo chico',
+      outputType: 'byproduct',
+      destinations: [
+        { type: 'bulk_sale', external: 'Venta a granel' },
+        { type: 'supplier_return', external: 'Devolución a proveedor' },
+      ],
+    },
+    {
+      name: 'Huevo fisurado',
+      outputType: 'byproduct',
+      destinations: [
+        { type: 'external_processing', external: 'Procesamiento externo / huevo líquido' },
+      ],
+    },
+    {
+      name: 'Huevo roto',
+      outputType: 'waste',
+      destinations: [{ type: 'waste_disposal', external: 'Desecho / disposición' }],
+    },
+  ];
+  let outSeq = 0;
+  for (const o of outputDefs) {
+    const outputLogicalId = randomUUID();
+    await prisma.haccpProcessOutput.create({
+      data: {
+        organizationId: ORG_A,
+        planVersionId: VERSION,
+        processStepId: stepId['insp']!,
+        outputLogicalId,
+        name: o.name,
+        outputType: o.outputType,
+        sortOrder: outSeq++,
+      },
+    });
+    let dSeq = 0;
+    for (const d of o.destinations) {
+      await prisma.haccpProcessOutputDestination.create({
+        data: {
+          organizationId: ORG_A,
+          planVersionId: VERSION,
+          outputLogicalId,
+          destinationLogicalId: randomUUID(),
+          destinationType: d.type,
+          destinationProcessStepId: d.step ? (stepId[d.step] ?? null) : null,
+          destinationExternalText: d.external ?? null,
+          label: d.label ?? null,
+          sortOrder: dSeq++,
+        },
+      });
+    }
+  }
+
   // HACCP-003 — matriz de riesgo por defecto (1-5, umbral 8) + peligros de PROCESO demo.
   // Materias primas: sin fichas reales → sin peligros de MP (no se inventan, §54).
   const THRESHOLD = 8;
@@ -3921,6 +4009,7 @@ async function seedHaccp(): Promise<void> {
         hazardLogicalId: logical,
         sourceType: 'process_step',
         processStepId: stepId[h.step]!,
+        contextType: 'step',
         hazardType: h.type,
         name: h.name,
         probability: h.p,

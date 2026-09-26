@@ -5,6 +5,7 @@ import { getPrisma } from '@/server/db';
 import { listResponsibles, listDocuments } from '@/server/documents';
 import { HaccpNotFoundError, getHaccpPlanDetail } from '@/server/haccp';
 import { getPlanFlow } from '@/server/haccp-flow';
+import { getProcessModel } from '@/server/haccp-process';
 import { getHazardAnalysis } from '@/server/haccp-hazards';
 import { getControlMeasures } from '@/server/haccp-control';
 import { getValidations } from '@/server/haccp-validation';
@@ -50,6 +51,7 @@ export default async function HaccpPlanPage({
   ]);
   const isAdmin = membership?.role === 'owner' || membership?.role === 'admin';
   const flow = await getPlanFlow(session.organizationId, planId);
+  const processModel = await getProcessModel(session.organizationId, planId);
   const hazards = await getHazardAnalysis(session.organizationId, planId);
   const control = await getControlMeasures(session.organizationId, planId);
   const validation = await getValidations(session.organizationId, planId);
@@ -82,6 +84,7 @@ export default async function HaccpPlanPage({
         canEdit={isAdmin && detail.editable}
         isAdmin={isAdmin}
         flow={flow}
+        processModel={processModel}
         hazards={hazards}
         control={control}
         validation={validation}

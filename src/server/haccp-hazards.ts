@@ -104,7 +104,7 @@ async function flowSnapshotOf(
 export async function getHazardAnalysis(organizationId: string, planId: string) {
   const version = await activeVersion(organizationId, planId);
   if (!version) return null;
-  const [materials, steps, hazards, matrix] = await Promise.all([
+  const [materials, steps, hazards, matrix, processInputs] = await Promise.all([
     getPrisma().haccpSourceReference.findMany({
       where: { organizationId, planVersionId: version.id, referenceKind: 'material' },
       orderBy: { sortOrder: 'asc' },
@@ -118,6 +118,11 @@ export async function getHazardAnalysis(organizationId: string, planId: string) 
       orderBy: { createdAt: 'asc' },
     }),
     versionMatrix(organizationId, version.id),
+    // HACCP-PROCESS-EXPANSION §O: entradas por etapa para el análisis de peligros.
+    getPrisma().haccpProcessInput.findMany({
+      where: { organizationId, planVersionId: version.id },
+      orderBy: { sortOrder: 'asc' },
+    }),
   ]);
 
   // §33 — aviso de cambio de flujo: si hay draft y una versión publicada, compara sus flujos.
@@ -141,6 +146,9 @@ export async function getHazardAnalysis(organizationId: string, planId: string) 
     sourceType: h.sourceType,
     sourceReferenceId: h.sourceReferenceId,
     processStepId: h.processStepId,
+    contextType: h.contextType,
+    inputLogicalId: h.inputLogicalId,
+    outputLogicalId: h.outputLogicalId,
     hazardType: h.hazardType,
     name: h.name,
     description: h.description,
@@ -168,11 +176,28 @@ export async function getHazardAnalysis(organizationId: string, planId: string) 
   });
   const stepGroups = steps.map((s, i) => {
     const list = hazards.filter((h) => h.processStepId === s.processStepId).map(hazardView);
+    // §O: entradas de la etapa con sus peligros (contexto input) y las de etapa.
+    const stepInputs = processInputs
+      .filter((inp) => inp.processStepId === s.processStepId)
+      .map((inp) => {
+        const inputHazards = list.filter(
+          (h) => h.contextType === 'input' && h.inputLogicalId === inp.inputLogicalId,
+        );
+        return {
+          inputLogicalId: inp.inputLogicalId,
+          name: inp.name,
+          inputType: inp.inputType,
+          hazards: inputHazards,
+        };
+      });
     return {
       processStepId: s.processStepId,
       number: String(i + 1).padStart(2, '0'),
       name: s.name,
       stepType: s.stepType,
+      inputs: stepInputs,
+      // Peligros generados/intensificados en la ETAPA (contexto step o sin contexto de entrada).
+      stepHazards: list.filter((h) => h.contextType !== 'input'),
       hazards: list,
       significantCount: list.filter((h) => h.isSignificant).length,
     };
@@ -250,6 +275,12 @@ export interface HazardInput {
   sourceType: 'material' | 'process_step';
   sourceReferenceId?: string | null;
   processStepId?: string | null;
+  /** HACCP-PROCESS-EXPANSION §M: contexto del peligro en la etapa (step|input|output). */
+  contextType?: 'step' | 'input' | 'output' | null;
+  /** Identidad lógica de la entrada cuando contextType='input'. */
+  inputLogicalId?: string | null;
+  /** Identidad lógica de la salida cuando contextType='output'. */
+  outputLogicalId?: string | null;
   hazardType: string;
   name: string;
   description?: string | null;
@@ -288,6 +319,10 @@ export async function addHazard(
     throw new HaccpValidationError(['Indica la materia prima.']);
   if (input.sourceType === 'process_step' && !input.processStepId)
     throw new HaccpValidationError(['Indica la etapa del proceso.']);
+  if (input.contextType === 'input' && !input.inputLogicalId)
+    throw new HaccpValidationError(['Indica la entrada asociada al peligro.']);
+  if (input.contextType === 'output' && !input.outputLogicalId)
+    throw new HaccpValidationError(['Indica la salida asociada al peligro.']);
   if (
     input.overrideSignificant !== null &&
     input.overrideSignificant !== undefined &&
@@ -305,6 +340,13 @@ export async function addHazard(
         sourceType: input.sourceType,
         sourceReferenceId: input.sourceType === 'material' ? input.sourceReferenceId! : null,
         processStepId: input.sourceType === 'process_step' ? input.processStepId! : null,
+        // §M: contexto del peligro. Default 'step' para peligros de etapa (compat backfill).
+        contextType:
+          input.sourceType === 'process_step'
+            ? (input.contextType ?? 'step')
+            : (input.contextType ?? null),
+        inputLogicalId: input.contextType === 'input' ? (input.inputLogicalId ?? null) : null,
+        outputLogicalId: input.contextType === 'output' ? (input.outputLogicalId ?? null) : null,
         hazardType: input.hazardType,
         name: input.name.trim(),
         description: input.description ?? null,
