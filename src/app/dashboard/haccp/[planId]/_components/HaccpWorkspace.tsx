@@ -30,11 +30,12 @@ import {
 } from '@/features/haccp/haccp-state';
 import type { getHaccpPlanDetail } from '@/server/haccp';
 import type { getPlanFlow } from '@/server/haccp-flow';
+import type { getProcessModel } from '@/server/haccp-process';
 import type { getHazardAnalysis } from '@/server/haccp-hazards';
 import type { getControlMeasures } from '@/server/haccp-control';
 import type { getValidations } from '@/server/haccp-validation';
 import { SubmitButton } from '../../../documents/_components/SubmitButton';
-import { HaccpFlowTab } from './HaccpFlowTab';
+import { HaccpProcessTab } from './HaccpProcessTab';
 import { HaccpHazardsTab } from './HaccpHazardsTab';
 import { HaccpControlTab } from './HaccpControlTab';
 import { HaccpValidationTab } from './HaccpValidationTab';
@@ -52,6 +53,7 @@ import {
 
 type HaccpDetail = Awaited<ReturnType<typeof getHaccpPlanDetail>>;
 type FlowData = Awaited<ReturnType<typeof getPlanFlow>>;
+type ProcessModelData = Awaited<ReturnType<typeof getProcessModel>>;
 type HazardData = Awaited<ReturnType<typeof getHazardAnalysis>>;
 type ControlData = Awaited<ReturnType<typeof getControlMeasures>>;
 type ValidationData = Awaited<ReturnType<typeof getValidations>>;
@@ -67,6 +69,7 @@ interface WorkspaceProps {
   canEdit: boolean;
   isAdmin: boolean;
   flow: FlowData;
+  processModel: ProcessModelData;
   hazards: HazardData;
   control: ControlData;
   validation: ValidationData;
@@ -121,6 +124,7 @@ export function HaccpWorkspace({
   canEdit,
   isAdmin,
   flow,
+  processModel,
   hazards,
   control,
   validation,
@@ -213,6 +217,7 @@ export function HaccpWorkspace({
               canEdit={canEdit}
               isAdmin={isAdmin}
               flow={flow}
+              processModel={processModel}
               hazards={hazards}
               control={control}
               validation={validation}
@@ -233,6 +238,7 @@ function TabContent(props: {
   canEdit: boolean;
   isAdmin: boolean;
   flow: FlowData;
+  processModel: ProcessModelData;
   hazards: HazardData;
   control: ControlData;
   validation: ValidationData;
@@ -252,8 +258,9 @@ function TabContent(props: {
       return <SourceTab {...props} kind="document" />;
     case 'flujo':
       return (
-        <HaccpFlowTab
+        <HaccpProcessTab
           planId={props.data.plan.id}
+          model={props.processModel}
           flow={props.flow}
           members={props.members}
           canEdit={props.canEdit}
