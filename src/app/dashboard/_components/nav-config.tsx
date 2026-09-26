@@ -31,6 +31,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/diagnostics', label: 'Diagnósticos', icon: IconDiagnostic },
       { href: '/dashboard/audits', label: 'Auditorías', icon: IconAudit },
       { href: '/dashboard/documents', label: 'Documentos', icon: IconDoc },
+      { href: '/dashboard/records', label: 'Registros', icon: IconTasks },
       { href: '/dashboard/haccp', label: 'HACCP', icon: IconReport },
     ],
   },

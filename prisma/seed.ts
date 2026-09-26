@@ -3982,6 +3982,180 @@ async function seedHaccp(): Promise<void> {
   }
 }
 
+// --- DOC-004: formato digital demo + 1 registro en proceso -------------------
+const FORM_DOC = '00000000-0000-4000-8000-00000000fc01';
+const FORM_VER = '00000000-0000-4000-8000-00000000fc02';
+const REC_1 = '00000000-0000-4000-8000-00000000fc03';
+
+/**
+ * DOC-004 — «Registro de inspección de recepción» (FR-CA-001) como Formato digital con
+ * formulario diseñado (campo condicional Rechazado→Motivo, tabla repetible de muestras) y 1
+ * registro EN PROCESO. Demo operacional; sin inventar regulación (§48).
+ */
+async function seedRecords(): Promise<void> {
+  if (await prisma.document.findUnique({ where: { id: FORM_DOC } })) return;
+
+  const formSchema = {
+    schemaVersion: 1,
+    title: 'Inspección de recepción',
+    sections: [
+      {
+        id: 'datos_recepcion',
+        title: 'Datos de recepción',
+        repeatable: false,
+        fields: [
+          { id: 'fecha', label: 'Fecha', kind: 'date', required: true },
+          { id: 'proveedor', label: 'Proveedor', kind: 'text', required: true },
+          { id: 'producto', label: 'Producto', kind: 'text', required: true },
+          { id: 'lote', label: 'Lote', kind: 'lot', required: true },
+          { id: 'cantidad', label: 'Cantidad', kind: 'number', required: true, unit: 'kg', min: 0 },
+          {
+            id: 'condicion_transporte',
+            label: 'Condición del transporte',
+            kind: 'select',
+            required: true,
+            options: [
+              { value: 'adecuada', label: 'Adecuada' },
+              { value: 'deficiente', label: 'Deficiente' },
+            ],
+          },
+          {
+            id: 'integridad_empaque',
+            label: 'Integridad del empaque',
+            kind: 'select',
+            required: true,
+            options: [
+              { value: 'integro', label: 'Íntegro' },
+              { value: 'danado', label: 'Dañado' },
+            ],
+          },
+          {
+            id: 'resultado',
+            label: 'Resultado de inspección',
+            kind: 'select',
+            required: true,
+            options: [
+              { value: 'aceptado', label: 'Aceptado' },
+              { value: 'rechazado', label: 'Rechazado' },
+            ],
+          },
+          {
+            id: 'motivo_rechazo',
+            label: 'Motivo del rechazo',
+            kind: 'textarea',
+            required: true,
+            visibleWhen: { fieldId: 'resultado', equals: 'rechazado' },
+          },
+          { id: 'observaciones', label: 'Observaciones', kind: 'textarea', required: false },
+        ],
+      },
+      {
+        id: 'muestras',
+        title: 'Muestras inspeccionadas',
+        repeatable: true,
+        fields: [
+          { id: 'muestra', label: 'Muestra', kind: 'text', required: true },
+          {
+            id: 'resultado_muestra',
+            label: 'Resultado',
+            kind: 'select',
+            required: true,
+            options: [
+              { value: 'conforme', label: 'Conforme' },
+              { value: 'no_conforme', label: 'No conforme' },
+            ],
+          },
+          { id: 'observacion', label: 'Observación', kind: 'text', required: false },
+        ],
+      },
+    ],
+  };
+
+  await prisma.document.create({
+    data: {
+      id: FORM_DOC,
+      organizationId: ORG_A,
+      code: 'FR-CA-001',
+      title: 'Registro de inspección de recepción',
+      description: 'Formato digital para la inspección de materia prima en recepción.',
+      documentType: 'form',
+      origin: 'internal',
+      status: 'effective',
+      confidentiality: 'internal',
+      currentVersionLabel: 'v1',
+      siteId: SITE_A,
+      responsibleUserId: USER_A,
+      issuedAt: new Date('2026-01-05T00:00:00.000Z'),
+      effectiveAt: new Date('2026-01-05T00:00:00.000Z'),
+      createdBy: USER_A,
+    },
+  });
+  await prisma.documentVersion.create({
+    data: {
+      id: FORM_VER,
+      organizationId: ORG_A,
+      documentId: FORM_DOC,
+      label: 'v1',
+      status: 'published',
+      isCurrent: true,
+      author: USER_A,
+      publishedAt: new Date('2026-01-05T00:00:00.000Z'),
+      formSchema,
+    },
+  });
+  await prisma.documentHistory.create({
+    data: {
+      organizationId: ORG_A,
+      documentId: FORM_DOC,
+      action: 'document.created',
+      actorUserId: USER_A,
+    },
+  });
+
+  // 1 registro EN PROCESO (folio REG-2026-000001). Datos parciales; resultado pendiente
+  // (por eso está en proceso, no enviado) — sin inventar un dictamen.
+  const recordData = {
+    values: {
+      fecha: '2026-02-10',
+      proveedor: 'Avícola del Norte',
+      producto: 'Huevo fresco',
+      lote: 'LOT-2026-0210',
+      cantidad: 480,
+      condicion_transporte: 'adecuada',
+      integridad_empaque: 'integro',
+    },
+    rows: {
+      muestras: [
+        { muestra: 'M-1', resultado_muestra: 'conforme', observacion: '' },
+        { muestra: 'M-2', resultado_muestra: 'conforme', observacion: '' },
+      ],
+    },
+  };
+  await prisma.recordInstance.create({
+    data: {
+      id: REC_1,
+      organizationId: ORG_A,
+      recordNumber: 'REG-2026-000001',
+      documentId: FORM_DOC,
+      documentVersionId: FORM_VER,
+      formCode: 'FR-CA-001',
+      formTitle: 'Registro de inspección de recepción',
+      formVersionLabel: 'v1',
+      status: 'in_progress',
+      data: recordData,
+      sourceType: 'manual',
+      createdBy: USER_A,
+      startedAt: new Date('2026-02-10T15:00:00.000Z'),
+    },
+  });
+  // Avanza el contador de folios para que el próximo registro sea REG-2026-000002.
+  await prisma.recordCodeCounter.upsert({
+    where: { organizationId_year: { organizationId: ORG_A, year: 2026 } },
+    update: { lastSeq: 1 },
+    create: { organizationId: ORG_A, year: 2026, lastSeq: 1 },
+  });
+}
+
 async function main(): Promise<void> {
   // Base: idempotente con `skipDuplicates`.
   await prisma.organization.createMany({
@@ -4077,9 +4251,10 @@ async function main(): Promise<void> {
   await seedEventsAndKpis();
   await seedDataStudy();
   await seedHaccp();
+  await seedRecords();
 
   console.log(
-    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos, tareas, auditorías, eventos/KPI, 1 estudio de datos demo (EST-2026-0001) y 1 plan HACCP demo (PL-HACCP-001).',
+    'Seed aplicado/actualizado (idempotente): orgs, usuarios, sitios, maestro + copia privada, 1 diagnóstico, CAPA, análisis, proyectos, tareas, auditorías, eventos/KPI, 1 estudio de datos demo (EST-2026-0001), 1 plan HACCP demo (PL-HACCP-001) y 1 formato digital demo (FR-CA-001) con 1 registro en proceso.',
   );
 }
 
