@@ -537,6 +537,83 @@ export async function createHaccpVersion(
         },
       });
     }
+    // HACCP-PROCESS-EXPANSION §Q: clona entradas, salidas y destinos preservando su identidad
+    // LÓGICA (input_logical_id / output_logical_id / destination_logical_id) y las refs lógicas
+    // de etapa (process_step_id, no se remapean). El source_reference_id de las entradas se
+    // remapea a la referencia clonada equivalente.
+    const [procInputs, procOutputs, procDestinations] = await Promise.all([
+      tx.haccpProcessInput.findMany({ where: { organizationId, planVersionId: current.id } }),
+      tx.haccpProcessOutput.findMany({ where: { organizationId, planVersionId: current.id } }),
+      tx.haccpProcessOutputDestination.findMany({
+        where: { organizationId, planVersionId: current.id },
+      }),
+    ]);
+    // Mapa general de referencias antigua→nueva (por tipo+documento+orden), para las entradas.
+    const oldRefs = await tx.haccpSourceReference.findMany({
+      where: { organizationId, planVersionId: current.id },
+    });
+    const newRefs = await tx.haccpSourceReference.findMany({
+      where: { organizationId, planVersionId: created.id },
+    });
+    const refKeyOf = (r: { referenceKind: string; sourceDocumentId: string; sortOrder: number }) =>
+      `${r.referenceKind}|${r.sourceDocumentId}|${r.sortOrder}`;
+    const newRefByKey = new Map(newRefs.map((r) => [refKeyOf(r), r.id]));
+    const oldRefKeyById = new Map(oldRefs.map((r) => [r.id, refKeyOf(r)]));
+    const remapRef = (id: string | null) =>
+      id ? (newRefByKey.get(oldRefKeyById.get(id) ?? '') ?? null) : null;
+
+    for (const i of procInputs) {
+      await tx.haccpProcessInput.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          processStepId: i.processStepId,
+          inputLogicalId: i.inputLogicalId, // identidad lógica estable (§Q1)
+          name: i.name,
+          inputType: i.inputType,
+          sourceType: i.sourceType,
+          sourceProcessStepId: i.sourceProcessStepId,
+          sourceReferenceId: remapRef(i.sourceReferenceId),
+          supplierName: i.supplierName,
+          externalSource: i.externalSource,
+          description: i.description,
+          notes: i.notes,
+          sortOrder: i.sortOrder,
+        },
+      });
+    }
+    for (const o of procOutputs) {
+      await tx.haccpProcessOutput.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          processStepId: o.processStepId,
+          outputLogicalId: o.outputLogicalId, // identidad lógica estable (§Q2)
+          name: o.name,
+          outputType: o.outputType,
+          conditionStatus: o.conditionStatus,
+          description: o.description,
+          notes: o.notes,
+          sortOrder: o.sortOrder,
+        },
+      });
+    }
+    for (const d of procDestinations) {
+      await tx.haccpProcessOutputDestination.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          outputLogicalId: d.outputLogicalId, // FK a la salida clonada (misma versión)
+          destinationLogicalId: d.destinationLogicalId,
+          destinationType: d.destinationType,
+          destinationProcessStepId: d.destinationProcessStepId,
+          destinationExternalText: d.destinationExternalText,
+          destinationSourceReferenceId: remapRef(d.destinationSourceReferenceId),
+          label: d.label,
+          sortOrder: d.sortOrder,
+        },
+      });
+    }
     // §HACCP-003 §38: clona la matriz de riesgo (snapshot de metodología) y los peligros,
     // preservando hazard_logical_id y las referencias lógicas (process_step_id / material).
     const matrix = await tx.haccpRiskMatrixConfig.findFirst({
@@ -582,6 +659,10 @@ export async function createHaccpVersion(
           sourceType: h.sourceType,
           sourceReferenceId: newSourceRef,
           processStepId: h.processStepId, // identidad lógica de la etapa (no se remapea)
+          // HACCP-PROCESS-EXPANSION: preserva el contexto y las refs lógicas de entrada/salida.
+          contextType: h.contextType,
+          inputLogicalId: h.inputLogicalId,
+          outputLogicalId: h.outputLogicalId,
           hazardType: h.hazardType,
           name: h.name,
           description: h.description,

@@ -34,6 +34,16 @@ import { addHazard, removeHazard, saveRiskMatrix, updateHazard } from '@/server/
 import { DEFAULT_RISK_MATRIX } from '@/features/haccp/haccp-hazards';
 import { removeAssessment, saveAssessment, saveControlPlan } from '@/server/haccp-control';
 import { removeValidation, saveValidation } from '@/server/haccp-validation';
+import {
+  addProcessInput,
+  updateProcessInput,
+  removeProcessInput,
+  addProcessOutput,
+  updateProcessOutput,
+  removeProcessOutput,
+  addProcessDestination,
+  removeProcessDestination,
+} from '@/server/haccp-process';
 import type { HaccpReferenceKind } from '@/features/haccp/haccp-state';
 import type { VersionBump } from '@/features/documents/versioning';
 
@@ -357,6 +367,9 @@ export async function addHazardAction(_p: FormState | null, fd: FormData): Promi
       sourceType: s(fd, 'sourceType') === 'material' ? 'material' : 'process_step',
       sourceReferenceId: opt(fd, 'sourceReferenceId') ?? null,
       processStepId: opt(fd, 'processStepId') ?? null,
+      contextType: (opt(fd, 'contextType') as 'step' | 'input' | 'output' | undefined) ?? null,
+      inputLogicalId: opt(fd, 'inputLogicalId') ?? null,
+      outputLogicalId: opt(fd, 'outputLogicalId') ?? null,
       hazardType: s(fd, 'hazardType'),
       name: s(fd, 'name'),
       description: opt(fd, 'description') ?? null,
@@ -559,4 +572,138 @@ export async function removeValidationAction(
   }
   revalidatePlan(planId);
   return { ok: true, message: 'Validación eliminada.' };
+}
+
+// --- HACCP-PROCESS-EXPANSION: entradas / salidas / destinos ------------------
+export async function addInputAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await addProcessInput(session.organizationId, session.userId, s(fd, 'stepId'), {
+      name: s(fd, 'name'),
+      inputType: s(fd, 'inputType'),
+      sourceType: opt(fd, 'sourceType') ?? 'supplier',
+      sourceProcessStepId: opt(fd, 'sourceProcessStepId') ?? null,
+      supplierName: opt(fd, 'supplierName') ?? null,
+      externalSource: opt(fd, 'externalSource') ?? null,
+      description: opt(fd, 'description') ?? null,
+      notes: opt(fd, 'notes') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Entrada agregada.' };
+}
+
+export async function updateInputAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await updateProcessInput(session.organizationId, session.userId, s(fd, 'inputId'), {
+      name: opt(fd, 'name'),
+      inputType: opt(fd, 'inputType'),
+      sourceType: opt(fd, 'sourceType'),
+      sourceProcessStepId: opt(fd, 'sourceProcessStepId') ?? null,
+      supplierName: opt(fd, 'supplierName') ?? null,
+      description: opt(fd, 'description') ?? null,
+      notes: opt(fd, 'notes') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Entrada actualizada.' };
+}
+
+export async function removeInputAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeProcessInput(session.organizationId, session.userId, s(fd, 'inputId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Entrada eliminada.' };
+}
+
+export async function addOutputAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await addProcessOutput(session.organizationId, session.userId, s(fd, 'stepId'), {
+      name: s(fd, 'name'),
+      outputType: s(fd, 'outputType'),
+      conditionStatus: opt(fd, 'conditionStatus') ?? null,
+      description: opt(fd, 'description') ?? null,
+      notes: opt(fd, 'notes') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Salida agregada.' };
+}
+
+export async function updateOutputAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await updateProcessOutput(session.organizationId, session.userId, s(fd, 'outputId'), {
+      name: opt(fd, 'name'),
+      outputType: opt(fd, 'outputType'),
+      conditionStatus: opt(fd, 'conditionStatus') ?? null,
+      description: opt(fd, 'description') ?? null,
+      notes: opt(fd, 'notes') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Salida actualizada.' };
+}
+
+export async function removeOutputAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeProcessOutput(session.organizationId, session.userId, s(fd, 'outputId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Salida eliminada.' };
+}
+
+export async function addDestinationAction(_p: FormState | null, fd: FormData): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await addProcessDestination(session.organizationId, session.userId, s(fd, 'outputId'), {
+      destinationType: s(fd, 'destinationType'),
+      destinationProcessStepId: opt(fd, 'destinationProcessStepId') ?? null,
+      destinationExternalText: opt(fd, 'destinationExternalText') ?? null,
+      label: opt(fd, 'label') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Destino agregado.' };
+}
+
+export async function removeDestinationAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeProcessDestination(session.organizationId, session.userId, s(fd, 'destinationId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Destino eliminado.' };
 }

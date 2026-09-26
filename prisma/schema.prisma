@@ -3208,6 +3208,8 @@ model HaccpPlanVersion {
   references   HaccpSourceReference[]
   steps        HaccpProcessStep[]
   connections  HaccpProcessConnection[]
+  inputs       HaccpProcessInput[]
+  outputs      HaccpProcessOutput[]
   hazards      HaccpHazard[]
   riskMatrix   HaccpRiskMatrixConfig?
   assessments  HaccpControlAssessment[]
@@ -3372,6 +3374,14 @@ model HaccpHazard {
   sourceReferenceId      String?   @map("source_reference_id") @db.Uuid
   /// Identidad LÓGICA de la etapa (process_step_id) cuando source_type = process_step.
   processStepId          String?   @map("process_step_id") @db.Uuid
+  /// HACCP-PROCESS-EXPANSION — contexto del peligro: step | input | output (§M1). Default step
+  /// para los peligros de etapa existentes (backfill). Distingue «entra con la entrada» de
+  /// «se genera/intensifica en la actividad».
+  contextType            String?   @map("context_type")
+  /// Identidad LÓGICA de la entrada (input_logical_id) cuando context_type = input.
+  inputLogicalId         String?   @map("input_logical_id") @db.Uuid
+  /// Identidad LÓGICA de la salida (output_logical_id) cuando context_type = output.
+  outputLogicalId        String?   @map("output_logical_id") @db.Uuid
   /// hazard_type: biological | chemical | physical | allergen | radiological | other
   hazardType             String    @map("hazard_type")
   name                   String
@@ -3448,6 +3458,100 @@ model HaccpProcessConnection {
 
   @@index([planVersionId])
   @@map("haccp_process_connections")
+}
+
+/// HACCP-PROCESS-EXPANSION — ENTRADA de una etapa (version-owned). `input_logical_id` es la
+/// identidad LÓGICA estable entre versiones. Enriquece la etapa: qué entra, de qué tipo y de
+/// dónde proviene (proveedor externo, etapa anterior, otro proceso, almacén, retrabajo…).
+model HaccpProcessInput {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  planVersionId      String    @map("plan_version_id") @db.Uuid
+  processStepId      String    @map("process_step_id") @db.Uuid
+  inputLogicalId     String    @map("input_logical_id") @db.Uuid
+  name               String
+  /// input_type: raw_material|ingredient|packaging_material|contact_material|reusable_material|
+  /// utility|water|air|chemical|intermediate_product|rework|returned_material|
+  /// equipment_or_utensil_related|other
+  inputType          String    @map("input_type")
+  /// source_type: supplier|previous_step|internal_process|storage|rework|return|other
+  sourceType         String    @default("supplier") @map("source_type")
+  /// Identidad LÓGICA de la etapa origen (process_step_id) cuando source_type = previous_step.
+  sourceProcessStepId String?  @map("source_process_step_id") @db.Uuid
+  /// Relación con una fuente HACCP existente (materia prima / documento), sin duplicar ficha.
+  sourceReferenceId  String?   @map("source_reference_id") @db.Uuid
+  supplierName       String?   @map("supplier_name")
+  externalSource     String?   @map("external_source")
+  description        String?
+  notes              String?
+  sortOrder          Int       @default(0) @map("sort_order")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([planVersionId])
+  @@index([organizationId, processStepId])
+  @@map("haccp_process_inputs")
+}
+
+/// HACCP-PROCESS-EXPANSION — SALIDA de una etapa (version-owned). `output_logical_id` es la
+/// identidad LÓGICA estable. Los DESTINOS viven en `haccp_process_output_destinations` (una
+/// salida puede tener múltiples rutas: subproducto, desecho, venta, devolución…).
+model HaccpProcessOutput {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  planVersionId   String    @map("plan_version_id") @db.Uuid
+  processStepId   String    @map("process_step_id") @db.Uuid
+  outputLogicalId String    @map("output_logical_id") @db.Uuid
+  name            String
+  /// output_type: conforming_product|nonconforming_product|intermediate_product|finished_product|
+  /// byproduct|rework|return|waste|residue|packaging_material|reusable_material|other
+  outputType      String    @map("output_type")
+  conditionStatus String?   @map("condition_status")
+  description     String?
+  notes           String?
+  sortOrder       Int       @default(0) @map("sort_order")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version      HaccpPlanVersion                @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  destinations HaccpProcessOutputDestination[]
+
+  @@unique([id, organizationId])
+  @@unique([planVersionId, outputLogicalId])
+  @@index([planVersionId])
+  @@index([organizationId, processStepId])
+  @@map("haccp_process_outputs")
+}
+
+/// HACCP-PROCESS-EXPANSION — DESTINO de una salida (version-owned, normalizado §E3). Un destino
+/// interno (`next_process_step`) referencia la etapa por `destination_process_step_id` (§D3) y se
+/// sincroniza con una conexión gráfica; uno externo usa `destination_external_text` (§D4).
+model HaccpProcessOutputDestination {
+  id                          String   @id @default(uuid()) @db.Uuid
+  organizationId              String   @map("organization_id") @db.Uuid
+  planVersionId               String   @map("plan_version_id") @db.Uuid
+  outputLogicalId             String   @map("output_logical_id") @db.Uuid
+  destinationLogicalId        String   @map("destination_logical_id") @db.Uuid
+  /// destination_type: next_process_step|other_internal_process|storage|finished_goods|rework|
+  /// external_sale|bulk_sale|supplier_return|external_processing|waste_disposal|
+  /// nonconforming_area|customer|other
+  destinationType             String   @map("destination_type")
+  destinationProcessStepId    String?  @map("destination_process_step_id") @db.Uuid
+  destinationExternalText     String?  @map("destination_external_text")
+  destinationSourceReferenceId String? @map("destination_source_reference_id") @db.Uuid
+  label                       String?
+  sortOrder                   Int      @default(0) @map("sort_order")
+  createdAt                   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  output HaccpProcessOutput @relation(fields: [planVersionId, outputLogicalId], references: [planVersionId, outputLogicalId], onDelete: Cascade)
+
+  @@unique([id, organizationId])
+  @@index([planVersionId])
+  @@index([organizationId, outputLogicalId])
+  @@map("haccp_process_output_destinations")
 }
 
 /// Integrante del equipo HACCP (version-owned). Interno (user_id) o externo (external_name).
