@@ -3833,6 +3833,103 @@ async function seedHaccp(): Promise<void> {
       },
     });
   }
+
+  // HACCP-003 — matriz de riesgo por defecto (1-5, umbral 8) + peligros de PROCESO demo.
+  // Materias primas: sin fichas reales → sin peligros de MP (no se inventan, §54).
+  const THRESHOLD = 8;
+  await prisma.haccpRiskMatrixConfig.create({
+    data: {
+      organizationId: ORG_A,
+      planVersionId: VERSION,
+      probabilityScale: [
+        { value: 1, label: 'Remota' },
+        { value: 2, label: 'Baja' },
+        { value: 3, label: 'Media' },
+        { value: 4, label: 'Alta' },
+        { value: 5, label: 'Muy alta' },
+      ],
+      severityScale: [
+        { value: 1, label: 'Menor' },
+        { value: 2, label: 'Moderada' },
+        { value: 3, label: 'Seria' },
+        { value: 4, label: 'Grave' },
+        { value: 5, label: 'Crítica' },
+      ],
+      scoreFormula: 'multiply',
+      significanceThreshold: THRESHOLD,
+    },
+  });
+  const hazardDefs: {
+    step: string;
+    type: string;
+    name: string;
+    p: number;
+    s: number;
+    control?: string;
+  }[] = [
+    {
+      step: 'recep',
+      type: 'biological',
+      name: 'Salmonella spp.',
+      p: 4,
+      s: 5,
+      control: 'Carta garantía del proveedor y cadena de frío controlada.',
+    },
+    {
+      step: 'recep',
+      type: 'chemical',
+      name: 'Sustancias químicas (residuos veterinarios)',
+      p: 2,
+      s: 4,
+      control: 'Programa de proveedores aprobados (PR-CA-004).',
+    },
+    { step: 'recep', type: 'physical', name: 'Cuerpos extraños', p: 2, s: 2 },
+    {
+      step: 'insp',
+      type: 'biological',
+      name: 'Contaminación cruzada por huevo roto/sucio',
+      p: 3,
+      s: 4,
+      control: 'Ovoscopía y separación de producto no conforme.',
+    },
+    { step: 'insp', type: 'physical', name: 'Fragmentos de cascarón', p: 3, s: 2 },
+    {
+      step: 'empaque',
+      type: 'physical',
+      name: 'Contaminación física (plástico/metal)',
+      p: 2,
+      s: 3,
+    },
+    {
+      step: 'empaque',
+      type: 'biological',
+      name: 'Contaminación cruzada',
+      p: 2,
+      s: 4,
+      control: 'Limpieza y desinfección (PRO-01) e higiene del personal.',
+    },
+  ];
+  for (const h of hazardDefs) {
+    const score = h.p * h.s;
+    await prisma.haccpHazard.create({
+      data: {
+        organizationId: ORG_A,
+        planVersionId: VERSION,
+        hazardLogicalId: randomUUID(),
+        sourceType: 'process_step',
+        processStepId: stepId[h.step]!,
+        hazardType: h.type,
+        name: h.name,
+        probability: h.p,
+        severity: h.s,
+        riskScore: score,
+        isSignificant: score >= THRESHOLD,
+        significanceSource: 'calculated',
+        existingControlMeasure: h.control ?? null,
+        createdBy: USER_A,
+      },
+    });
+  }
 }
 
 async function main(): Promise<void> {
