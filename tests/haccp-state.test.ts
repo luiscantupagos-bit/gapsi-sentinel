@@ -82,11 +82,12 @@ describe('validación de publicación (§35)', () => {
 });
 
 describe('tabs', () => {
-  it('9 tabs con etiquetas (incluye flujo, peligros y medidas de control)', () => {
-    expect(HACCP_TABS).toHaveLength(9);
+  it('10 tabs con etiquetas (incluye flujo, peligros, medidas y validación)', () => {
+    expect(HACCP_TABS).toHaveLength(10);
     expect(HACCP_TAB_LABEL.resumen).toBe('Resumen');
     expect(HACCP_TAB_LABEL.peligros).toBe('Análisis de peligros');
     expect(HACCP_TAB_LABEL.medidas).toBe('Medidas de control');
+    expect(HACCP_TAB_LABEL.validacion).toBe('Validación');
   });
   it('resolveTab valida y cae a resumen', () => {
     expect(resolveTab('ppr')).toBe('ppr');
