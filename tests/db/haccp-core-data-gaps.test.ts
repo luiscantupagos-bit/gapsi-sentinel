@@ -46,9 +46,13 @@ async function withControl(c: Awaited<ReturnType<typeof setup>>) {
   const hz = (await getHazardAnalysis(c.orgId, c.planId))!.stepGroups[0]!.hazards[0]!;
   await saveAssessment(c.orgId, c.userId, c.versionId, {
     hazardLogicalId: hz.hazardLogicalId,
+    // Árbol P1-P8: P1 Sí → P2 Sí → P6 No → P7 Sí → P8 No = PPRO.
     answers: [
       { questionId: 'P1', answer: 'yes' },
-      { questionId: 'P2', answer: 'no' },
+      { questionId: 'P2', answer: 'yes' },
+      { questionId: 'P6', answer: 'no' },
+      { questionId: 'P7', answer: 'yes' },
+      { questionId: 'P8', answer: 'no' },
     ],
   });
   return (await getControlMeasures(c.orgId, c.planId))!.assessments[0]!;
