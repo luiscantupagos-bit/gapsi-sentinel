@@ -15,6 +15,7 @@ import {
   controlMeasureCompleteness,
   classificationLabel,
   type AnswerRecord,
+  type PathRecord,
   type HaccpClassification,
 } from '@/features/haccp/haccp-control';
 import {
@@ -81,9 +82,11 @@ export async function getControlMeasures(organizationId: string, planId: string)
     const plan = planByMeasure.get(a.controlMeasureLogicalId) ?? null;
     // §27/§28: revisión requerida si el peligro ya no es significativo o desapareció.
     const needsReview = !hazard || !hazard.isSignificant;
-    const path = (a.answers as unknown as AnswerRecord[]).map((r) => ({
+    // Prefiere el TEXTO snapshot guardado con la respuesta (evidencia autocontenida); si la
+    // evaluación es antigua y no lo tiene, cae al texto del árbol vigente y luego al id.
+    const path = (a.answers as unknown as PathRecord[]).map((r) => ({
       questionId: r.questionId,
-      questionText: qText.get(r.questionId) ?? r.questionId,
+      questionText: r.questionText ?? qText.get(r.questionId) ?? r.questionId,
       answer: r.answer,
     }));
     return {

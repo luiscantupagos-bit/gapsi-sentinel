@@ -7,7 +7,16 @@
  */
 
 // --- Clasificación -----------------------------------------------------------
-export const HACCP_CLASSIFICATIONS = ['ppr', 'ppro', 'pcc', 'other', 'review_required'] as const;
+export const HACCP_CLASSIFICATIONS = [
+  'ppr',
+  'ppro',
+  'pcc',
+  'other',
+  'review_required',
+  // HACCP-CONTROL-TREE-P1-P8: el peligro se controla en otra etapa / por sinergia / por el uso
+  // previsto (desenlaces P3/P4/P5 = Sí): no es PCC/PPRO/PPR en esta medida.
+  'controlled_elsewhere',
+] as const;
 export type HaccpClassification = (typeof HACCP_CLASSIFICATIONS)[number];
 
 export const HACCP_CLASSIFICATION_LABEL: Record<HaccpClassification, string> = {
@@ -16,6 +25,7 @@ export const HACCP_CLASSIFICATION_LABEL: Record<HaccpClassification, string> = {
   pcc: 'PCC (punto crítico de control)',
   other: 'Otro',
   review_required: 'Revisión requerida',
+  controlled_elsewhere: 'Controlado en otra etapa',
 };
 
 export const classificationLabel = (c: string): string =>
@@ -44,47 +54,92 @@ export interface DecisionTree {
 }
 
 /**
- * Árbol por defecto (ISO 22000 / Codex-flavored). PLACEHOLDER metodológico razonable y
- * DEFENDIBLE, no una invención arbitraria: distingue PPR/PPRO/PCC. Puede reemplazarse por el
- * P1..P8 real de la organización sin tocar el resolver (todo es config).
+ * HACCP-CONTROL-TREE-P1-P8 — árbol de decisión REAL (P1..P8) para la determinación de la medida
+ * de control (PPR/PPRO/PCC) y su desenlace «Controlado en otra etapa». Transcrito fielmente de un
+ * plan HACCP en operación (basado en el árbol de decisión de ISO 22000). El resultado + el camino
+ * de respuestas (con el TEXTO de cada pregunta como snapshot) quedan como EVIDENCIA de cómo se
+ * tomó la decisión. Reemplaza al árbol provisional anterior. Todo es config: el resolver es genérico.
  */
 export const DEFAULT_DECISION_TREE: DecisionTree = {
-  key: 'default',
+  key: 'iso22000-p1p8',
   version: '1',
   start: 'P1',
   questions: [
     {
       id: 'P1',
       order: 1,
-      text: '¿La medida de control actúa específicamente sobre este peligro significativo (y no es un prerrequisito general de higiene)?',
-      help: 'Si el peligro se gestiona con un programa de prerrequisitos general, se clasifica como PPR.',
-      answers: { yes: { next: 'P2' }, no: { result: 'ppr' }, na: { result: 'review_required' } },
+      text: '¿El grado de control aplicado a esta medida es suficientemente riguroso?',
+      help: 'No: modifica el grado de control, la medida, el proceso o el producto y reevalúa.',
+      answers: { yes: { next: 'P2' }, no: { result: 'review_required' } },
     },
     {
       id: 'P2',
       order: 2,
-      text: '¿Es posible establecer un límite crítico medible u observable para esta medida en esta etapa?',
-      help: 'Un PCC requiere un límite crítico. Si solo hay un criterio de acción, tiende a PPRO.',
-      answers: { yes: { next: 'P3' }, no: { result: 'ppro' } },
+      text: '¿Ha sido la medida de control diseñada específicamente para eliminar o reducir a un nivel aceptable la presencia del peligro?',
+      answers: { yes: { next: 'P6' }, no: { next: 'P3' } },
     },
     {
       id: 'P3',
       order: 3,
-      text: '¿La pérdida de control en esta etapa podría permitir que el peligro alcance al consumidor sin que una etapa posterior lo elimine o reduzca a un nivel aceptable?',
-      help: 'Si una etapa posterior controla el peligro, esta etapa no es PCC.',
+      text: '¿Existe alguna etapa de proceso o medida de control subsecuente que elimine o reduzca a niveles aceptables el peligro identificado?',
+      help: 'Sí: el peligro se controla en esa etapa posterior; identifícala en la justificación.',
+      answers: { yes: { result: 'controlled_elsewhere' }, no: { next: 'P4' } },
+    },
+    {
+      id: 'P4',
+      order: 4,
+      text: '¿Hay efectos de sinergia con otras medidas de control o etapas de proceso que eliminen o reduzcan a niveles aceptables el peligro identificado?',
+      help: 'Sí: el peligro se controla por sinergia; identifica la medida/etapa en la justificación.',
+      answers: { yes: { result: 'controlled_elsewhere' }, no: { next: 'P5' } },
+    },
+    {
+      id: 'P5',
+      order: 5,
+      text: '¿El uso esperado por el consumidor elimina o reduce a niveles aceptables el peligro identificado?',
+      help: 'Sí: el peligro se controla por el uso previsto; identifícalo en la justificación.',
+      answers: { yes: { result: 'controlled_elsewhere' }, no: { next: 'P7' } },
+    },
+    {
+      id: 'P6',
+      order: 6,
+      text: '¿Se garantiza la inocuidad aún cuando la medida de control falle?',
+      help: 'Sí: no es PCC ni PPRO (el peligro queda controlado a nivel de prerrequisito, PPR).',
+      answers: { yes: { result: 'ppr' }, no: { next: 'P7' } },
+    },
+    {
+      id: 'P7',
+      order: 7,
+      text: 'Para esta medida de control, ¿se pueden establecer límites críticos?',
+      answers: { yes: { next: 'P8' }, no: { result: 'ppro' } },
+    },
+    {
+      id: 'P8',
+      order: 8,
+      text: '¿Se pueden realizar correcciones de manera inmediata cuando falla la medida de control?',
       answers: { yes: { result: 'pcc' }, no: { result: 'ppro' } },
     },
   ],
 };
 
+/** Respuesta capturada (entrada del asistente). */
 export interface AnswerRecord {
   questionId: string;
   answer: TreeAnswer;
 }
 
+/**
+ * Paso del camino recorrido, con el TEXTO de la pregunta como SNAPSHOT (§evidencia). Autocontenido:
+ * la evidencia no depende de la versión vigente del árbol.
+ */
+export interface PathRecord {
+  questionId: string;
+  questionText: string;
+  answer: TreeAnswer;
+}
+
 export interface ResolveResult {
   classification: HaccpClassification | null; // null = incompleto (falta responder)
-  path: AnswerRecord[]; // camino efectivamente recorrido (snapshot)
+  path: PathRecord[]; // camino efectivamente recorrido (snapshot con texto)
   nextQuestionId: string | null; // siguiente pregunta pendiente, o null si terminó
 }
 
@@ -92,7 +147,7 @@ export interface ResolveResult {
 export function resolveClassification(tree: DecisionTree, answers: AnswerRecord[]): ResolveResult {
   const byId = new Map(tree.questions.map((q) => [q.id, q]));
   const answerOf = new Map(answers.map((a) => [a.questionId, a.answer]));
-  const path: AnswerRecord[] = [];
+  const path: PathRecord[] = [];
   let currentId: string | null = tree.start;
   const guard = new Set<string>();
   while (currentId) {
@@ -102,7 +157,7 @@ export function resolveClassification(tree: DecisionTree, answers: AnswerRecord[
     if (!q) break;
     const answer = answerOf.get(currentId);
     if (!answer) return { classification: null, path, nextQuestionId: currentId };
-    path.push({ questionId: currentId, answer });
+    path.push({ questionId: currentId, questionText: q.text, answer }); // snapshot del texto
     const branch = q.answers[answer];
     if (!branch) return { classification: null, path, nextQuestionId: currentId };
     if (branch.result) return { classification: branch.result, path, nextQuestionId: null };

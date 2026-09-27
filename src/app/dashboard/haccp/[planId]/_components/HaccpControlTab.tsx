@@ -152,6 +152,7 @@ function HazardWizard({
               <option value="pcc">PCC</option>
               <option value="ppro">PPRO</option>
               <option value="ppr">PPR</option>
+              <option value="controlled_elsewhere">Controlado en otra etapa</option>
               <option value="other">Otro</option>
             </select>
           </label>

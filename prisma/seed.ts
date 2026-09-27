@@ -4041,15 +4041,43 @@ async function seedHaccp(): Promise<void> {
         planVersionId: VERSION,
         controlMeasureLogicalId: measureLogical,
         hazardLogicalId: salmonellaLogical,
-        methodKey: 'default',
+        // HACCP-CONTROL-TREE-P1-P8: árbol real. Camino P1 Sí → P2 Sí → P6 No → P7 Sí → P8 No = PPRO
+        // (idéntico al plan real de referencia). El texto de cada pregunta se guarda como evidencia.
+        methodKey: 'iso22000-p1p8',
         methodVersion: '1',
         classification: 'ppro',
         classificationSource: 'calculated',
         justification:
-          'La medida actúa sobre el peligro pero no hay un límite crítico medible definido; se gestiona como PPRO.',
+          'Se pueden establecer criterios/límites pero no correcciones inmediatas al fallar la medida; se gestiona como PPRO.',
         answers: [
-          { questionId: 'P1', answer: 'yes' },
-          { questionId: 'P2', answer: 'no' },
+          {
+            questionId: 'P1',
+            questionText:
+              '¿El grado de control aplicado a esta medida es suficientemente riguroso?',
+            answer: 'yes',
+          },
+          {
+            questionId: 'P2',
+            questionText:
+              '¿Ha sido la medida de control diseñada específicamente para eliminar o reducir a un nivel aceptable la presencia del peligro?',
+            answer: 'yes',
+          },
+          {
+            questionId: 'P6',
+            questionText: '¿Se garantiza la inocuidad aún cuando la medida de control falle?',
+            answer: 'no',
+          },
+          {
+            questionId: 'P7',
+            questionText: 'Para esta medida de control, ¿se pueden establecer límites críticos?',
+            answer: 'yes',
+          },
+          {
+            questionId: 'P8',
+            questionText:
+              '¿Se pueden realizar correcciones de manera inmediata cuando falla la medida de control?',
+            answer: 'no',
+          },
         ],
         status: 'complete',
         createdBy: USER_A,
