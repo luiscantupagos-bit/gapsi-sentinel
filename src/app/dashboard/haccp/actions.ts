@@ -44,6 +44,14 @@ import {
   addProcessDestination,
   removeProcessDestination,
 } from '@/server/haccp-process';
+import {
+  saveVerificationDefinition,
+  setVerificationDefinitionStatus,
+  removeVerificationDefinition,
+  materializeVerificationSchedule,
+  createVerificationRecord,
+  recordVerificationResult,
+} from '@/server/haccp-verification';
 import type { HaccpReferenceKind } from '@/features/haccp/haccp-state';
 import type { VersionBump } from '@/features/documents/versioning';
 
@@ -706,4 +714,137 @@ export async function removeDestinationAction(
   }
   revalidatePlan(planId);
   return { ok: true, message: 'Destino eliminado.' };
+}
+
+// --- HACCP-006: verificación ------------------------------------------------
+export async function saveVerificationDefinitionAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await saveVerificationDefinition(
+      session.organizationId,
+      session.userId,
+      s(fd, 'planVersionId'),
+      {
+        scopeType: s(fd, 'scopeType') || 'plan',
+        controlMeasureLogicalId: opt(fd, 'controlMeasureLogicalId') ?? null,
+        hazardLogicalId: opt(fd, 'hazardLogicalId') ?? null,
+        title: s(fd, 'title'),
+        purpose: opt(fd, 'purpose') ?? null,
+        method: opt(fd, 'method') ?? null,
+        responsibleUserId: opt(fd, 'responsibleUserId') ?? null,
+        responsibleRole: opt(fd, 'responsibleRole') ?? null,
+        frequencyType: s(fd, 'frequencyType') || 'monthly',
+        interval: opt(fd, 'interval') ? num(fd, 'interval', 1) : 1,
+        endDate: opt(fd, 'endDate') ?? null,
+        recordStrategy: opt(fd, 'recordStrategy') ?? 'none',
+        requiredDocumentId: opt(fd, 'requiredDocumentId') ?? null,
+        evidenceRequired: s(fd, 'evidenceRequired') === 'on',
+        startAt: opt(fd, 'startAt') ?? null,
+        notifyBeforeDays: opt(fd, 'notifyBeforeDays') ? num(fd, 'notifyBeforeDays', 7) : 7,
+      },
+      opt(fd, 'definitionId'),
+    );
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Definición de verificación guardada.' };
+}
+
+export async function setVerificationStatusAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await setVerificationDefinitionStatus(
+      session.organizationId,
+      session.userId,
+      s(fd, 'definitionId'),
+      s(fd, 'status'),
+    );
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Estado actualizado.' };
+}
+
+export async function removeVerificationDefinitionAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await removeVerificationDefinition(
+      session.organizationId,
+      session.userId,
+      s(fd, 'definitionId'),
+    );
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Definición eliminada.' };
+}
+
+export async function materializeVerificationAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    const res = await materializeVerificationSchedule(
+      session.organizationId,
+      session.userId,
+      planId,
+    );
+    revalidatePlan(planId);
+    return {
+      ok: true,
+      message: `Programa generado: ${res.occurrences} ocurrencia(s), ${res.tasks} tarea(s).`,
+    };
+  } catch (e) {
+    return toState(e);
+  }
+}
+
+export async function createVerificationRecordAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await createVerificationRecord(session.organizationId, session.userId, s(fd, 'occurrenceId'));
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Registro creado.' };
+}
+
+export async function recordVerificationResultAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await recordVerificationResult(session.organizationId, session.userId, s(fd, 'occurrenceId'), {
+      result: s(fd, 'result'),
+      conclusion: opt(fd, 'conclusion') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Resultado registrado.' };
 }

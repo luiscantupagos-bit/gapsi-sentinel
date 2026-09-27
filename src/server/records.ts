@@ -236,6 +236,8 @@ export async function listAvailableForms(organizationId: string): Promise<Availa
 // --- Crear registro ----------------------------------------------------------
 export interface CreateRecordInput {
   documentId: string;
+  /** HACCP-006 §10.2: versión EXACTA fija (pinned). Si se omite, usa la publicada vigente (§10.1). */
+  documentVersionId?: string | null;
   clientGeneratedId?: string | null;
   siteId?: string | null;
   assignedToUserId?: string | null;
@@ -267,13 +269,16 @@ export async function createRecord(
       if (existing) return existing.id;
     }
 
+    // §10.2 pinned_version: usa la versión exacta; si no, la publicada vigente (§10.1).
     const version = await tx.documentVersion.findFirst({
-      where: {
-        organizationId,
-        documentId: input.documentId,
-        status: 'published',
-        isCurrent: true,
-      },
+      where: input.documentVersionId
+        ? { organizationId, documentId: input.documentId, id: input.documentVersionId }
+        : {
+            organizationId,
+            documentId: input.documentId,
+            status: 'published',
+            isCurrent: true,
+          },
       select: {
         id: true,
         label: true,

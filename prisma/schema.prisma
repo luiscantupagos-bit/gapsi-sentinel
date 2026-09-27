@@ -3215,6 +3215,7 @@ model HaccpPlanVersion {
   assessments  HaccpControlAssessment[]
   controlPlans HaccpControlPlan[]
   validations  HaccpControlValidation[]
+  verificationDefinitions HaccpVerificationDefinition[]
 
   @@unique([planId, versionLabel])
   @@unique([id, organizationId])
@@ -3265,6 +3266,85 @@ model HaccpControlValidation {
   @@unique([id, organizationId])
   @@index([planVersionId])
   @@map("haccp_control_validations")
+}
+
+/// HACCP-006 — DEFINICIÓN de una verificación operacional (version-owned). La verificación
+/// demuestra que el sistema SE EJECUTA conforme a lo establecido (distinta de la validación,
+/// HACCP-005). `verification_logical_id` = identidad LÓGICA estable entre versiones. Reutiliza el
+/// motor de recurrencia de Programas: cada ocurrencia se materializa como Task nativa + Record.
+/// Publicado = inmutable.
+model HaccpVerificationDefinition {
+  id                        String    @id @default(uuid()) @db.Uuid
+  organizationId            String    @map("organization_id") @db.Uuid
+  planVersionId             String    @map("plan_version_id") @db.Uuid
+  verificationLogicalId     String    @map("verification_logical_id") @db.Uuid
+  /// scope_type: plan | pcc | ppro | hazard | control_measure
+  scopeType                 String    @map("scope_type")
+  controlMeasureLogicalId   String?   @map("control_measure_logical_id") @db.Uuid
+  hazardLogicalId           String?   @map("hazard_logical_id") @db.Uuid
+  processStepId             String?   @map("process_step_id") @db.Uuid
+  title                     String
+  purpose                   String?
+  method                    String?
+  responsibleUserId         String?   @map("responsible_user_id") @db.Uuid
+  responsibleRole           String?   @map("responsible_role")
+  /// frequency_type: single | weekly | monthly | bimonthly | quarterly | semiannual | annual
+  frequencyType             String    @map("frequency_type")
+  /// frequency_config: { interval?: int, endDate?: ISO } para el motor de recurrencia.
+  frequencyConfig           Json?     @map("frequency_config")
+  /// record_strategy: none | latest_published | pinned_version
+  recordStrategy            String    @default("none") @map("record_strategy")
+  requiredDocumentId        String?   @map("required_document_id") @db.Uuid
+  requiredDocumentVersionId String?   @map("required_document_version_id") @db.Uuid
+  evidenceRequired          Boolean   @default(false) @map("evidence_required")
+  /// status: active | paused | archived (separado del resultado de ejecuciones).
+  status                    String    @default("active")
+  startAt                   DateTime? @map("start_at") @db.Date
+  notifyBeforeDays          Int       @default(7) @map("notify_before_days")
+  createdBy                 String?   @map("created_by") @db.Uuid
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  version HaccpPlanVersion @relation(fields: [planVersionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@unique([planVersionId, verificationLogicalId])
+  @@index([planVersionId])
+  @@map("haccp_verification_definitions")
+}
+
+/// HACCP-006 — OCURRENCIA ejecutable de una verificación (histórico de ejecución). Sigue la
+/// identidad LÓGICA de la definición (verification_logical_id) a través de versiones; el estado
+/// operativo real vive en la Task nativa. El resultado técnico (conforme/no conforme/no
+/// concluyente) es distinto del estado de la Task. No se re-clona por versión (es histórico).
+model HaccpVerificationOccurrence {
+  id                    String    @id @default(uuid()) @db.Uuid
+  organizationId        String    @map("organization_id") @db.Uuid
+  planId                String    @map("plan_id") @db.Uuid
+  verificationLogicalId String    @map("verification_logical_id") @db.Uuid
+  occurrenceKey         String    @map("occurrence_key")
+  title                 String
+  plannedStart          DateTime? @map("planned_start") @db.Date
+  dueAt                 DateTime? @map("due_at") @db.Date
+  responsibleUserId     String?   @map("responsible_user_id") @db.Uuid
+  taskId                String?   @map("task_id") @db.Uuid
+  recordId              String?   @map("record_id") @db.Uuid
+  recordDocumentVersionId String? @map("record_document_version_id") @db.Uuid
+  /// result: conforme | no_conforme | no_concluyente
+  result                String?
+  conclusion            String?
+  /// status: scheduled | superseded | cancelled (operativo real = Task).
+  status                String    @default("scheduled")
+  completedAt           DateTime? @map("completed_at") @db.Timestamptz(6)
+  closedBy              String?   @map("closed_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, verificationLogicalId, occurrenceKey])
+  @@index([organizationId, planId])
+  @@index([taskId])
+  @@map("haccp_verification_occurrences")
 }
 
 /// HACCP-004 — evaluación de la MEDIDA DE CONTROL de un peligro significativo mediante el árbol

@@ -4069,6 +4069,69 @@ async function seedHaccp(): Promise<void> {
       },
     });
   }
+
+  // HACCP-006 — 1 definición de verificación demo con 1 ocurrencia PRÓXIMA + Task nativa.
+  // Sin formato configurado (§47) y sin inventar resultados (§46): queda pendiente.
+  const verLogical = randomUUID();
+  const verDefId = '00000000-0000-4000-8000-00000000ad01';
+  const verOccId = '00000000-0000-4000-8000-00000000ad02';
+  const verTaskId = '00000000-0000-4000-8000-00000000ad03';
+  await prisma.haccpVerificationDefinition.create({
+    data: {
+      id: verDefId,
+      organizationId: ORG_A,
+      planVersionId: VERSION,
+      verificationLogicalId: verLogical,
+      scopeType: 'plan',
+      title: 'Revisión de registros de control operacional',
+      purpose:
+        'Confirmar que los registros de control se llenan y conservan conforme a lo establecido.',
+      method: 'Revisión documental de los registros del periodo.',
+      responsibleUserId: USER_A,
+      frequencyType: 'monthly',
+      frequencyConfig: { interval: 1, endDate: null },
+      recordStrategy: 'none',
+      evidenceRequired: false,
+      status: 'active',
+      startAt: new Date('2026-11-01T00:00:00.000Z'),
+      notifyBeforeDays: 7,
+      createdBy: USER_A,
+    },
+  });
+  await prisma.haccpVerificationOccurrence.create({
+    data: {
+      id: verOccId,
+      organizationId: ORG_A,
+      planId: PLAN,
+      verificationLogicalId: verLogical,
+      occurrenceKey: 'monthly:2026-11',
+      title: 'Revisión de registros de control operacional',
+      plannedStart: new Date('2026-11-01T00:00:00.000Z'),
+      dueAt: new Date('2026-11-01T00:00:00.000Z'),
+      responsibleUserId: USER_A,
+      taskId: verTaskId,
+      status: 'scheduled',
+    },
+  });
+  await prisma.task.create({
+    data: {
+      id: verTaskId,
+      organizationId: ORG_A,
+      folio: 'TSK-2026-HV01',
+      title: 'Verificación: Revisión de registros de control operacional — 2026-11-01',
+      description:
+        'Confirmar que los registros de control se llenan y conservan conforme a lo establecido.',
+      taskType: 'follow_up',
+      origin: 'other',
+      status: 'pending',
+      responsibleUserId: USER_A,
+      targetDate: new Date('2026-11-01T00:00:00.000Z'),
+      startDate: new Date('2026-11-01T00:00:00.000Z'),
+      sourceType: 'haccp_verification',
+      sourceId: verOccId,
+      createdBy: USER_A,
+    },
+  });
 }
 
 // --- DOC-004: formato digital demo + 1 registro en proceso -------------------

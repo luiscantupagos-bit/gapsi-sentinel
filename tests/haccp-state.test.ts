@@ -9,6 +9,7 @@ import {
   HACCP_REFERENCE_KIND_LABEL,
   HACCP_TABS,
   HACCP_TAB_LABEL,
+  HACCP_FUTURE_TABS,
   isVersionEditable,
   resolveTab,
   hasSourceUpdate,
@@ -82,12 +83,14 @@ describe('validación de publicación (§35)', () => {
 });
 
 describe('tabs', () => {
-  it('10 tabs con etiquetas (incluye flujo, peligros, medidas y validación)', () => {
-    expect(HACCP_TABS).toHaveLength(10);
+  it('11 tabs con etiquetas (incluye validación y verificación)', () => {
+    expect(HACCP_TABS).toHaveLength(11);
     expect(HACCP_TAB_LABEL.resumen).toBe('Resumen');
     expect(HACCP_TAB_LABEL.peligros).toBe('Análisis de peligros');
     expect(HACCP_TAB_LABEL.medidas).toBe('Medidas de control');
     expect(HACCP_TAB_LABEL.validacion).toBe('Validación');
+    expect(HACCP_TAB_LABEL.verificacion).toBe('Verificación');
+    expect(HACCP_FUTURE_TABS).toHaveLength(0); // ya no hay tabs «Próximamente»
   });
   it('resolveTab valida y cae a resumen', () => {
     expect(resolveTab('ppr')).toBe('ppr');
