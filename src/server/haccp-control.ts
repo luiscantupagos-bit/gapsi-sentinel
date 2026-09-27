@@ -110,6 +110,7 @@ export async function getControlMeasures(organizationId: string, planId: string)
             monitoringWho: plan.monitoringWho,
             monitoringWhen: plan.monitoringWhen,
             correction: plan.correction,
+            disposition: plan.disposition,
             correctiveAction: plan.correctiveAction,
             recordReference: plan.recordReference,
           }
@@ -237,6 +238,7 @@ export interface ControlPlanInput {
   monitoringWho?: string | null;
   monitoringWhen?: string | null;
   correction?: string | null;
+  disposition?: string | null;
   correctiveAction?: string | null;
   recordReference?: string | null;
 }
@@ -278,6 +280,7 @@ export async function saveControlPlan(
       monitoringWho: input.monitoringWho ?? null,
       monitoringWhen: input.monitoringWhen ?? null,
       correction: input.correction ?? null,
+      disposition: input.disposition ?? null,
       correctiveAction: input.correctiveAction ?? null,
       recordReference: input.recordReference ?? null,
     };

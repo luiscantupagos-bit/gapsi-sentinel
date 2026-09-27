@@ -218,8 +218,16 @@ function PlanEditor({ planId, assessment }: { planId: string; assessment: Assess
               <input name="monitoringWhen" defaultValue={p?.monitoringWhen ?? ''} />
             </label>
             <label>
-              Corrección
+              Corrección inmediata
               <input name="correction" defaultValue={p?.correction ?? ''} />
+            </label>
+            <label>
+              Disposición del producto/material
+              <input
+                name="disposition"
+                defaultValue={p?.disposition ?? ''}
+                placeholder="p. ej. Retención, reproceso, segregación, devolución, destrucción…"
+              />
             </label>
             <label>
               Acción correctiva

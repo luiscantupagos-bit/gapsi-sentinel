@@ -21,6 +21,7 @@ export interface ControlPlanView {
   monitoringWho?: string | null;
   monitoringWhen?: string | null;
   correction?: string | null;
+  disposition?: string | null;
   correctiveAction?: string | null;
   recordReference?: string | null;
 }
@@ -57,7 +58,8 @@ function PlanFields({ classification, plan }: { classification: string; plan: Co
           {field('Monitoreo — Cómo', plan.monitoringHow)}
           {field('Monitoreo — Quién', plan.monitoringWho)}
           {field('Monitoreo — Cuándo', plan.monitoringWhen)}
-          {field('Corrección', plan.correction)}
+          {field('Corrección inmediata', plan.correction)}
+          {field('Disposición del producto/material', plan.disposition)}
           {field('Acción correctiva', plan.correctiveAction)}
         </>
       )}

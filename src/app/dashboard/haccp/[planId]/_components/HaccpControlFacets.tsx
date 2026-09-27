@@ -138,7 +138,8 @@ export function HaccpCorrectiveActionsView({
           <section key={a.id} className="haccp-control-card">
             <ControlHeader a={a} />
             <div className="haccp-plan-fields">
-              {field('Corrección', a.plan?.correction)}
+              {field('Corrección inmediata', a.plan?.correction)}
+              {field('Disposición del producto/material', a.plan?.disposition)}
               {field('Acción correctiva', a.plan?.correctiveAction)}
               {field('Registro asociado', a.plan?.recordReference)}
             </div>
@@ -146,8 +147,10 @@ export function HaccpCorrectiveActionsView({
         ))
       )}
       <p className="muted doc-panel__hint">
-        El escalamiento a Hallazgo / Acción correctiva / CAPA se conectará como seguimiento; no se
-        crea un flujo paralelo.
+        Corrección = acción inmediata sobre la desviación · Disposición = qué se hace con el
+        producto/material afectado · Acción correctiva = elimina la causa y previene la recurrencia.
+        El escalamiento a Hallazgo / CAPA se conectará como seguimiento; no se crea un flujo
+        paralelo.
       </p>
     </>
   );
