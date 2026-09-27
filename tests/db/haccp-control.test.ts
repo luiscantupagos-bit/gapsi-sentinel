@@ -56,12 +56,15 @@ async function setup() {
 describe.skipIf(!hasDb)('HACCP-004 — medidas de control', () => {
   it('A/B/C/D/P: evalúa un peligro significativo → clasificación + snapshot de metodología', async () => {
     const ctx = await setup();
+    // Árbol P1-P8: P1 Sí → P2 Sí → P6 No → P7 Sí → P8 Sí = PCC (§C).
     await saveAssessment(ctx.orgId, ctx.owner, ctx.versionId, {
       hazardLogicalId: ctx.hazardLogicalId,
       answers: [
         { questionId: 'P1', answer: 'yes' },
         { questionId: 'P2', answer: 'yes' },
-        { questionId: 'P3', answer: 'yes' },
+        { questionId: 'P6', answer: 'no' },
+        { questionId: 'P7', answer: 'yes' },
+        { questionId: 'P8', answer: 'yes' },
       ],
       justification: 'Sin etapa posterior que lo controle.',
     });
@@ -70,10 +73,13 @@ describe.skipIf(!hasDb)('HACCP-004 — medidas de control', () => {
     const a = cm.assessments[0]!;
     expect(a.classification).toBe('pcc'); // §C calculado
     expect(a.justification).toBe('Sin etapa posterior que lo controle.'); // §D
-    expect(a.path.map((p) => p.answer)).toEqual(['yes', 'yes', 'yes']); // §B/§Q
+    expect(a.path.map((p) => p.answer)).toEqual(['yes', 'yes', 'no', 'yes', 'yes']); // §B/§Q
+    // Evidencia: el camino guarda el texto de cada pregunta (snapshot P1-P8).
+    expect(a.path.map((p) => p.questionId)).toEqual(['P1', 'P2', 'P6', 'P7', 'P8']);
+    expect(a.path.every((p) => p.questionText.length > 0)).toBe(true);
     // §P snapshot de metodología en la fila.
     const row = await db().haccpControlAssessment.findFirst({ where: { id: a.id } });
-    expect(row?.methodKey).toBe('default');
+    expect(row?.methodKey).toBe('iso22000-p1p8');
     expect(row?.methodVersion).toBe('1');
     // el peligro sale de pendientes
     expect(cm.pending).toHaveLength(0);
@@ -81,11 +87,15 @@ describe.skipIf(!hasDb)('HACCP-004 — medidas de control', () => {
 
   it('E/F/G/H: plan de control por clasificación', async () => {
     const ctx = await setup();
+    // P1 Sí → P2 Sí → P6 No → P7 Sí → P8 No = PPRO.
     await saveAssessment(ctx.orgId, ctx.owner, ctx.versionId, {
       hazardLogicalId: ctx.hazardLogicalId,
       answers: [
         { questionId: 'P1', answer: 'yes' },
-        { questionId: 'P2', answer: 'no' },
+        { questionId: 'P2', answer: 'yes' },
+        { questionId: 'P6', answer: 'no' },
+        { questionId: 'P7', answer: 'yes' },
+        { questionId: 'P8', answer: 'no' },
       ],
     });
     let cm = (await getControlMeasures(ctx.orgId, ctx.planId))!;
@@ -147,7 +157,10 @@ describe.skipIf(!hasDb)('HACCP-004 — medidas de control', () => {
       hazardLogicalId: ctx.hazardLogicalId,
       answers: [
         { questionId: 'P1', answer: 'yes' },
-        { questionId: 'P2', answer: 'no' },
+        { questionId: 'P2', answer: 'yes' },
+        { questionId: 'P6', answer: 'no' },
+        { questionId: 'P7', answer: 'yes' },
+        { questionId: 'P8', answer: 'no' },
       ],
     });
     const cm1 = (await getControlMeasures(ctx.orgId, ctx.planId))!;
@@ -160,7 +173,7 @@ describe.skipIf(!hasDb)('HACCP-004 — medidas de control', () => {
     const a2 = cm2.assessments[0]!;
     expect(a2.controlMeasureLogicalId).toBe(a1.controlMeasureLogicalId); // §M estable
     expect(a2.id).not.toBe(a1.id);
-    expect(a2.path.map((p) => p.answer)).toEqual(['yes', 'no']); // §Q intacto
+    expect(a2.path.map((p) => p.answer)).toEqual(['yes', 'yes', 'no', 'yes', 'no']); // §Q intacto
 
     // §O: el peligro deja de ser significativo → needs_review (no se borra).
     const hz = (await getHazardAnalysis(ctx.orgId, ctx.planId))!.stepGroups[0]!.hazards[0]!;

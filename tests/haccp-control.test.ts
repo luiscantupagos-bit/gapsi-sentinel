@@ -13,50 +13,102 @@ import {
 } from '@/features/haccp/haccp-control';
 
 describe('clasificación y etiquetas', () => {
-  it('labels en español', () => {
+  it('labels en español (incluye «Controlado en otra etapa»)', () => {
     expect(HACCP_CLASSIFICATION_LABEL.pcc).toContain('PCC');
     expect(HACCP_CLASSIFICATION_LABEL.ppro).toContain('PPRO');
     expect(HACCP_CLASSIFICATION_LABEL.ppr).toContain('PPR');
     expect(classificationLabel('review_required')).toBe('Revisión requerida');
+    expect(classificationLabel('controlled_elsewhere')).toBe('Controlado en otra etapa');
   });
 });
 
-describe('resolver del árbol de decisión (§7/§21)', () => {
+describe('HACCP-CONTROL-TREE-P1-P8 — resolver del árbol REAL', () => {
   const t = DEFAULT_DECISION_TREE;
-  it('P1 No → PPR', () => {
-    const r = resolveClassification(t, [{ questionId: 'P1', answer: 'no' }]);
-    expect(r.classification).toBe('ppr');
-    expect(r.path).toHaveLength(1);
+  const A = (path: [string, 'yes' | 'no' | 'na'][]) =>
+    resolveClassification(
+      t,
+      path.map(([questionId, answer]) => ({ questionId, answer })),
+    );
+
+  it('usa la metodología iso22000-p1p8', () => {
+    expect(t.key).toBe('iso22000-p1p8');
+    expect(t.questions).toHaveLength(8);
+    expect(t.start).toBe('P1');
   });
-  it('P1 Sí, P2 No → PPRO', () => {
-    const r = resolveClassification(t, [
-      { questionId: 'P1', answer: 'yes' },
-      { questionId: 'P2', answer: 'no' },
+  it('Salmonella (P1 Sí, P2 Sí, P6 No, P7 Sí, P8 No) → PPRO', () => {
+    const r = A([
+      ['P1', 'yes'],
+      ['P2', 'yes'],
+      ['P6', 'no'],
+      ['P7', 'yes'],
+      ['P8', 'no'],
     ]);
     expect(r.classification).toBe('ppro');
+    // Evidencia: el camino guarda el TEXTO de cada pregunta (snapshot).
+    expect(r.path.map((p) => p.questionId)).toEqual(['P1', 'P2', 'P6', 'P7', 'P8']);
+    expect(r.path.every((p) => p.questionText.length > 0)).toBe(true);
   });
-  it('P1 Sí, P2 Sí, P3 Sí → PCC', () => {
-    const r = resolveClassification(t, [
-      { questionId: 'P1', answer: 'yes' },
-      { questionId: 'P2', answer: 'yes' },
-      { questionId: 'P3', answer: 'yes' },
-    ]);
-    expect(r.classification).toBe('pcc');
+  it('P1 Sí, P2 Sí, P6 No, P7 Sí, P8 Sí → PCC', () => {
+    expect(
+      A([
+        ['P1', 'yes'],
+        ['P2', 'yes'],
+        ['P6', 'no'],
+        ['P7', 'yes'],
+        ['P8', 'yes'],
+      ]).classification,
+    ).toBe('pcc');
   });
-  it('P1 Sí, P2 Sí, P3 No → PPRO', () => {
-    const r = resolveClassification(t, [
-      { questionId: 'P1', answer: 'yes' },
-      { questionId: 'P2', answer: 'yes' },
-      { questionId: 'P3', answer: 'no' },
-    ]);
-    expect(r.classification).toBe('ppro');
+  it('P1 Sí, P2 Sí, P6 Sí → PPR (no es PCC ni PPRO)', () => {
+    expect(
+      A([
+        ['P1', 'yes'],
+        ['P2', 'yes'],
+        ['P6', 'yes'],
+      ]).classification,
+    ).toBe('ppr');
   });
-  it('P1 N.A. → revisión requerida', () => {
-    const r = resolveClassification(t, [{ questionId: 'P1', answer: 'na' }]);
-    expect(r.classification).toBe('review_required');
+  it('P7 No → PPRO (sin límites críticos)', () => {
+    expect(
+      A([
+        ['P1', 'yes'],
+        ['P2', 'yes'],
+        ['P6', 'no'],
+        ['P7', 'no'],
+      ]).classification,
+    ).toBe('ppro');
   });
-  it('incompleto → nextQuestionId', () => {
-    const r = resolveClassification(t, [{ questionId: 'P1', answer: 'yes' }]);
+  it('P3/P4/P5 Sí → Controlado en otra etapa', () => {
+    expect(
+      A([
+        ['P1', 'yes'],
+        ['P2', 'no'],
+        ['P3', 'yes'],
+      ]).classification,
+    ).toBe('controlled_elsewhere');
+    expect(
+      A([
+        ['P1', 'yes'],
+        ['P2', 'no'],
+        ['P3', 'no'],
+        ['P4', 'yes'],
+      ]).classification,
+    ).toBe('controlled_elsewhere');
+    expect(
+      A([
+        ['P1', 'yes'],
+        ['P2', 'no'],
+        ['P3', 'no'],
+        ['P4', 'no'],
+        ['P5', 'yes'],
+      ]).classification,
+    ).toBe('controlled_elsewhere');
+  });
+  it('P1 No → revisión requerida (modificar y reevaluar)', () => {
+    expect(A([['P1', 'no']]).classification).toBe('review_required');
+  });
+  it('incompleto → siguiente pregunta', () => {
+    const r = A([['P1', 'yes']]);
     expect(r.classification).toBeNull();
     expect(r.nextQuestionId).toBe('P2');
   });

@@ -6164,7 +6164,8 @@ table td.mono {
   color: #14683a;
 }
 .badge--class-other,
-.badge--class-review_required {
+.badge--class-review_required,
+.badge--class-controlled_elsewhere {
   background: #eef1f5;
   color: #4b5563;
 }
