@@ -39,12 +39,15 @@ async function setup() {
     severity: 5,
   });
   const hz = (await getHazardAnalysis(fx.orgId, planId))!.stepGroups[0]!.hazards[0]!;
-  // Clasifica como PPRO (P1 yes, P2 no).
+  // Clasifica como PPRO (P1 Sí → P2 Sí → P6 No → P7 Sí → P8 No).
   await saveAssessment(fx.orgId, fx.userId, d.active!.id, {
     hazardLogicalId: hz.hazardLogicalId,
     answers: [
       { questionId: 'P1', answer: 'yes' },
-      { questionId: 'P2', answer: 'no' },
+      { questionId: 'P2', answer: 'yes' },
+      { questionId: 'P6', answer: 'no' },
+      { questionId: 'P7', answer: 'yes' },
+      { questionId: 'P8', answer: 'no' },
     ],
   });
   const cm = (await getControlMeasures(fx.orgId, planId))!;

@@ -52,7 +52,10 @@ async function setup() {
     hazardLogicalId: hz.hazardLogicalId,
     answers: [
       { questionId: 'P1', answer: 'yes' },
-      { questionId: 'P2', answer: 'no' },
+      { questionId: 'P2', answer: 'yes' },
+      { questionId: 'P6', answer: 'no' },
+      { questionId: 'P7', answer: 'yes' },
+      { questionId: 'P8', answer: 'no' },
     ],
   });
   const cm = (await getControlMeasures(fx.orgId, planId))!;
