@@ -17,7 +17,7 @@ const taskState = read('../src/features/tasks/task-state.ts');
 const listPage = read('../src/app/dashboard/tasks/page.tsx');
 const board = read('../src/app/dashboard/tasks/board/_components/KanbanBoard.tsx');
 const calendar = read('../src/app/dashboard/tasks/calendar/page.tsx');
-const gantt = read('../src/app/dashboard/projects/[projectId]/_components/GanttChart.tsx');
+const gantt = read('../src/app/dashboard/_components/GanttChart.tsx');
 const dashboard = read('../src/app/dashboard/page.tsx');
 
 describe('TASK-009 UI — navegación e idioma', () => {

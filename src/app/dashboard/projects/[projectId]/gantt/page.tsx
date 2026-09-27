@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireServerSession } from '@/server/session';
 import { ProjectNotFoundError, getProjectDetail } from '@/server/projects';
 import { PageHeader } from '../../../_components/ui';
-import { GanttChart, type GanttRow } from '../_components/GanttChart';
+import { GanttChart, type GanttRow } from '../../../_components/GanttChart';
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const addMonthsISO = (iso: string, n: number) => {
