@@ -234,6 +234,15 @@ export async function getHaccpPlanDetail(organizationId: string, planId: string)
           status: active.status,
           scope: active.scope,
           productProcess: active.productProcess,
+          // HACCP-CORE-DATA-GAPS §D — uso previsto (paso 3).
+          intendedUse: active.intendedUse,
+          intendedConsumer: active.intendedConsumer,
+          sensitiveGroups: active.sensitiveGroups,
+          usageConditions: active.usageConditions,
+          distributionConditions: active.distributionConditions,
+          preparationOrHandling: active.preparationOrHandling,
+          misuseConsiderations: active.misuseConsiderations,
+          otherIntendedUseNotes: active.otherIntendedUseNotes,
           editable,
           flowVerifiedOnSite: active.flowVerifiedOnSite,
           flowVerifiedAtLabel: active.flowVerifiedAt
@@ -452,6 +461,15 @@ export async function createHaccpVersion(
         status: 'draft',
         scope: current.scope,
         productProcess: current.productProcess,
+        // HACCP-CORE-DATA-GAPS §D4 — clona el uso previsto a la nueva versión.
+        intendedUse: current.intendedUse,
+        intendedConsumer: current.intendedConsumer,
+        sensitiveGroups: current.sensitiveGroups,
+        usageConditions: current.usageConditions,
+        distributionConditions: current.distributionConditions,
+        preparationOrHandling: current.preparationOrHandling,
+        misuseConsiderations: current.misuseConsiderations,
+        otherIntendedUseNotes: current.otherIntendedUseNotes,
         changeNotes: changeNotes ?? null,
         createdBy: userId,
       },
@@ -726,6 +744,7 @@ export async function createHaccpVersion(
           monitoringWho: p.monitoringWho,
           monitoringWhen: p.monitoringWhen,
           correction: p.correction,
+          disposition: p.disposition,
           correctiveAction: p.correctiveAction,
           recordReference: p.recordReference,
           createdBy: p.createdBy,
@@ -815,6 +834,49 @@ export async function requireEditableVersion(organizationId: string, planVersion
   if (!isVersionEditable(v.status))
     throw new HaccpValidationError(['Solo un borrador puede editarse.']);
   return v;
+}
+
+// --- HACCP-CORE-DATA-GAPS §D — uso previsto (version-owned) ------------------
+export interface IntendedUseInput {
+  intendedUse?: string | null;
+  intendedConsumer?: string | null;
+  sensitiveGroups?: string | null;
+  usageConditions?: string | null;
+  distributionConditions?: string | null;
+  preparationOrHandling?: string | null;
+  misuseConsiderations?: string | null;
+  otherIntendedUseNotes?: string | null;
+}
+
+const trimOrNull = (v: string | null | undefined) => {
+  const t = (v ?? '').trim();
+  return t === '' ? null : t;
+};
+
+/** Guarda el USO PREVISTO en el borrador de la versión (paso 3). Publicado = inmutable. */
+export async function saveIntendedUse(
+  organizationId: string,
+  userId: string,
+  planVersionId: string,
+  input: IntendedUseInput,
+): Promise<void> {
+  await requireAdmin(organizationId, userId);
+  await requireEditableVersion(organizationId, planVersionId);
+  await withOrgContext(organizationId, async (tx) => {
+    await tx.haccpPlanVersion.update({
+      where: { id: planVersionId },
+      data: {
+        intendedUse: trimOrNull(input.intendedUse),
+        intendedConsumer: trimOrNull(input.intendedConsumer),
+        sensitiveGroups: trimOrNull(input.sensitiveGroups),
+        usageConditions: trimOrNull(input.usageConditions),
+        distributionConditions: trimOrNull(input.distributionConditions),
+        preparationOrHandling: trimOrNull(input.preparationOrHandling),
+        misuseConsiderations: trimOrNull(input.misuseConsiderations),
+        otherIntendedUseNotes: trimOrNull(input.otherIntendedUseNotes),
+      },
+    });
+  });
 }
 
 export interface TeamMemberInput {

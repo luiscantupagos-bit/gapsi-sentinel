@@ -3197,6 +3197,17 @@ model HaccpPlanVersion {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
 
+  // HACCP-CORE-DATA-GAPS §D — USO PREVISTO (version-owned; información propia del estudio HACCP).
+  // Todos opcionales; la nueva versión los clona; publicado inmutable.
+  intendedUse             String? @map("intended_use")
+  intendedConsumer        String? @map("intended_consumer")
+  sensitiveGroups         String? @map("sensitive_groups")
+  usageConditions         String? @map("usage_conditions")
+  distributionConditions  String? @map("distribution_conditions")
+  preparationOrHandling   String? @map("preparation_or_handling")
+  misuseConsiderations    String? @map("misuse_considerations")
+  otherIntendedUseNotes   String? @map("other_intended_use_notes")
+
   // HACCP-002: verificación in situ del diagrama de flujo (por VERSIÓN completa, §E18).
   flowVerifiedOnSite    Boolean   @default(false) @map("flow_verified_on_site")
   flowVerifiedAt        DateTime? @map("flow_verified_at") @db.Timestamptz(6)
@@ -3403,6 +3414,9 @@ model HaccpControlPlan {
   monitoringWho           String?   @map("monitoring_who")
   monitoringWhen          String?   @map("monitoring_when")
   correction              String?
+  /// HACCP-CORE-DATA-GAPS §E — DISPOSICIÓN del producto/material afectado (distinta de la
+  /// corrección inmediata y de la acción correctiva). Texto controlado/descriptivo.
+  disposition             String?
   correctiveAction        String?   @map("corrective_action")
   recordReference         String?   @map("record_reference")
   createdBy               String?   @map("created_by") @db.Uuid
