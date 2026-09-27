@@ -14,7 +14,7 @@ const tab = read('../src/app/dashboard/haccp/[planId]/_components/HaccpFlowTab.t
 
 describe('§E11 tab habilitado', () => {
   it('«flujo» es un tab activo, ya no «Próximamente»', () => {
-    expect(HACCP_TABS).toContain('flujo');
+    expect(HACCP_TABS).toContain('flow'); // WORKSPACE-REORG: «Diagrama de flujo» (paso 4)
     expect(HACCP_FUTURE_TABS as readonly string[]).not.toContain('Diagrama de flujo');
   });
 });
@@ -46,10 +46,9 @@ describe('§E12/§E37 editor', () => {
     expect(tab).toContain('Conforme');
     expect(tab).toContain('HACCP_CONNECTION_TYPES');
   });
-  it('§E18/§E19 verificación in situ', () => {
-    expect(tab).toContain('verifyFlowAction');
-    expect(tab).toContain('Verificado en planta');
-    expect(tab).toContain('No verificado en planta');
+  it('§E18/§E19 WORKSPACE-REORG: la confirmación in situ ya no vive en el diagrama', () => {
+    // Se movió al paso 5 «Confirmación in situ» (HaccpOnsiteConfirmationTab).
+    expect(tab).not.toContain('verifyFlowAction');
   });
   it('§E21 publicado read-only (editor gated por editable)', () => {
     expect(tab).toContain('version?.editable');

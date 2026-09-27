@@ -25,7 +25,6 @@ import {
   removeConnectionAction,
   removeStepAction,
   updateStepAction,
-  verifyFlowAction,
   type FormState,
 } from '../../actions';
 import { HaccpProcessFlowView } from './HaccpProcessFlowView';
@@ -83,18 +82,7 @@ export function HaccpFlowTab({
 
   return (
     <>
-      {/* Estado de verificación in situ (§E19). */}
-      <div className="haccp-flow__verify">
-        {version?.flowVerifiedOnSite ? (
-          <span className="badge badge--haccp-published">
-            Verificado en planta · {version.flowVerifiedAtLabel}
-            {version.flowVerifiedByName ? ` · ${version.flowVerifiedByName}` : ''}
-          </span>
-        ) : (
-          <span className="badge badge--warn">No verificado en planta</span>
-        )}
-      </div>
-
+      {/* WORKSPACE-REORG: la confirmación in situ se opera en el paso 5 «Confirmación in situ». */}
       <HaccpProcessFlowView steps={flow.steps} connections={flow.connections} />
 
       {editable && version && (
@@ -267,25 +255,6 @@ export function HaccpFlowTab({
                 </label>
               </ActionForm>
             </details>
-          )}
-
-          {/* Verificación in situ (§E18). */}
-          <h3>Verificación in situ</h3>
-          {version.flowVerifiedOnSite ? (
-            <ActionForm
-              action={verifyFlowAction}
-              hidden={{ planId, planVersionId: version.id, verified: 'false' }}
-              button="Retirar verificación"
-            />
-          ) : (
-            <ActionForm
-              action={verifyFlowAction}
-              hidden={{ planId, planVersionId: version.id, verified: 'true' }}
-              button="Marcar verificado en planta"
-              variant="primary"
-            >
-              <input name="notes" placeholder="Notas de verificación (opcional)" />
-            </ActionForm>
           )}
         </>
       )}

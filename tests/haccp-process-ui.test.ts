@@ -15,9 +15,9 @@ const mapView = read(`${base}/HaccpProcessMapView.tsx`);
 const stageView = read(`${base}/HaccpProcessStageDescriptionView.tsx`);
 const hazards = read(`${base}/HaccpHazardsTab.tsx`);
 
-describe('§B tab renombrado a Proceso', () => {
-  it('la etiqueta del tab «flujo» es «Proceso»', () => {
-    expect(HACCP_TAB_LABEL.flujo).toBe('Proceso');
+describe('§B pestaña de flujo (WORKSPACE-REORG: «Diagrama de flujo», paso 4)', () => {
+  it('la etiqueta del tab «flow» es «Diagrama de flujo»', () => {
+    expect(HACCP_TAB_LABEL.flow).toBe('Diagrama de flujo');
   });
 });
 

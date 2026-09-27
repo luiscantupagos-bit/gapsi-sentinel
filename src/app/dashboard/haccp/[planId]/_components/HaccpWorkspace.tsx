@@ -1,9 +1,11 @@
 'use client';
 
 /**
- * HACCP-001 — workspace del Plan HACCP por TABS accesibles (WAI-ARIA). El tab activo
- * persiste en `?tab=` sin recargar (history.replaceState). Solo el borrador es editable; la
- * versión publicada es inmutable. Las fases futuras se muestran como «Próximamente».
+ * HACCP-001 / WORKSPACE-REORG — workspace del Plan HACCP organizado según la METODOLOGÍA HACCP:
+ * 12 pestañas accesibles (WAI-ARIA) en dos grupos (5 pasos preliminares + 7 principios). El tab
+ * activo persiste en `?tab=` sin recargar (history.replaceState) y admite deep links antiguos
+ * mediante alias. El «Resumen» vive en el encabezado. Solo el borrador es editable; la versión
+ * publicada es inmutable.
  */
 import {
   useActionState,
@@ -17,7 +19,8 @@ import Link from 'next/link';
 import {
   HACCP_TABS,
   HACCP_TAB_LABEL,
-  HACCP_FUTURE_TABS,
+  HACCP_TAB_NUMBER,
+  HACCP_TAB_GROUPS,
   HACCP_PLAN_STATUS_LABEL,
   HACCP_VERSION_STATUS_LABEL,
   HACCP_REFERENCE_KIND_LABEL,
@@ -39,8 +42,13 @@ import { SubmitButton } from '../../../documents/_components/SubmitButton';
 import { HaccpProcessTab } from './HaccpProcessTab';
 import { HaccpHazardsTab } from './HaccpHazardsTab';
 import { HaccpControlTab } from './HaccpControlTab';
-import { HaccpValidationTab } from './HaccpValidationTab';
-import { HaccpVerificationTab } from './HaccpVerificationTab';
+import { HaccpOnsiteConfirmationTab } from './HaccpOnsiteConfirmationTab';
+import {
+  HaccpLimitsView,
+  HaccpMonitoringView,
+  HaccpCorrectiveActionsView,
+} from './HaccpControlFacets';
+import { HaccpValidationVerificationTab } from './HaccpValidationVerificationTab';
 import {
   addSourceAction,
   addTeamMemberAction,
@@ -166,39 +174,54 @@ export function HaccpWorkspace({
 
   return (
     <div className="doc-panel">
-      <div className="doc-panel__tablist" role="tablist" aria-label="Secciones del plan HACCP">
-        {HACCP_TABS.map((tab, i) => {
-          const selected = tab === active;
-          return (
-            <button
-              key={tab}
-              ref={(el) => {
-                tabRefs.current[tab] = el;
-              }}
-              type="button"
-              role="tab"
-              id={`haccp-tab-${tab}`}
-              aria-selected={selected}
-              aria-controls={`haccp-panel-${tab}`}
-              tabIndex={selected ? 0 : -1}
-              className={`doc-panel__tab${selected ? ' is-active' : ''}`}
-              onClick={() => select(tab)}
-              onKeyDown={(e) => onKeyDown(e, i)}
+      {/* WORKSPACE-REORG: «Resumen del plan» en el encabezado (bloque superior colapsable). */}
+      <details className="haccp-plansummary" open>
+        <summary>Resumen del plan</summary>
+        <PlanSummaryHeader
+          data={data}
+          sites={sites}
+          members={members}
+          canEdit={canEdit}
+          isAdmin={isAdmin}
+        />
+      </details>
+
+      {/* WORKSPACE-REORG: 12 pestañas en dos grupos (pasos preliminares 1-5 · principios 6-12). */}
+      <div className="haccp-tabgroups">
+        {HACCP_TAB_GROUPS.map((group) => (
+          <div key={group.title} className="haccp-tabgroup">
+            <span className="haccp-tabgroup__title">{group.title}</span>
+            <div
+              className="doc-panel__tablist haccp-tabgroup__tabs"
+              role="tablist"
+              aria-label={`${group.title} — plan HACCP`}
             >
-              {HACCP_TAB_LABEL[tab]}
-            </button>
-          );
-        })}
-        {HACCP_FUTURE_TABS.map((label) => (
-          <button
-            key={label}
-            type="button"
-            className="doc-panel__tab is-disabled"
-            disabled
-            title="Próximamente"
-          >
-            {label} · Próximamente
-          </button>
+              {group.tabs.map((tab) => {
+                const i = HACCP_TABS.indexOf(tab);
+                const selected = tab === active;
+                return (
+                  <button
+                    key={tab}
+                    ref={(el) => {
+                      tabRefs.current[tab] = el;
+                    }}
+                    type="button"
+                    role="tab"
+                    id={`haccp-tab-${tab}`}
+                    aria-selected={selected}
+                    aria-controls={`haccp-panel-${tab}`}
+                    tabIndex={selected ? 0 : -1}
+                    className={`doc-panel__tab${selected ? ' is-active' : ''}`}
+                    onClick={() => select(tab)}
+                    onKeyDown={(e) => onKeyDown(e, i)}
+                  >
+                    <span className="haccp-tab__num">{HACCP_TAB_NUMBER[tab]}</span>{' '}
+                    {HACCP_TAB_LABEL[tab]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -250,77 +273,157 @@ function TabContent(props: {
   validation: ValidationData;
   verification: VerificationData;
 }) {
+  const planId = props.data.plan.id;
+  const noVersion = <p className="empty-state empty-state--compact">Sin versión activa.</p>;
+  const formDocs = props.documents
+    .filter((d) => d.documentType === 'form')
+    .map((d) => ({ id: d.id, code: d.code, title: d.title }));
+  const allDocs = props.documents.map((d) => ({ id: d.id, code: d.code, title: d.title }));
+
   switch (props.tab) {
-    case 'resumen':
-      return <ResumenTab {...props} />;
-    case 'equipo':
+    // --- Pasos preliminares (1-5) ---
+    case 'team':
       return <EquipoTab {...props} />;
-    case 'producto':
-      return <SourceTab {...props} kind="product" />;
-    case 'materias':
-      return <SourceTab {...props} kind="material" />;
-    case 'ppr':
-      return <SourceTab {...props} kind="prerequisite" />;
-    case 'documentos':
-      return <SourceTab {...props} kind="document" />;
-    case 'flujo':
+    case 'product':
+      // §2: consolida Producto terminado + Materias primas e insumos.
+      return (
+        <>
+          <h3>Producto terminado</h3>
+          <SourceTab {...props} kind="product" />
+          <h3>Materias primas e insumos</h3>
+          <SourceTab {...props} kind="material" />
+        </>
+      );
+    case 'intended-use':
+      return <IntendedUseTab data={props.data} />;
+    case 'flow':
       return (
         <HaccpProcessTab
-          planId={props.data.plan.id}
+          planId={planId}
           model={props.processModel}
           flow={props.flow}
           members={props.members}
           canEdit={props.canEdit}
         />
       );
-    case 'peligros':
+    case 'onsite-confirmation':
+      return (
+        <HaccpOnsiteConfirmationTab planId={planId} flow={props.flow} canEdit={props.canEdit} />
+      );
+
+    // --- Principios HACCP (6-12) ---
+    case 'hazards':
       return props.hazards ? (
-        <HaccpHazardsTab
-          planId={props.data.plan.id}
-          analysis={props.hazards}
-          canEdit={props.canEdit}
-        />
+        <>
+          <HaccpHazardsTab planId={planId} analysis={props.hazards} canEdit={props.canEdit} />
+          {/* §PPR: soporte transversal, acceso contextual (no ocupa una pestaña). */}
+          <details className="haccp-ppr-context">
+            <summary className="button button--ghost">Ver PPR relacionados</summary>
+            <SourceTab {...props} kind="prerequisite" />
+          </details>
+        </>
       ) : (
-        <p className="empty-state empty-state--compact">Sin versión activa.</p>
+        noVersion
       );
-    case 'medidas':
+    case 'ccp':
       return props.control ? (
-        <HaccpControlTab planId={props.data.plan.id} data={props.control} canEdit={props.canEdit} />
+        <HaccpControlTab planId={planId} data={props.control} canEdit={props.canEdit} />
       ) : (
-        <p className="empty-state empty-state--compact">Sin versión activa.</p>
+        noVersion
       );
-    case 'validacion':
-      return props.validation ? (
-        <HaccpValidationTab
-          planId={props.data.plan.id}
-          data={props.validation}
+    case 'limits':
+      return props.control ? <HaccpLimitsView planId={planId} data={props.control} /> : noVersion;
+    case 'monitoring':
+      return props.control ? (
+        <HaccpMonitoringView planId={planId} data={props.control} />
+      ) : (
+        noVersion
+      );
+    case 'corrective-actions':
+      return props.control ? (
+        <HaccpCorrectiveActionsView planId={planId} data={props.control} />
+      ) : (
+        noVersion
+      );
+    case 'validation-verification':
+      return (
+        <HaccpValidationVerificationTab
+          planId={planId}
+          validation={props.validation}
+          verification={props.verification}
           members={props.members}
-          documents={props.documents.map((d) => ({ id: d.id, code: d.code, title: d.title }))}
+          documents={allDocs}
+          formDocuments={formDocs}
           canEdit={props.canEdit}
         />
-      ) : (
-        <p className="empty-state empty-state--compact">Sin versión activa.</p>
       );
-    case 'verificacion':
-      return props.verification ? (
-        <HaccpVerificationTab
-          planId={props.data.plan.id}
-          data={props.verification}
-          members={props.members}
-          documents={props.documents
-            .filter((d) => d.documentType === 'form')
-            .map((d) => ({ id: d.id, code: d.code, title: d.title }))}
-          canEdit={props.canEdit}
-        />
-      ) : (
-        <p className="empty-state empty-state--compact">Sin versión activa.</p>
+    case 'records':
+      // §12: consolida documentos soporte + acceso a registros digitales (DOC-004).
+      return (
+        <>
+          <h3>Documentos soporte</h3>
+          <SourceTab {...props} kind="document" />
+          <p className="msg msg--info">
+            Los registros digitales (formatos llenados) se gestionan en{' '}
+            <Link href="/dashboard/records">Registros</Link>. Los formatos asociados a monitoreo y
+            verificación conservan su versión exacta.
+          </p>
+        </>
       );
     default:
       return null;
   }
 }
 
-function ResumenTab({
+/**
+ * WORKSPACE-REORG paso 3 — «Uso previsto». Composición con los datos DISPONIBLES (producto/proceso,
+ * alcance y referencias de producto). El modelo aún no captura campos específicos (consumidor
+ * previsto, grupos sensibles, condiciones esperadas de uso): se muestran los datos disponibles y se
+ * registra el gap. NO se inventan campos ni se migra automáticamente.
+ */
+function IntendedUseTab({ data }: { data: HaccpDetail }) {
+  const productRefs = data.references.filter((r) => r.referenceKind === 'product');
+  return (
+    <>
+      <dl className="meta-grid">
+        <div>
+          <dt>Producto / proceso</dt>
+          <dd>{data.active?.productProcess ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Alcance</dt>
+          <dd>{data.plan.scope ?? '—'}</dd>
+        </div>
+      </dl>
+      {productRefs.length > 0 && (
+        <>
+          <h3>Fichas de producto</h3>
+          <ul className="history">
+            {productRefs.map((r) => (
+              <li key={r.id}>
+                {r.code ?? '—'} · {r.title ?? '—'}
+                {r.versionLabel ? ` · ${r.versionLabel}` : ''}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="msg msg--info">
+        El modelo aún no captura campos específicos de uso previsto (consumidor previsto, grupos
+        sensibles, condiciones esperadas de uso, distribución). Se muestran los datos disponibles;
+        estos campos quedan registrados como un gap para una fase posterior (sin migración
+        automática).
+      </p>
+    </>
+  );
+}
+
+/**
+ * WORKSPACE-REORG — «Resumen» sale de las 12 pestañas y pasa al encabezado del plan (bloque
+ * superior colapsable) sin perder funcionalidad: versión, estado, responsable, sitio, próxima
+ * revisión y edición de datos del plan.
+ */
+function PlanSummaryHeader({
   data,
   sites,
   members,

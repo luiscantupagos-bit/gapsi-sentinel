@@ -16,7 +16,7 @@ const matrix = read(`${base}/RiskMatrixView.tsx`);
 
 describe('§2 tab habilitado', () => {
   it('«peligros» es un tab activo, ya no «Próximamente»', () => {
-    expect(HACCP_TABS).toContain('peligros');
+    expect(HACCP_TABS).toContain('hazards'); // WORKSPACE-REORG
     expect(HACCP_FUTURE_TABS as readonly string[]).not.toContain('Análisis de peligros');
   });
 });

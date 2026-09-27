@@ -44,11 +44,11 @@ describe('§32 asistente de creación', () => {
 });
 
 describe('§33-41 workspace', () => {
-  it('6 tabs ARIA + fases futuras «Próximamente»', () => {
+  it('WORKSPACE-REORG: tablist ARIA por grupos, sin «Próximamente»', () => {
     expect(workspace).toContain('role="tablist"');
-    expect(workspace).toContain('HACCP_TABS.map');
-    expect(workspace).toContain('HACCP_FUTURE_TABS.map');
-    expect(workspace).toContain('Próximamente');
+    expect(workspace).toContain('HACCP_TAB_GROUPS');
+    expect(workspace).not.toContain('HACCP_FUTURE_TABS.map');
+    expect(workspace).not.toContain('Próximamente');
   });
   it('§34 solo el borrador es editable (canEdit + active.editable)', () => {
     expect(workspace).toContain('canEdit');

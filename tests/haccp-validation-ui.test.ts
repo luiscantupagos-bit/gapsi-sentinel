@@ -15,7 +15,7 @@ const view = read(`${base}/HaccpValidationView.tsx`);
 
 describe('§25 tab habilitado', () => {
   it('«validacion» es un tab activo, ya no «Próximamente»', () => {
-    expect(HACCP_TABS).toContain('validacion');
+    expect(HACCP_TABS).toContain('validation-verification'); // WORKSPACE-REORG: subtab de «Validación y verificación»
     expect(HACCP_FUTURE_TABS as readonly string[]).not.toContain('Validación');
   });
 });
