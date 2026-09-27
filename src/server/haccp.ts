@@ -766,6 +766,38 @@ export async function createHaccpVersion(
         },
       });
     }
+    // HACCP-006 §37: clona las definiciones de verificación preservando verification_logical_id.
+    const verificationDefs = await tx.haccpVerificationDefinition.findMany({
+      where: { organizationId, planVersionId: current.id },
+    });
+    for (const d of verificationDefs) {
+      await tx.haccpVerificationDefinition.create({
+        data: {
+          organizationId,
+          planVersionId: created.id,
+          verificationLogicalId: d.verificationLogicalId,
+          scopeType: d.scopeType,
+          controlMeasureLogicalId: d.controlMeasureLogicalId,
+          hazardLogicalId: d.hazardLogicalId,
+          processStepId: d.processStepId,
+          title: d.title,
+          purpose: d.purpose,
+          method: d.method,
+          responsibleUserId: d.responsibleUserId,
+          responsibleRole: d.responsibleRole,
+          frequencyType: d.frequencyType,
+          frequencyConfig: (d.frequencyConfig ?? undefined) as Prisma.InputJsonValue | undefined,
+          recordStrategy: d.recordStrategy,
+          requiredDocumentId: d.requiredDocumentId,
+          requiredDocumentVersionId: d.requiredDocumentVersionId,
+          evidenceRequired: d.evidenceRequired,
+          status: d.status,
+          startAt: d.startAt,
+          notifyBeforeDays: d.notifyBeforeDays,
+          createdBy: d.createdBy,
+        },
+      });
+    }
     await tx.haccpPlan.update({ where: { id: planId }, data: { status: 'draft' } });
     return created.id;
   });

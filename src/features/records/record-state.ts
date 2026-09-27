@@ -57,6 +57,7 @@ export function canTransition(from: string, to: string): boolean {
 export const RECORD_SOURCE_TYPES = [
   'manual',
   'haccp_control_plan',
+  'haccp_verification',
   'program',
   'task',
   'audit',
@@ -66,6 +67,7 @@ export type RecordSourceType = (typeof RECORD_SOURCE_TYPES)[number];
 export const RECORD_SOURCE_LABEL: Record<RecordSourceType, string> = {
   manual: 'Manual',
   haccp_control_plan: 'Plan de control HACCP',
+  haccp_verification: 'Verificación HACCP',
   program: 'Programa',
   task: 'Tarea',
   audit: 'Auditoría',
