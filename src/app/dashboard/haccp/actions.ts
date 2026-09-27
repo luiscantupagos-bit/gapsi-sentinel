@@ -18,6 +18,7 @@ import {
   publishHaccpVersion,
   removeSourceReference,
   removeTeamMember,
+  saveIntendedUse,
   updateHaccpPlan,
   updateSourceToLatest,
 } from '@/server/haccp';
@@ -526,6 +527,7 @@ export async function saveControlPlanAction(
       monitoringWho: opt(fd, 'monitoringWho') ?? null,
       monitoringWhen: opt(fd, 'monitoringWhen') ?? null,
       correction: opt(fd, 'correction') ?? null,
+      disposition: opt(fd, 'disposition') ?? null,
       correctiveAction: opt(fd, 'correctiveAction') ?? null,
       recordReference: opt(fd, 'recordReference') ?? null,
     });
@@ -847,4 +849,29 @@ export async function recordVerificationResultAction(
   }
   revalidatePlan(planId);
   return { ok: true, message: 'Resultado registrado.' };
+}
+
+// --- HACCP-CORE-DATA-GAPS §D — uso previsto (paso 3) ------------------------
+export async function saveIntendedUseAction(
+  _p: FormState | null,
+  fd: FormData,
+): Promise<FormState> {
+  const session = await requireServerSession();
+  const planId = s(fd, 'planId');
+  try {
+    await saveIntendedUse(session.organizationId, session.userId, s(fd, 'planVersionId'), {
+      intendedUse: opt(fd, 'intendedUse') ?? null,
+      intendedConsumer: opt(fd, 'intendedConsumer') ?? null,
+      sensitiveGroups: opt(fd, 'sensitiveGroups') ?? null,
+      usageConditions: opt(fd, 'usageConditions') ?? null,
+      distributionConditions: opt(fd, 'distributionConditions') ?? null,
+      preparationOrHandling: opt(fd, 'preparationOrHandling') ?? null,
+      misuseConsiderations: opt(fd, 'misuseConsiderations') ?? null,
+      otherIntendedUseNotes: opt(fd, 'otherIntendedUseNotes') ?? null,
+    });
+  } catch (e) {
+    return toState(e);
+  }
+  revalidatePlan(planId);
+  return { ok: true, message: 'Uso previsto guardado.' };
 }

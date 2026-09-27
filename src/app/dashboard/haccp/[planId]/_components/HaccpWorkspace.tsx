@@ -56,6 +56,7 @@ import {
   publishPlanAction,
   removeSourceAction,
   removeTeamMemberAction,
+  saveIntendedUseAction,
   updatePlanAction,
   updateSourceToLatestAction,
   type FormState,
@@ -295,7 +296,7 @@ function TabContent(props: {
         </>
       );
     case 'intended-use':
-      return <IntendedUseTab data={props.data} />;
+      return <IntendedUseTab planId={planId} data={props.data} canEdit={props.canEdit} />;
     case 'flow':
       return (
         <HaccpProcessTab
@@ -376,44 +377,86 @@ function TabContent(props: {
 }
 
 /**
- * WORKSPACE-REORG paso 3 — «Uso previsto». Composición con los datos DISPONIBLES (producto/proceso,
- * alcance y referencias de producto). El modelo aún no captura campos específicos (consumidor
- * previsto, grupos sensibles, condiciones esperadas de uso): se muestran los datos disponibles y se
- * registra el gap. NO se inventan campos ni se migra automáticamente.
+ * WORKSPACE-REORG paso 3 + HACCP-CORE-DATA-GAPS §D — «Uso previsto». Formulario/lectura REAL con
+ * los campos propios del estudio HACCP (version-owned). Publicado = solo lectura.
  */
-function IntendedUseTab({ data }: { data: HaccpDetail }) {
-  const productRefs = data.references.filter((r) => r.referenceKind === 'product');
+const INTENDED_USE_FIELDS: {
+  name: keyof NonNullable<HaccpDetail['active']> & string;
+  label: string;
+  area?: boolean;
+}[] = [
+  { name: 'intendedUse', label: 'Uso previsto del producto', area: true },
+  { name: 'intendedConsumer', label: 'Consumidor previsto' },
+  { name: 'sensitiveGroups', label: 'Grupos sensibles (si aplica)' },
+  { name: 'usageConditions', label: 'Condiciones de uso / preparación', area: true },
+  { name: 'distributionConditions', label: 'Condiciones relevantes de distribución' },
+  { name: 'preparationOrHandling', label: 'Manipulación esperada (si aplica)' },
+  {
+    name: 'misuseConsiderations',
+    label: 'Uso incorrecto razonablemente previsible (si aplica)',
+    area: true,
+  },
+  { name: 'otherIntendedUseNotes', label: 'Observaciones', area: true },
+];
+
+function IntendedUseTab({
+  planId,
+  data,
+  canEdit,
+}: {
+  planId: string;
+  data: HaccpDetail;
+  canEdit: boolean;
+}) {
+  const active = data.active;
+  const editable = canEdit && Boolean(active?.editable);
+  const value = (name: string) =>
+    (active as Record<string, unknown> | null)?.[name] as string | null | undefined;
+  const hasAny = INTENDED_USE_FIELDS.some((f) => value(f.name)?.trim());
+
   return (
     <>
-      <dl className="meta-grid">
-        <div>
-          <dt>Producto / proceso</dt>
-          <dd>{data.active?.productProcess ?? '—'}</dd>
-        </div>
-        <div>
-          <dt>Alcance</dt>
-          <dd>{data.plan.scope ?? '—'}</dd>
-        </div>
-      </dl>
-      {productRefs.length > 0 && (
-        <>
-          <h3>Fichas de producto</h3>
-          <ul className="history">
-            {productRefs.map((r) => (
-              <li key={r.id}>
-                {r.code ?? '—'} · {r.title ?? '—'}
-                {r.versionLabel ? ` · ${r.versionLabel}` : ''}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      <p className="msg msg--info">
-        El modelo aún no captura campos específicos de uso previsto (consumidor previsto, grupos
-        sensibles, condiciones esperadas de uso, distribución). Se muestran los datos disponibles;
-        estos campos quedan registrados como un gap para una fase posterior (sin migración
-        automática).
+      <p className="muted doc-panel__hint">
+        Describe el uso previsto del producto y su consumidor. Esta información pertenece al estudio
+        HACCP y se conserva por versión.
       </p>
+
+      {!editable && !hasAny && (
+        <p className="empty-state empty-state--compact">Uso previsto aún no documentado.</p>
+      )}
+
+      {!editable && hasAny && (
+        <div className="haccp-plan-fields">
+          {INTENDED_USE_FIELDS.map((f) =>
+            value(f.name)?.trim() ? (
+              <div key={f.name} className="doc-report__field">
+                <span className="doc-report__field-label">{f.label}</span>
+                <p>{value(f.name)}</p>
+              </div>
+            ) : null,
+          )}
+        </div>
+      )}
+
+      {editable && active && (
+        <ActionForm
+          action={saveIntendedUseAction}
+          hidden={{ planId, planVersionId: active.id }}
+          button="Guardar uso previsto"
+          variant="primary"
+        >
+          {INTENDED_USE_FIELDS.map((f) => (
+            <label key={f.name}>
+              {f.label}
+              {f.area ? (
+                <textarea name={f.name} rows={2} defaultValue={value(f.name) ?? ''} />
+              ) : (
+                <input name={f.name} defaultValue={value(f.name) ?? ''} />
+              )}
+            </label>
+          ))}
+        </ActionForm>
+      )}
     </>
   );
 }

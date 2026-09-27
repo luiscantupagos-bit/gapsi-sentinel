@@ -3686,6 +3686,13 @@ async function seedHaccp(): Promise<void> {
       isCurrent: true,
       scope: 'Recepción, selección, ovoscopía, clasificación y empaque de huevo fresco.',
       productProcess: 'Huevo fresco de gallina — selección y empaque',
+      // HACCP-CORE-DATA-GAPS §D — uso previsto DEMO (razonable para huevo fresco; sin inventar
+      // población vulnerable ni instrucciones regulatorias, §D3).
+      intendedUse: 'Huevo fresco para consumo tras cocción; empaque para venta al detalle.',
+      intendedConsumer: 'Público general.',
+      usageConditions: 'Requiere cocción completa antes del consumo; conservar en refrigeración.',
+      distributionConditions: 'Distribución y almacenamiento en cadena de frío.',
+      preparationOrHandling: 'Cocción completa antes de consumir.',
       createdBy: USER_A,
       publishedAt: new Date('2026-08-01T00:00:00.000Z'),
     },
@@ -4064,6 +4071,9 @@ async function seedHaccp(): Promise<void> {
         monitoringWho: 'Personal de recepción / calidad.',
         monitoringWhen: 'En cada recepción.',
         correction: 'Retener o rechazar el lote no conforme.',
+        // HACCP-CORE-DATA-GAPS §E — disposición (qué se hace con el producto afectado).
+        disposition:
+          'Segregar el lote afectado; retener para evaluación y decidir rechazo o reproceso.',
         correctiveAction: 'Registrar el evento y notificar al proveedor.',
         createdBy: USER_A,
       },
