@@ -6671,3 +6671,92 @@ table td.mono {
 .haccp-verif-occ {
   margin-top: 1rem;
 }
+
+/* =====================================================================
+   WORKSPACE-REORG — 12 pasos HACCP (5 preliminares + 7 principios)
+   ===================================================================== */
+.haccp-plansummary {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: 0.5rem 1rem 1rem;
+  margin-bottom: 1rem;
+}
+.haccp-plansummary > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.4rem 0;
+}
+.haccp-tabgroups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.haccp-tabgroup__title {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  margin: 0.25rem 0;
+}
+.haccp-tabgroup__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  overflow-x: auto;
+}
+.haccp-tab__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.doc-panel__tab.is-active .haccp-tab__num {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+.haccp-onsite {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+}
+.haccp-onsite__status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.haccp-onsite__meta {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.haccp-onsite__meta dt {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.haccp-ppr-context {
+  margin-top: 1rem;
+  border-top: 1px dashed var(--color-border);
+  padding-top: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .haccp-tabgroup__tabs {
+    flex-wrap: nowrap;
+  }
+  .haccp-onsite__meta {
+    gap: 0.75rem;
+  }
+}

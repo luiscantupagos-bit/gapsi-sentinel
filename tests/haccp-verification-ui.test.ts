@@ -14,10 +14,9 @@ const tab = read(`${base}/HaccpVerificationTab.tsx`);
 const view = read(`${base}/HaccpVerificationView.tsx`);
 
 describe('§24 tab habilitado', () => {
-  it('«verificacion» es un tab activo, ya no «Próximamente»', () => {
-    expect(HACCP_TABS).toContain('verificacion');
-    expect(HACCP_TAB_LABEL.verificacion).toBe('Verificación');
-    expect(HACCP_FUTURE_TABS as readonly string[]).not.toContain('Verificación');
+  it('la verificación vive en la pestaña «validation-verification» (subtab), sin «Próximamente»', () => {
+    expect(HACCP_TABS).toContain('validation-verification');
+    expect(HACCP_TAB_LABEL['validation-verification']).toBe('Validación y verificación');
     expect(HACCP_FUTURE_TABS).toHaveLength(0);
   });
 });

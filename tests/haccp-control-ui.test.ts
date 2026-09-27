@@ -15,7 +15,7 @@ const view = read(`${base}/HaccpControlMeasuresView.tsx`);
 
 describe('§16 tab habilitado', () => {
   it('«medidas» es un tab activo, ya no «Próximamente»', () => {
-    expect(HACCP_TABS).toContain('medidas');
+    expect(HACCP_TABS).toContain('ccp'); // WORKSPACE-REORG: «Determinación de PCC»
     expect(HACCP_FUTURE_TABS as readonly string[]).not.toContain('Medidas de control');
     expect(HACCP_FUTURE_TABS as readonly string[]).not.toContain('PCC / PPRO');
   });

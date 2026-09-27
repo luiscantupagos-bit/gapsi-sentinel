@@ -87,40 +87,105 @@ export const HACCP_ROLE_SUGGESTIONS = [
 ] as const;
 
 // --- Tabs del workspace (HACCP-001) ------------------------------------------
+/**
+ * WORKSPACE-REORG — el workspace se organiza según la METODOLOGÍA HACCP (no según los módulos
+ * internos de Sentinel): 12 pestañas = 5 PASOS PRELIMINARES + 7 PRINCIPIOS. El «Resumen» se movió
+ * al encabezado del plan; Producto/Materias se consolidan en «Descripción del producto»; PPR es
+ * soporte transversal (contextual, no ocupa pestaña); «Proceso» pasa a ser «Diagrama de flujo»;
+ * Documentos → «Registros y documentación». Sin cambios de modelo de datos.
+ */
 export const HACCP_TABS = [
-  'resumen',
-  'equipo',
-  'producto',
-  'materias',
-  'ppr',
-  'documentos',
-  'flujo',
-  'peligros',
-  'medidas',
-  'validacion',
-  'verificacion',
+  // Pasos preliminares (1-5)
+  'team',
+  'product',
+  'intended-use',
+  'flow',
+  'onsite-confirmation',
+  // Principios HACCP (6-12)
+  'hazards',
+  'ccp',
+  'limits',
+  'monitoring',
+  'corrective-actions',
+  'validation-verification',
+  'records',
 ] as const;
 export type HaccpTab = (typeof HACCP_TABS)[number];
 
+/** Número del paso (1-12) para mostrarlo en la pestaña. */
+export const HACCP_TAB_NUMBER: Record<HaccpTab, number> = {
+  team: 1,
+  product: 2,
+  'intended-use': 3,
+  flow: 4,
+  'onsite-confirmation': 5,
+  hazards: 6,
+  ccp: 7,
+  limits: 8,
+  monitoring: 9,
+  'corrective-actions': 10,
+  'validation-verification': 11,
+  records: 12,
+};
+
 export const HACCP_TAB_LABEL: Record<HaccpTab, string> = {
-  resumen: 'Resumen',
-  equipo: 'Equipo HACCP',
-  producto: 'Producto',
-  materias: 'Materias primas',
-  ppr: 'PPR',
-  documentos: 'Documentos',
-  flujo: 'Proceso',
-  peligros: 'Análisis de peligros',
-  medidas: 'Medidas de control',
-  validacion: 'Validación',
-  verificacion: 'Verificación',
+  team: 'Equipo HACCP',
+  product: 'Descripción del producto',
+  'intended-use': 'Uso previsto',
+  flow: 'Diagrama de flujo',
+  'onsite-confirmation': 'Confirmación in situ',
+  hazards: 'Análisis de peligros',
+  ccp: 'Determinación de PCC',
+  limits: 'Límites críticos',
+  monitoring: 'Monitoreo',
+  'corrective-actions': 'Acciones correctivas',
+  'validation-verification': 'Validación y verificación',
+  records: 'Registros y documentación',
+};
+
+/** Grupos visuales: pasos preliminares (1-5) y principios HACCP (6-12). */
+export const HACCP_TAB_GROUPS: { title: string; tabs: HaccpTab[] }[] = [
+  {
+    title: 'Pasos preliminares',
+    tabs: ['team', 'product', 'intended-use', 'flow', 'onsite-confirmation'],
+  },
+  {
+    title: 'Principios HACCP',
+    tabs: [
+      'hazards',
+      'ccp',
+      'limits',
+      'monitoring',
+      'corrective-actions',
+      'validation-verification',
+      'records',
+    ],
+  },
+];
+
+/** Compatibilidad de deep links antiguos → nueva pestaña (§backward compatibility). */
+export const HACCP_TAB_ALIASES: Record<string, HaccpTab> = {
+  resumen: 'team',
+  equipo: 'team',
+  producto: 'product',
+  materias: 'product',
+  ppr: 'hazards',
+  documentos: 'records',
+  flujo: 'flow',
+  peligros: 'hazards',
+  medidas: 'ccp',
+  validacion: 'validation-verification',
+  verificacion: 'validation-verification',
 };
 
 /** Tabs de fases futuras: se muestran deshabilitadas («Próximamente»). Ya no queda ninguna. */
 export const HACCP_FUTURE_TABS = [] as const;
 
 export function resolveTab(raw: string | null | undefined): HaccpTab {
-  return (HACCP_TABS as readonly string[]).includes(raw ?? '') ? (raw as HaccpTab) : 'resumen';
+  const key = raw ?? '';
+  if ((HACCP_TABS as readonly string[]).includes(key)) return key as HaccpTab;
+  if (HACCP_TAB_ALIASES[key]) return HACCP_TAB_ALIASES[key]!;
+  return 'team';
 }
 
 // --- Detección de actualización de fuentes (§24/§25) -------------------------
