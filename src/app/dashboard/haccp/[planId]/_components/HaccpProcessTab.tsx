@@ -1,9 +1,11 @@
 'use client';
 
 /**
- * HACCP-PROCESS-EXPANSION — pestaña «Proceso». Tres vistas: Mapa de proceso (SIPOC), Flujo
- * detallado y Descripción de etapas. En borrador, edición de entradas/salidas/destinos por etapa
- * (los cambios reinician la verificación in situ). Publicado = solo lectura.
+ * HACCP-PROCESS-EXPANSION + FLOW-SIMPLIFICATION — pestaña «Diagrama de flujo». Dos sub-vistas:
+ * «Flujo detallado» (con la confirmación in situ integrada arriba, paso preliminar 5) y
+ * «Descripción de etapas» (con la edición de entradas/salidas/destinos en borrador). La vista de
+ * mapa/SIPOC se retiró de la UI; sus componentes se conservan para HACCP-007. Publicado = solo
+ * lectura.
  */
 import { useActionState, useState, type ReactNode } from 'react';
 import {
@@ -32,17 +34,16 @@ import {
   removeDestinationAction,
   type FormState,
 } from '../../actions';
-import { HaccpProcessMapView } from './HaccpProcessMapView';
-import {
-  HaccpProcessStageDescriptionView,
-  HaccpSipocTableView,
-} from './HaccpProcessStageDescriptionView';
+// FLOW-SIMPLIFICATION: los componentes de mapa/SIPOC se mantienen reutilizables para HACCP-007
+// (salida documental), pero su import y su vista se retiraron del workspace.
+import { HaccpProcessStageDescriptionView } from './HaccpProcessStageDescriptionView';
 import { HaccpFlowTab } from './HaccpFlowTab';
+import { HaccpOnsiteConfirmationTab } from './HaccpOnsiteConfirmationTab';
 
 type ProcessModel = NonNullable<Awaited<ReturnType<typeof getProcessModel>>>;
 type FlowData = Awaited<ReturnType<typeof getPlanFlow>>;
 type Action = (prev: FormState | null, fd: FormData) => Promise<FormState>;
-type Sub = 'mapa' | 'flujo' | 'descripcion';
+type Sub = 'flujo' | 'descripcion';
 
 function ActionForm({
   action,
@@ -301,7 +302,7 @@ export function HaccpProcessTab({
   members: { id: string; name: string }[];
   canEdit: boolean;
 }) {
-  const [sub, setSub] = useState<Sub>('mapa');
+  const [sub, setSub] = useState<Sub>('flujo');
   const steps = model?.steps ?? [];
   const editable = canEdit && Boolean(model?.version.editable);
 
@@ -310,7 +311,6 @@ export function HaccpProcessTab({
       <div className="doc-panel__tablist" role="tablist" aria-label="Vistas del proceso">
         {(
           [
-            ['mapa', 'Mapa de proceso'],
             ['flujo', 'Flujo detallado'],
             ['descripcion', 'Descripción de etapas'],
           ] as [Sub, string][]
@@ -328,14 +328,26 @@ export function HaccpProcessTab({
         ))}
       </div>
 
-      {sub === 'mapa' && (
+      {sub === 'flujo' && (
         <>
-          <p className="muted doc-panel__hint">
-            Mapa SIPOC: entradas → etapa → salidas → destinos. Las rutas externas (venta,
-            devolución, procesamiento externo, disposición) se marcan explícitamente.
-          </p>
-          <HaccpSipocTableView steps={steps} />
-          <HaccpProcessMapView steps={steps} />
+          {/* Paso preliminar 5 · Confirmación in situ, integrado en el diagrama de flujo. */}
+          <section className="haccp-onsite-block">
+            <span className="haccp-step-legend">Paso preliminar 5 · Confirmación in situ</span>
+            <HaccpOnsiteConfirmationTab planId={planId} flow={flow} canEdit={canEdit} />
+          </section>
+
+          <span className="haccp-step-legend">
+            Paso preliminar 4 · Elaboración del diagrama de flujo
+          </span>
+          <HaccpFlowTab planId={planId} flow={flow} members={members} canEdit={canEdit} />
+        </>
+      )}
+
+      {sub === 'descripcion' && (
+        <>
+          <HaccpProcessStageDescriptionView steps={steps} />
+          {/* Edición de entradas/salidas/destinos (los datos alimentan la descripción, el análisis
+              de peligros y HACCP-007). Antes vivía en la vista de mapa retirada. */}
           {editable && (
             <div className="haccp-proc-editors">
               <h3>Editar entradas / salidas / destinos</h3>
@@ -358,12 +370,6 @@ export function HaccpProcessTab({
           )}
         </>
       )}
-
-      {sub === 'flujo' && (
-        <HaccpFlowTab planId={planId} flow={flow} members={members} canEdit={canEdit} />
-      )}
-
-      {sub === 'descripcion' && <HaccpProcessStageDescriptionView steps={steps} />}
     </>
   );
 }

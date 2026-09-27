@@ -6760,3 +6760,31 @@ table td.mono {
     gap: 0.75rem;
   }
 }
+
+/* =====================================================================
+   FLOW-SIMPLIFICATION — confirmación in situ dentro del diagrama de flujo
+   ===================================================================== */
+.haccp-step-legend {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  margin: 0.75rem 0 0.35rem;
+}
+.haccp-onsite-block {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-2);
+  padding: 0.5rem 1rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.haccp-onsite-block .haccp-onsite {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0.25rem 0 0;
+}
+.haccp-readiness {
+  margin-bottom: 0.75rem;
+}

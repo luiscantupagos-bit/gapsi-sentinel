@@ -88,20 +88,20 @@ export const HACCP_ROLE_SUGGESTIONS = [
 
 // --- Tabs del workspace (HACCP-001) ------------------------------------------
 /**
- * WORKSPACE-REORG — el workspace se organiza según la METODOLOGÍA HACCP (no según los módulos
- * internos de Sentinel): 12 pestañas = 5 PASOS PRELIMINARES + 7 PRINCIPIOS. El «Resumen» se movió
- * al encabezado del plan; Producto/Materias se consolidan en «Descripción del producto»; PPR es
- * soporte transversal (contextual, no ocupa pestaña); «Proceso» pasa a ser «Diagrama de flujo»;
- * Documentos → «Registros y documentación». Sin cambios de modelo de datos.
+ * WORKSPACE-REORG + FLOW-SIMPLIFICATION — el workspace se organiza según la METODOLOGÍA HACCP: 5
+ * pasos preliminares + 7 principios. Simplificación UX: el paso preliminar 5 «Confirmación in situ»
+ * ya NO es una pestaña propia — se integra dentro del paso 4 «Diagrama de flujo». Por eso hay 11
+ * pestañas visibles, pero la NUMERACIÓN metodológica se conserva (1-4 + 6-12): los principios NO se
+ * renumeran. El «Resumen» vive en el encabezado; Producto/Materias en «Descripción del producto»;
+ * PPR es contextual; Documentos → «Registros y documentación». Sin cambios de modelo de datos.
  */
 export const HACCP_TABS = [
-  // Pasos preliminares (1-5)
+  // Pasos preliminares (1-4; el paso 5 «Confirmación in situ» vive dentro de «Diagrama de flujo»)
   'team',
   'product',
   'intended-use',
   'flow',
-  'onsite-confirmation',
-  // Principios HACCP (6-12)
+  // Principios HACCP (6-12; numeración metodológica conservada)
   'hazards',
   'ccp',
   'limits',
@@ -112,13 +112,12 @@ export const HACCP_TABS = [
 ] as const;
 export type HaccpTab = (typeof HACCP_TABS)[number];
 
-/** Número del paso (1-12) para mostrarlo en la pestaña. */
+/** Número del paso metodológico para mostrarlo en la pestaña. Los principios se mantienen en 6-12. */
 export const HACCP_TAB_NUMBER: Record<HaccpTab, number> = {
   team: 1,
   product: 2,
   'intended-use': 3,
   flow: 4,
-  'onsite-confirmation': 5,
   hazards: 6,
   ccp: 7,
   limits: 8,
@@ -133,7 +132,6 @@ export const HACCP_TAB_LABEL: Record<HaccpTab, string> = {
   product: 'Descripción del producto',
   'intended-use': 'Uso previsto',
   flow: 'Diagrama de flujo',
-  'onsite-confirmation': 'Confirmación in situ',
   hazards: 'Análisis de peligros',
   ccp: 'Determinación de PCC',
   limits: 'Límites críticos',
@@ -143,12 +141,10 @@ export const HACCP_TAB_LABEL: Record<HaccpTab, string> = {
   records: 'Registros y documentación',
 };
 
-/** Grupos visuales: pasos preliminares (1-5) y principios HACCP (6-12). */
+/** Grupos visuales: pasos preliminares (1-4, con el 5 integrado en «Diagrama de flujo») y
+ *  principios HACCP (6-12). */
 export const HACCP_TAB_GROUPS: { title: string; tabs: HaccpTab[] }[] = [
-  {
-    title: 'Pasos preliminares',
-    tabs: ['team', 'product', 'intended-use', 'flow', 'onsite-confirmation'],
-  },
+  { title: 'Pasos preliminares', tabs: ['team', 'product', 'intended-use', 'flow'] },
   {
     title: 'Principios HACCP',
     tabs: [
@@ -176,6 +172,8 @@ export const HACCP_TAB_ALIASES: Record<string, HaccpTab> = {
   medidas: 'ccp',
   validacion: 'validation-verification',
   verificacion: 'validation-verification',
+  // FLOW-SIMPLIFICATION: la confirmación in situ vive ahora dentro de «Diagrama de flujo».
+  'onsite-confirmation': 'flow',
 };
 
 /** Tabs de fases futuras: se muestran deshabilitadas («Próximamente»). Ya no queda ninguna. */

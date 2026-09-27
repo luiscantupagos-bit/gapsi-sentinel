@@ -84,15 +84,14 @@ describe('validación de publicación (§35)', () => {
   });
 });
 
-describe('WORKSPACE-REORG — 12 pasos HACCP', () => {
-  it('exactamente 12 pestañas principales en el orden metodológico', () => {
-    expect(HACCP_TABS).toHaveLength(12);
+describe('FLOW-SIMPLIFICATION — 11 pestañas (paso 5 integrado en el diagrama de flujo)', () => {
+  it('11 pestañas visibles; «onsite-confirmation» ya NO es pestaña principal', () => {
+    expect(HACCP_TABS).toHaveLength(11);
     expect([...HACCP_TABS]).toEqual([
       'team',
       'product',
       'intended-use',
       'flow',
-      'onsite-confirmation',
       'hazards',
       'ccp',
       'limits',
@@ -101,43 +100,31 @@ describe('WORKSPACE-REORG — 12 pasos HACCP', () => {
       'validation-verification',
       'records',
     ]);
+    expect(HACCP_TABS as readonly string[]).not.toContain('onsite-confirmation');
     expect(HACCP_FUTURE_TABS).toHaveLength(0);
   });
-  it('5 pasos preliminares (1-5) + 7 principios (6-12) con numeración', () => {
-    expect(HACCP_TAB_GROUPS).toHaveLength(2);
+  it('grupos: 4 preliminares + 7 principios; numeración metodológica conservada (1-4 + 6-12)', () => {
     expect(HACCP_TAB_GROUPS[0]!.title).toBe('Pasos preliminares');
-    expect(HACCP_TAB_GROUPS[0]!.tabs).toHaveLength(5);
-    expect(HACCP_TAB_GROUPS[1]!.title).toBe('Principios HACCP');
+    expect(HACCP_TAB_GROUPS[0]!.tabs).toHaveLength(4);
     expect(HACCP_TAB_GROUPS[1]!.tabs).toHaveLength(7);
+    // Los principios NO se renumeran: siguen en 6-12 aunque no exista la pestaña 5.
     expect(HACCP_TAB_NUMBER.flow).toBe(4);
-    expect(HACCP_TAB_NUMBER['onsite-confirmation']).toBe(5);
     expect(HACCP_TAB_NUMBER.hazards).toBe(6);
+    expect(HACCP_TAB_NUMBER.ccp).toBe(7);
     expect(HACCP_TAB_NUMBER.records).toBe(12);
   });
   it('etiquetas metodológicas', () => {
     expect(HACCP_TAB_LABEL.flow).toBe('Diagrama de flujo');
-    expect(HACCP_TAB_LABEL['onsite-confirmation']).toBe('Confirmación in situ');
-    expect(HACCP_TAB_LABEL.ccp).toBe('Determinación de PCC');
     expect(HACCP_TAB_LABEL['validation-verification']).toBe('Validación y verificación');
     expect(HACCP_TAB_LABEL.records).toBe('Registros y documentación');
   });
-  it('«Proceso», «Resumen», «PPR», «Documentos» ya no son pestañas principales', () => {
-    expect(HACCP_TABS as readonly string[]).not.toContain('flujo');
-    expect(HACCP_TABS as readonly string[]).not.toContain('resumen');
-    expect(HACCP_TABS as readonly string[]).not.toContain('ppr');
-    expect(HACCP_TABS as readonly string[]).not.toContain('documentos');
-    expect(HACCP_TABS as readonly string[]).not.toContain('medidas');
-  });
-  it('deep links antiguos mapean a la nueva pestaña (backward compat)', () => {
+  it('deep links antiguos mapean a la nueva pestaña; onsite-confirmation → flow (§12)', () => {
     expect(resolveTab('producto')).toBe('product');
-    expect(resolveTab('materias')).toBe('product');
     expect(resolveTab('flujo')).toBe('flow');
-    expect(resolveTab('peligros')).toBe('hazards');
+    expect(resolveTab('onsite-confirmation')).toBe('flow'); // integrado en el diagrama
     expect(resolveTab('medidas')).toBe('ccp');
-    expect(resolveTab('ppr')).toBe('hazards');
     expect(resolveTab('documentos')).toBe('records');
     expect(resolveTab('validacion')).toBe('validation-verification');
-    expect(resolveTab('verificacion')).toBe('validation-verification');
     expect(resolveTab('resumen')).toBe('team');
   });
   it('resolveTab valida y cae a la primera pestaña (team)', () => {
