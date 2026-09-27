@@ -27,10 +27,11 @@ describe('composición del workspace', () => {
     expect(workspace).toContain('Producto terminado');
     expect(workspace).toContain('Materias primas e insumos');
   });
-  it('Diagrama de flujo top-level (#4) y Confirmación in situ separada (#5)', () => {
+  it('FLOW-SIMPLIFICATION: Diagrama de flujo top-level (#4); confirmación in situ ya no es tab', () => {
     expect(workspace).toContain("case 'flow':");
-    expect(workspace).toContain("case 'onsite-confirmation':");
-    expect(workspace).toContain('HaccpOnsiteConfirmationTab');
+    expect(workspace).not.toContain("case 'onsite-confirmation':");
+    // La confirmación in situ vive ahora DENTRO del diagrama de flujo (HaccpProcessTab).
+    expect(workspace).not.toContain('HaccpOnsiteConfirmationTab');
   });
   it('PPR es contextual dentro de Análisis de peligros (no top-level)', () => {
     expect(workspace).toContain('Ver PPR relacionados');

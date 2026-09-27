@@ -21,22 +21,23 @@ describe('§B pestaña de flujo (WORKSPACE-REORG: «Diagrama de flujo», paso 4)
   });
 });
 
-describe('§I/§J/§K/§L tres vistas', () => {
-  it('mapa de proceso, SIPOC, flujo detallado y descripción de etapas', () => {
-    expect(tab).toContain('Mapa de proceso');
+describe('FLOW-SIMPLIFICATION — dos sub-vistas (sin «Mapa de proceso»)', () => {
+  it('solo Flujo detallado y Descripción de etapas; el Mapa se quitó de la UI', () => {
     expect(tab).toContain('Flujo detallado');
     expect(tab).toContain('Descripción de etapas');
-    expect(tab).toContain('HaccpProcessMapView');
-    expect(tab).toContain('HaccpSipocTableView');
     expect(tab).toContain('HaccpFlowTab');
     expect(tab).toContain('HaccpProcessStageDescriptionView');
+    expect(tab).not.toContain('Mapa de proceso');
+    expect(tab).not.toContain('HaccpProcessMapView');
+    expect(tab).not.toContain('HaccpSipocTableView');
   });
-  it('el mapa muestra entradas → salidas → destinos y marca rutas externas', () => {
-    expect(mapView).toContain('Entradas');
+  it('la confirmación in situ vive dentro del diagrama de flujo (paso 5 integrado)', () => {
+    expect(tab).toContain('HaccpOnsiteConfirmationTab');
+    expect(tab).toContain('Paso preliminar 5 · Confirmación in situ');
+    expect(tab).toContain('Paso preliminar 4');
+  });
+  it('los componentes de mapa/SIPOC se conservan para HACCP-007 (print-safe)', () => {
     expect(mapView).toContain('Salidas → destinos');
-    expect(mapView).toContain('destinationIsExternal');
-  });
-  it('SIPOC: proveedor/origen y cliente/destino desde el modelo', () => {
     expect(stageView).toContain('Proveedor / Origen');
     expect(stageView).toContain('Cliente / Destino');
   });

@@ -42,7 +42,6 @@ import { SubmitButton } from '../../../documents/_components/SubmitButton';
 import { HaccpProcessTab } from './HaccpProcessTab';
 import { HaccpHazardsTab } from './HaccpHazardsTab';
 import { HaccpControlTab } from './HaccpControlTab';
-import { HaccpOnsiteConfirmationTab } from './HaccpOnsiteConfirmationTab';
 import {
   HaccpLimitsView,
   HaccpMonitoringView,
@@ -180,6 +179,7 @@ export function HaccpWorkspace({
         <summary>Resumen del plan</summary>
         <PlanSummaryHeader
           data={data}
+          flow={flow}
           sites={sites}
           members={members}
           canEdit={canEdit}
@@ -307,11 +307,6 @@ function TabContent(props: {
           canEdit={props.canEdit}
         />
       );
-    case 'onsite-confirmation':
-      return (
-        <HaccpOnsiteConfirmationTab planId={planId} flow={props.flow} canEdit={props.canEdit} />
-      );
-
     // --- Principios HACCP (6-12) ---
     case 'hazards':
       return props.hazards ? (
@@ -468,12 +463,14 @@ function IntendedUseTab({
  */
 function PlanSummaryHeader({
   data,
+  flow,
   sites,
   members,
   canEdit,
   isAdmin,
 }: {
   data: HaccpDetail;
+  flow: FlowData;
   sites: { id: string; name: string }[];
   members: { id: string; name: string }[];
   canEdit: boolean;
@@ -481,8 +478,30 @@ function PlanSummaryHeader({
 }) {
   const plan = data.plan;
   const active = data.active;
+  // §17 — el diagrama de flujo y la confirmación in situ se evalúan POR SEPARADO (§16), aunque
+  // compartan la pestaña «Diagrama de flujo».
+  const flowComplete = flow.steps.length > 0;
+  const onsiteConfirmed = Boolean(active?.flowVerifiedOnSite);
   return (
     <>
+      <dl className="meta-grid haccp-readiness">
+        <div>
+          <dt>Diagrama de flujo (paso 4)</dt>
+          <dd>
+            <span className={`badge ${flowComplete ? 'badge--haccp-published' : 'badge--warn'}`}>
+              {flowComplete ? 'Completo' : 'Pendiente'}
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Confirmación in situ (paso 5)</dt>
+          <dd>
+            <span className={`badge ${onsiteConfirmed ? 'badge--haccp-published' : 'badge--warn'}`}>
+              {onsiteConfirmed ? 'Confirmado' : 'Pendiente'}
+            </span>
+          </dd>
+        </div>
+      </dl>
       <dl className="meta-grid">
         <div>
           <dt>Código</dt>
