@@ -34,11 +34,13 @@ import type { getProcessModel } from '@/server/haccp-process';
 import type { getHazardAnalysis } from '@/server/haccp-hazards';
 import type { getControlMeasures } from '@/server/haccp-control';
 import type { getValidations } from '@/server/haccp-validation';
+import type { getVerifications } from '@/server/haccp-verification';
 import { SubmitButton } from '../../../documents/_components/SubmitButton';
 import { HaccpProcessTab } from './HaccpProcessTab';
 import { HaccpHazardsTab } from './HaccpHazardsTab';
 import { HaccpControlTab } from './HaccpControlTab';
 import { HaccpValidationTab } from './HaccpValidationTab';
+import { HaccpVerificationTab } from './HaccpVerificationTab';
 import {
   addSourceAction,
   addTeamMemberAction,
@@ -57,6 +59,7 @@ type ProcessModelData = Awaited<ReturnType<typeof getProcessModel>>;
 type HazardData = Awaited<ReturnType<typeof getHazardAnalysis>>;
 type ControlData = Awaited<ReturnType<typeof getControlMeasures>>;
 type ValidationData = Awaited<ReturnType<typeof getValidations>>;
+type VerificationData = Awaited<ReturnType<typeof getVerifications>>;
 type DocPick = { id: string; code: string; title: string; documentType: string; status: string };
 type Action = (prev: FormState | null, fd: FormData) => Promise<FormState>;
 
@@ -73,6 +76,7 @@ interface WorkspaceProps {
   hazards: HazardData;
   control: ControlData;
   validation: ValidationData;
+  verification: VerificationData;
 }
 
 const EmptyState = ({ children }: { children: ReactNode }) => (
@@ -128,6 +132,7 @@ export function HaccpWorkspace({
   hazards,
   control,
   validation,
+  verification,
 }: WorkspaceProps) {
   const [active, setActive] = useState<HaccpTab>(initialTab);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -221,6 +226,7 @@ export function HaccpWorkspace({
               hazards={hazards}
               control={control}
               validation={validation}
+              verification={verification}
             />
           )}
         </div>
@@ -242,6 +248,7 @@ function TabContent(props: {
   hazards: HazardData;
   control: ControlData;
   validation: ValidationData;
+  verification: VerificationData;
 }) {
   switch (props.tab) {
     case 'resumen':
@@ -289,6 +296,20 @@ function TabContent(props: {
           data={props.validation}
           members={props.members}
           documents={props.documents.map((d) => ({ id: d.id, code: d.code, title: d.title }))}
+          canEdit={props.canEdit}
+        />
+      ) : (
+        <p className="empty-state empty-state--compact">Sin versión activa.</p>
+      );
+    case 'verificacion':
+      return props.verification ? (
+        <HaccpVerificationTab
+          planId={props.data.plan.id}
+          data={props.verification}
+          members={props.members}
+          documents={props.documents
+            .filter((d) => d.documentType === 'form')
+            .map((d) => ({ id: d.id, code: d.code, title: d.title }))}
           canEdit={props.canEdit}
         />
       ) : (

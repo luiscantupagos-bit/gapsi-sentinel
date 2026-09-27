@@ -6628,3 +6628,46 @@ table td.mono {
     display: block;
   }
 }
+
+/* =====================================================================
+   HACCP-006 — verificación
+   ===================================================================== */
+.badge--vdef-active {
+  background: #dff3e6;
+  color: #14683a;
+}
+.badge--vdef-paused {
+  background: #fdecc8;
+  color: #7a4d00;
+}
+.badge--vdef-archived {
+  background: #eef1f5;
+  color: #4b5563;
+}
+.haccp-verif-actions,
+.haccp-verif-defactions,
+.haccp-verif-exec {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin: 0.5rem 0;
+}
+.haccp-verif-occcard {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  padding: 0.6rem 0.9rem;
+  margin: 0.5rem 0;
+}
+.haccp-verif-occcard p {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0.25rem 0;
+}
+.haccp-verif-gantt,
+.haccp-verif-occ {
+  margin-top: 1rem;
+}

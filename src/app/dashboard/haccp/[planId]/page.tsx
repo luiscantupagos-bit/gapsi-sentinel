@@ -9,6 +9,7 @@ import { getProcessModel } from '@/server/haccp-process';
 import { getHazardAnalysis } from '@/server/haccp-hazards';
 import { getControlMeasures } from '@/server/haccp-control';
 import { getValidations } from '@/server/haccp-validation';
+import { getVerifications } from '@/server/haccp-verification';
 import { resolveTab } from '@/features/haccp/haccp-state';
 import { HaccpWorkspace } from './_components/HaccpWorkspace';
 
@@ -55,6 +56,7 @@ export default async function HaccpPlanPage({
   const hazards = await getHazardAnalysis(session.organizationId, planId);
   const control = await getControlMeasures(session.organizationId, planId);
   const validation = await getValidations(session.organizationId, planId);
+  const verification = await getVerifications(session.organizationId, planId);
   const docPick = documents.map((d) => ({
     id: d.id,
     code: d.code,
@@ -88,6 +90,7 @@ export default async function HaccpPlanPage({
         hazards={hazards}
         control={control}
         validation={validation}
+        verification={verification}
       />
     </main>
   );
